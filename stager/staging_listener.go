@@ -1,0 +1,63 @@
+package stager
+
+import (
+	"encoding/json"
+	steno "github.com/cloudfoundry/gosteno"
+	"github.com/cloudfoundry/yagnats"
+)
+
+type StagingListener struct {
+	natsClient yagnats.NATSClient
+	logger     *steno.Logger
+	stager     Stager
+}
+
+func Listen(natsClient yagnats.NATSClient, stager Stager, logger *steno.Logger) {
+	stagingListener := StagingListener{
+		natsClient: natsClient,
+		logger:     logger,
+		stager:     stager,
+	}
+
+	stagingListener.Listen()
+
+}
+
+func (stagingListener *StagingListener) Listen() {
+	stagingListener.natsClient.Subscribe("diego.staging.start", func(message *yagnats.Message) {
+		startMessage := StagingRequest{}
+
+		err := json.Unmarshal(message.Payload, &startMessage)
+		if err != nil {
+			stagingListener.logError("JSON unmarshal failed", err, message)
+			stagingListener.sendErrorResponse(message.ReplyTo, "Staging message contained invalid JSON")
+			return
+		}
+
+		err = stagingListener.stager.Stage(startMessage)
+		if err != nil {
+			stagingListener.logError("Staging failure", err, startMessage)
+			stagingListener.sendErrorResponse(message.ReplyTo, "Staging failed")
+			return
+		}
+
+		response := StagingResponse{}
+		if responseJson, err := json.Marshal(response); err == nil {
+			stagingListener.natsClient.Publish(message.ReplyTo, responseJson)
+		}
+	})
+}
+
+func (stagingListener *StagingListener) logError(logMessage string, err error, message interface{}) {
+	stagingListener.logger.Errord(map[string]interface{}{
+		"message": message,
+		"error":   err,
+	}, logMessage)
+}
+
+func (stagingListener *StagingListener) sendErrorResponse(replyTo string, errorMessage string) {
+	response := StagingResponse{Error: errorMessage}
+	if responseJson, err := json.Marshal(response); err == nil {
+		stagingListener.natsClient.Publish(replyTo, responseJson)
+	}
+}
