@@ -6,14 +6,14 @@ import (
 )
 
 type FakeStager struct {
-	StageInvoked   bool
-	StagingRequest stager.StagingRequest
-	AlwaysFail     bool //bringing shame and disgrace to its family and friends
+	TimesStageInvoked int
+	StagingRequests   []stager.StagingRequest
+	AlwaysFail        bool //bringing shame and disgrace to its family and friends
 }
 
 func (stager *FakeStager) Stage(stagingRequest stager.StagingRequest) error {
-	stager.StageInvoked = true
-	stager.StagingRequest = stagingRequest
+	stager.TimesStageInvoked++
+	stager.StagingRequests = append(stager.StagingRequests, stagingRequest)
 	if stager.AlwaysFail {
 		return errors.New("The thingy broke :(")
 	} else {

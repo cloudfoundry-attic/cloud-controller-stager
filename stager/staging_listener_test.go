@@ -41,8 +41,8 @@ var _ = Describe("StagingListener", func() {
 			msg, _ := json.Marshal(stagingRequest)
 
 			fakenats.Publish("diego.staging.start", msg)
-			Ω(fauxstager.StageInvoked).To(BeTrue())
-			Ω(fauxstager.StagingRequest).To(Equal(stagingRequest))
+			Ω(fauxstager.TimesStageInvoked).To(Equal(1))
+			Ω(fauxstager.StagingRequests[0]).To(Equal(stagingRequest))
 		})
 
 		Context("when unmarshaling fails", func() {

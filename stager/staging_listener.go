@@ -24,7 +24,7 @@ func Listen(natsClient yagnats.NATSClient, stager Stager, logger *steno.Logger) 
 }
 
 func (stagingListener *StagingListener) Listen() {
-	stagingListener.natsClient.Subscribe("diego.staging.start", func(message *yagnats.Message) {
+	stagingListener.natsClient.SubscribeWithQueue("diego.staging.start", "diego.stagers", func(message *yagnats.Message) {
 		startMessage := StagingRequest{}
 
 		err := json.Unmarshal(message.Payload, &startMessage)
