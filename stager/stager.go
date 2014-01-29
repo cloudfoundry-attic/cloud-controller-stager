@@ -7,7 +7,7 @@ import (
 )
 
 type Stager interface {
-	Stage(StagingRequest) error
+	Stage(StagingRequest, string) error
 }
 
 type stager struct {
@@ -20,9 +20,10 @@ func NewStager(stagerBBS bbs.StagerBBS) Stager {
 	}
 }
 
-func (stager *stager) Stage(request StagingRequest) error {
+func (stager *stager) Stage(request StagingRequest, replyTo string) error {
 	err := stager.stagerBBS.DesireRunOnce(models.RunOnce{
-		Guid: strings.Join([]string{request.AppId, request.TaskId}, "-"),
+		Guid:    strings.Join([]string{request.AppId, request.TaskId}, "-"),
+		ReplyTo: replyTo,
 	})
 
 	return err

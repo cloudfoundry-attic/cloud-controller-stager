@@ -33,7 +33,7 @@ func (stagingListener *StagingListener) Listen() error {
 			return
 		}
 
-		err = stagingListener.stager.Stage(startMessage)
+		err = stagingListener.stager.Stage(startMessage, message.ReplyTo)
 		if err != nil {
 			stagingListener.logError("Staging failure", err, startMessage)
 			stagingListener.sendErrorResponse(message.ReplyTo, "Staging failed")

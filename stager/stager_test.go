@@ -21,12 +21,17 @@ var _ = Describe("Stage", func() {
 	It("puts a job in etcd", func(done Done) {
 		executorBBS := bbs.New(fauxStoreAdapter).ExecutorBBS
 		modelChannel, _, _ := executorBBS.WatchForDesiredRunOnce()
-		stager.Stage(StagingRequest{
+
+		err := stager.Stage(StagingRequest{
 			AppId:  "bunny",
 			TaskId: "hop",
-		})
+		}, "me")
+		Ω(err).ShouldNot(HaveOccurred())
 
-		Ω((<-modelChannel).Guid).To(Equal("bunny-hop"))
+		runOnce := <-modelChannel
+		Ω(runOnce.Guid).To(Equal("bunny-hop"))
+		Ω(runOnce.ReplyTo).To(Equal("me"))
+
 		close(done)
 	}, 2)
 })
