@@ -1,6 +1,5 @@
 package main
 
-//be go gettable
 import (
 	"flag"
 	"fmt"
