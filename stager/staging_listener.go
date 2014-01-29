@@ -20,7 +20,6 @@ func Listen(natsClient yagnats.NATSClient, stager Stager, logger *steno.Logger) 
 	}
 
 	stagingListener.Listen()
-
 }
 
 func (stagingListener *StagingListener) Listen() {

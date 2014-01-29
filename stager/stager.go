@@ -24,5 +24,6 @@ func (stager *stager) Stage(request StagingRequest) error {
 	err := stager.stagerBBS.DesireRunOnce(models.RunOnce{
 		Guid: strings.Join([]string{request.AppId, request.TaskId}, "-"),
 	})
+
 	return err
 }
