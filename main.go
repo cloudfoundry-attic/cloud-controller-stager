@@ -6,7 +6,7 @@ import (
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	stgr "github.com/cloudfoundry-incubator/stager/stager"
 	steno "github.com/cloudfoundry/gosteno"
-	"github.com/cloudfoundry/storeadapter"
+	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
 	"github.com/cloudfoundry/yagnats"
 	"os"
@@ -48,7 +48,7 @@ func main() {
 
 	log := steno.NewLogger("Stager")
 
-	etcdAdapter := storeadapter.NewETCDStoreAdapter(
+	etcdAdapter := etcdstoreadapter.NewETCDStoreAdapter(
 		strings.Split(*etcdMachines, ","),
 		workerpool.NewWorkerPool(10),
 	)
@@ -61,11 +61,16 @@ func main() {
 	natsClient := yagnats.NewClient()
 	err = natsClient.Connect(&yagnats.ConnectionInfo{*natsAddress, *natsUsername, *natsPassword})
 	if err != nil {
-		log.Fatalf("Error connecting: %s\n", err)
+		log.Fatalf("Error connecting to NATS: %s\n", err)
 	}
 
 	stager := stgr.NewStager(Bbs.New(etcdAdapter))
-	stgr.Listen(natsClient, stager, log)
+
+	err = stgr.Listen(natsClient, stager, log)
+	if err != nil {
+		log.Fatalf("Could not subscribe on NATS: %s\n", err)
+	}
+
 	fmt.Println("Listening for staging requests!")
 
 	select {}

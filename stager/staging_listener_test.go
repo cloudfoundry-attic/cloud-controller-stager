@@ -2,12 +2,12 @@ package stager_test
 
 import (
 	"encoding/json"
+	. "github.com/cloudfoundry-incubator/stager/stager"
+	"github.com/cloudfoundry-incubator/stager/stager/fakestager"
 	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/yagnats/fakeyagnats"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	. "github.com/pivotal-cf-experimental/stager/stager"
-	"github.com/pivotal-cf-experimental/stager/stager/fakestager"
 )
 
 var _ = Describe("StagingListener", func() {

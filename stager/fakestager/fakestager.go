@@ -2,7 +2,7 @@ package fakestager
 
 import (
 	"errors"
-	"github.com/pivotal-cf-experimental/stager/stager"
+	"github.com/cloudfoundry-incubator/stager/stager"
 )
 
 type FakeStager struct {

@@ -2,10 +2,10 @@ package stager_test
 
 import (
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
+	. "github.com/cloudfoundry-incubator/stager/stager"
 	"github.com/cloudfoundry/storeadapter/fakestoreadapter"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	. "github.com/pivotal-cf-experimental/stager/stager"
 )
 
 var _ = Describe("Stage", func() {
