@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/yagnats"
+	"os"
 )
 
 type StagingListener struct {
@@ -23,7 +24,7 @@ func Listen(natsClient yagnats.NATSClient, stager Stager, logger *steno.Logger) 
 }
 
 func (stagingListener *StagingListener) Listen() {
-	stagingListener.natsClient.SubscribeWithQueue("diego.staging.start", "diego.stagers", func(message *yagnats.Message) {
+	_, err := stagingListener.natsClient.SubscribeWithQueue("diego.staging.start", "diego.stagers", func(message *yagnats.Message) {
 		startMessage := StagingRequest{}
 
 		err := json.Unmarshal(message.Payload, &startMessage)
@@ -45,6 +46,11 @@ func (stagingListener *StagingListener) Listen() {
 			stagingListener.natsClient.Publish(message.ReplyTo, responseJson)
 		}
 	})
+
+	if err != nil {
+		stagingListener.logError("Could not subscribe to nats", err, nil)
+		os.Exit(144)
+	}
 }
 
 func (stagingListener *StagingListener) logError(logMessage string, err error, message interface{}) {
