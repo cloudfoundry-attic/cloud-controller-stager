@@ -20,10 +20,10 @@ var etcdMachines = flag.String(
 	"comma-separated list of etcd addresses (http://ip:port)",
 )
 
-var natsAddress = flag.String(
-	"natsAddress",
+var natsAddresses = flag.String(
+	"natsAddresses",
 	"127.0.0.1:4222",
-	"Address of nats server (ip:port)",
+	"comma-separated list of NATS addresses (ip:port)",
 )
 
 var natsUsername = flag.String(
@@ -60,7 +60,20 @@ func main() {
 	}
 
 	natsClient := yagnats.NewClient()
-	err = natsClient.Connect(&yagnats.ConnectionInfo{*natsAddress, *natsUsername, *natsPassword})
+
+	natsMembers := []yagnats.ConnectionProvider{}
+
+	for _, addr := range strings.Split(*natsAddresses, ",") {
+		natsMembers = append(
+			natsMembers,
+			&yagnats.ConnectionInfo{addr, *natsUsername, *natsPassword},
+		)
+	}
+
+	err = natsClient.Connect(&yagnats.ConnectionCluster{
+		Members: natsMembers,
+	})
+
 	if err != nil {
 		log.Fatalf("Error connecting to NATS: %s\n", err)
 	}
