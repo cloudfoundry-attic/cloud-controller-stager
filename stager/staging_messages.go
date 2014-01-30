@@ -3,7 +3,8 @@ package stager
 type StagingRequest struct {
 	AppId  string `json:"app_id"`
 	TaskId string `json:"task_id"`
-	Stack  string
+	Stack  string `json:"stack"`
+
 	//	Properties                map[string]interface{} `json:"properties"`
 	//	BuildpackCacheUploadUri   string                 `json:"buildpack_cache_upload_uri"`
 	//	BuildpackCacheDownloadUri string                 `json:"buildpack_cache_download_uri"`

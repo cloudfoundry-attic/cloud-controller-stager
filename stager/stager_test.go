@@ -32,6 +32,7 @@ var _ = Describe("Stage", func() {
 		runOnce := <-modelChannel
 		Ω(runOnce.Guid).To(Equal("bunny-hop"))
 		Ω(runOnce.ReplyTo).To(Equal("me"))
+		Ω(runOnce.Stack).To(Equal("rabbit_hole"))
 
 		close(done)
 	}, 2)
