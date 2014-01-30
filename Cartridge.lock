@@ -1,0 +1,8 @@
+github.com/cloudfoundry-incubator/runtime-schema	b4cac95f7b0a5bccbb3d9a39c5c5076bee712d2b
+github.com/cloudfoundry/storeadapter	d18dfd18f293404311d40021a034125414cd8070
+github.com/cloudfoundry/gosteno	e5bd98f9075071b95aecef26c7d5aa1ee2cd682d
+github.com/cloudfoundry/yagnats	e039737afcd17e94e2f411a9d9f2056fd4d99fe7
+github.com/coreos/go-etcd	5c0151c64399ff9a8087c2e29ae96145ede7cfc2
+github.com/nu7hatch/gouuid	179d4d0c4d8d407a32af483c2354df1d2c91e6c3
+github.com/onsi/ginkgo	c6d536e4cd9a6081767209fed9807811949a4033
+github.com/onsi/gomega	d7685fbd45fb7bef327b43ca2781368c68bf72b7
