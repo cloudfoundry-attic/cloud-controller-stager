@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
+	"github.com/cloudfoundry-incubator/stager/outbox"
 	stgr "github.com/cloudfoundry-incubator/stager/stager"
 	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
@@ -64,12 +65,16 @@ func main() {
 		log.Fatalf("Error connecting to NATS: %s\n", err)
 	}
 
-	stager := stgr.NewStager(Bbs.New(etcdAdapter))
+	bbs := Bbs.New(etcdAdapter)
+
+	stager := stgr.NewStager(bbs)
 
 	err = stgr.Listen(natsClient, stager, log)
 	if err != nil {
 		log.Fatalf("Could not subscribe on NATS: %s\n", err)
 	}
+
+	go outbox.Listen(bbs, natsClient, log)
 
 	fmt.Println("Listening for staging requests!")
 
