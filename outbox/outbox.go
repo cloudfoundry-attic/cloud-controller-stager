@@ -16,6 +16,7 @@ func Listen(bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logg
 			select {
 			case runOnce := <-runOnces:
 				natsClient.Publish(runOnce.ReplyTo, []byte("{}"))
+				bbs.ResolveRunOnce(runOnce)
 			case err := <-errs:
 				logger.Warnf("error watching for completions: %s\n", err)
 				time.Sleep(500 * time.Millisecond)

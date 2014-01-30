@@ -6,6 +6,7 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/cloudfoundry-incubator/stager/outbox"
 	steno "github.com/cloudfoundry/gosteno"
+	"github.com/cloudfoundry/storeadapter"
 	"github.com/cloudfoundry/storeadapter/fakestoreadapter"
 	"github.com/cloudfoundry/yagnats"
 	"github.com/cloudfoundry/yagnats/fakeyagnats"
@@ -44,16 +45,41 @@ var _ = Describe("Outbox", func() {
 	})
 
 	Context("when a completed RunOnce appears in the outbox", func() {
-		It("sends a message to the ReplyTo", func(done Done) {
+		runOnce := models.RunOnce{
+			Guid:    "some-task-id",
+			ReplyTo: "some-requester",
+		}
+
+		BeforeEach(func() {
+			stagerBBS.DesireRunOnce(runOnce)
+		})
+
+		It("publishes to ReplyTo and then marks the RunOnce as completed", func(done Done) {
+			events := make(chan string)
+
 			fakenats.Subscribe("some-requester", func(*yagnats.Message) {
-				close(done)
+				time.Sleep(100 * time.Millisecond)
+				events <- "published"
 			})
 
-			executorBBS.CompletedRunOnce(models.RunOnce{
-				Guid:    "some-task-id",
-				ReplyTo: "some-requester",
-			})
-		})
+			go func() {
+				watchEvents, _, _ := fauxStoreAdapter.Watch("/")
+
+				for {
+					ev := <-watchEvents
+					if ev.Type == storeadapter.DeleteEvent {
+						events <- "deleted"
+					}
+				}
+			}()
+
+			executorBBS.CompletedRunOnce(runOnce)
+
+			Expect(<-events).To(Equal("published"))
+			Expect(<-events).To(Equal("deleted"))
+
+			close(done)
+		}, 5.0)
 	})
 
 	Context("when an error is seen while watching", func() {
