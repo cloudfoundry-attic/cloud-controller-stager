@@ -3,7 +3,7 @@ github.com/cloudfoundry-incubator/runtime-schema origin/master
 github.com/cloudfoundry/storeadapter origin/master
 github.com/cloudfoundry/gosteno origin/master
 github.com/cloudfoundry/yagnats origin/master
-github.com/coreos/go-etcd origin/master
+github.com/coreos/go-etcd/etcd origin/master
 github.com/nu7hatch/gouuid origin/master
 
 # tests
