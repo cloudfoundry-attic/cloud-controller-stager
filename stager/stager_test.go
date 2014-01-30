@@ -25,6 +25,7 @@ var _ = Describe("Stage", func() {
 		err := stager.Stage(StagingRequest{
 			AppId:  "bunny",
 			TaskId: "hop",
+			Stack:  "rabbit_hole",
 		}, "me")
 		Ω(err).ShouldNot(HaveOccurred())
 
