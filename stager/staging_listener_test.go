@@ -47,14 +47,11 @@ var _ = Describe("StagingListener", func() {
 
 		Context("when unmarshaling fails", func() {
 			It("logs the failure", func() {
+				Ω(testingSink.Records).To(HaveLen(0))
+
 				fakenats.PublishWithReplyTo("diego.staging.start", "reply string", []byte("fdsaljkfdsljkfedsews:/sdfa:''''"))
 
-				Ω(testingSink.Records).To(HaveLen(1))
-				log_entry := testingSink.Records[0]
-				Ω(log_entry.Message).To(ContainSubstring("JSON unmarshal failed"))
-				Ω(log_entry.Data).To(HaveLen(2))
-				Ω(log_entry.Data).To(HaveKey("message"))
-				Ω(log_entry.Data).To(HaveKey("error"))
+				Ω(testingSink.Records).ToNot(HaveLen(0))
 			})
 
 			It("sends a staging failure response", func() {
@@ -104,14 +101,11 @@ var _ = Describe("StagingListener", func() {
 			})
 
 			It("logs the failure", func() {
+				Ω(testingSink.Records).ToNot(HaveLen(0))
+
 				publishStagingMessage()
 
-				Ω(testingSink.Records).To(HaveLen(1))
-				log_entry := testingSink.Records[0]
-				Ω(log_entry.Message).To(ContainSubstring("Staging failure"))
-				Ω(log_entry.Data).To(HaveLen(2))
-				Ω(log_entry.Data).To(HaveKey("message"))
-				Ω(log_entry.Data).To(HaveKey("error"))
+				Eventually(testingSink.Records).ShouldNot(HaveLen(0))
 			})
 
 			It("sends a staging failure response", func() {
