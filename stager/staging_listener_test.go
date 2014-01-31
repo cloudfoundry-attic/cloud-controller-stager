@@ -101,7 +101,7 @@ var _ = Describe("StagingListener", func() {
 			})
 
 			It("logs the failure", func() {
-				Ω(testingSink.Records).ToNot(HaveLen(0))
+				Ω(testingSink.Records).To(HaveLen(0))
 
 				publishStagingMessage()
 
