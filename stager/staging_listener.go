@@ -28,17 +28,31 @@ func (stagingListener *StagingListener) Listen() error {
 
 		err := json.Unmarshal(message.Payload, &startMessage)
 		if err != nil {
-			stagingListener.logError("JSON unmarshal failed", err, message)
+			stagingListener.logError("staging.request.malformed", err, message)
 			stagingListener.sendErrorResponse(message.ReplyTo, "Staging message contained invalid JSON")
 			return
 		}
 
+		stagingListener.logger.Infod(
+			map[string]interface{}{
+				"message": startMessage,
+			},
+			"staging.request.received",
+		)
+
 		err = stagingListener.stager.Stage(startMessage, message.ReplyTo)
 		if err != nil {
-			stagingListener.logError("Staging failure", err, startMessage)
+			stagingListener.logError("staging.request.failed", err, startMessage)
 			stagingListener.sendErrorResponse(message.ReplyTo, "Staging failed")
 			return
 		}
+
+		stagingListener.logger.Infod(
+			map[string]interface{}{
+				"message": startMessage,
+			},
+			"staging.request.succeeded",
+		)
 
 		response := StagingResponse{}
 		if responseJson, err := json.Marshal(response); err == nil {
