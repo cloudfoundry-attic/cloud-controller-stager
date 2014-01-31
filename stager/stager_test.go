@@ -2,6 +2,7 @@ package stager_test
 
 import (
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
+	. "github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/cloudfoundry-incubator/stager/stager"
 	"github.com/cloudfoundry/storeadapter/fakestoreadapter"
 	. "github.com/onsi/ginkgo"
@@ -18,14 +19,15 @@ var _ = Describe("Stage", func() {
 		stager = NewStager(stagerBBS)
 	})
 
-	It("puts a job in etcd", func(done Done) {
+	It("creates a RunOnce with an instruction to download the app bits", func(done Done) {
 		executorBBS := bbs.New(fauxStoreAdapter).ExecutorBBS
 		modelChannel, _, _ := executorBBS.WatchForDesiredRunOnce()
 
 		err := stager.Stage(StagingRequest{
-			AppId:  "bunny",
-			TaskId: "hop",
-			Stack:  "rabbit_hole",
+			AppId:       "bunny",
+			TaskId:      "hop",
+			DownloadUri: "http://example-uri.com/bunny",
+			Stack:       "rabbit_hole",
 		}, "me")
 		Ω(err).ShouldNot(HaveOccurred())
 
@@ -33,6 +35,15 @@ var _ = Describe("Stage", func() {
 		Ω(runOnce.Guid).To(Equal("bunny-hop"))
 		Ω(runOnce.ReplyTo).To(Equal("me"))
 		Ω(runOnce.Stack).To(Equal("rabbit_hole"))
+		Ω(runOnce.Actions).To(Equal([]ExecutorAction{
+			ExecutorAction{
+				Name: "copy",
+				Args: Arguments{
+					"from": "http://example-uri.com/bunny",
+					"to":   "/app",
+				},
+			},
+		}))
 
 		close(done)
 	}, 2)
