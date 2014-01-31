@@ -39,8 +39,10 @@ var _ = Describe("Stage", func() {
 			ExecutorAction{
 				Name: "copy",
 				Args: Arguments{
-					"from": "http://example-uri.com/bunny",
-					"to":   "/app",
+					"from":     "http://example-uri.com/bunny",
+					"to":       "/app",
+					"extract":  true,
+					"compress": false,
 				},
 			},
 		}))

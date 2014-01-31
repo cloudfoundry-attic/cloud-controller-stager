@@ -26,13 +26,12 @@ func (stager *stager) Stage(request StagingRequest, replyTo string) error {
 		Stack:   request.Stack,
 		ReplyTo: replyTo,
 		Actions: []models.ExecutorAction{
-			models.ExecutorAction{
-				Name: "copy",
-				Args: models.Arguments{
-					"from": request.DownloadUri,
-					"to":   "/app",
-				},
-			},
+			models.NewCopyAction(
+				request.DownloadUri,
+				"/app",
+				true,
+				false,
+			),
 		},
 	})
 
