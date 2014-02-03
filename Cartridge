@@ -1,11 +1,9 @@
-# runtime
-github.com/cloudfoundry-incubator/runtime-schema origin/master
-github.com/cloudfoundry/storeadapter origin/master
+github.com/cloudfoundry-incubator/runtime-schema *
+github.com/cloudfoundry/storeadapter *
 github.com/cloudfoundry/gosteno origin/master
 github.com/cloudfoundry/yagnats origin/master
 github.com/coreos/go-etcd/etcd origin/master
 github.com/nu7hatch/gouuid origin/master
 
-# tests
-github.com/onsi/ginkgo origin/master
-github.com/onsi/gomega origin/master
+github.com/onsi/ginkgo origin/master test
+github.com/onsi/gomega origin/master test
