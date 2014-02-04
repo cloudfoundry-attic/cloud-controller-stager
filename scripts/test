@@ -7,12 +7,19 @@ export FRESH_GOPATH=`mktemp -d /tmp/gopath.XXXXXX`
 
 mkdir -p $FRESH_GOPATH/bin
 
+export PREV_GOPATH=$GOPATH
+
+# gocart behaves incorrectly with multiple gopaths; workaround by just setting
+# the temporary one (see #65157114)
 export GOPATH=$FRESH_GOPATH
 export PATH=$FRESH_GOPATH/bin:$PATH
 
 go get -v github.com/vito/gocart
 
 gocart
+
+export GOPATH=$FRESH_GOPATH:$PREV_GOPATH
+
 go install github.com/onsi/ginkgo/ginkgo
 
 ginkgo -r -i -skipMeasurements -randomizeAllSpecs "$@"
