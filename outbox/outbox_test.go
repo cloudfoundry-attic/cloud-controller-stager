@@ -73,7 +73,7 @@ var _ = Describe("Outbox", func() {
 				}
 			}()
 
-			executorBBS.CompletedRunOnce(runOnce)
+			executorBBS.CompleteRunOnce(runOnce)
 
 			Expect(<-events).To(Equal("published"))
 			Expect(<-events).To(Equal("deleted"))
@@ -94,7 +94,7 @@ var _ = Describe("Outbox", func() {
 				calledBack <- true
 			})
 
-			err := executorBBS.CompletedRunOnce(models.RunOnce{
+			err := executorBBS.CompleteRunOnce(models.RunOnce{
 				Guid:    "some-task-id",
 				ReplyTo: "some-requester",
 			})
@@ -107,7 +107,7 @@ var _ = Describe("Outbox", func() {
 			// wait for watcher to sleep and then re-watch
 			time.Sleep(1 * time.Second)
 
-			err = executorBBS.CompletedRunOnce(models.RunOnce{
+			err = executorBBS.CompleteRunOnce(models.RunOnce{
 				Guid:    "some-other-task-id",
 				ReplyTo: "some-other-requester",
 			})

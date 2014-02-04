@@ -36,13 +36,12 @@ var _ = Describe("Stage", func() {
 		Ω(runOnce.ReplyTo).To(Equal("me"))
 		Ω(runOnce.Stack).To(Equal("rabbit_hole"))
 		Ω(runOnce.Actions).To(Equal([]ExecutorAction{
-			ExecutorAction{
-				Name: "copy",
-				Args: Arguments{
-					"from":     "http://example-uri.com/bunny",
-					"to":       "/app",
-					"extract":  true,
-					"compress": false,
+			{
+				CopyAction{
+					From:     "http://example-uri.com/bunny",
+					To:       "/app",
+					Extract:  true,
+					Compress: false,
 				},
 			},
 		}))
