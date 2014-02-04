@@ -28,6 +28,8 @@ var _ = Describe("Stage", func() {
 			TaskId:      "hop",
 			DownloadUri: "http://example-uri.com/bunny",
 			Stack:       "rabbit_hole",
+			MemoryMB:    256,
+			DiskMB:      1024,
 		}, "me")
 		Ω(err).ShouldNot(HaveOccurred())
 
@@ -45,6 +47,8 @@ var _ = Describe("Stage", func() {
 				},
 			},
 		}))
+		Ω(runOnce.MemoryMB).To(Equal(256))
+		Ω(runOnce.DiskMB).To(Equal(1024))
 
 		close(done)
 	}, 2)
