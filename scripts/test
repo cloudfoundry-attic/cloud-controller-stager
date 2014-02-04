@@ -10,6 +10,10 @@ export PATH=$FIRST_GOPATH/bin:$PATH
 
 go get -v github.com/vito/gocart
 
+for gopath in `echo $GOPATH | cut -d':' -f1`; do
+  find $gopath
+done
+
 gocart
 go install github.com/onsi/ginkgo/ginkgo
 
