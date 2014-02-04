@@ -13,4 +13,8 @@ go get -v github.com/vito/gocart
 gocart
 go install github.com/onsi/ginkgo/ginkgo
 
+git status
+git diff Cartridge.lock
+cat Cartridge.lock
+
 ginkgo -r -i -skipMeasurements -randomizeAllSpecs "$@"
