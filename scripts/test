@@ -3,22 +3,16 @@
 
 set -e -x
 
-FIRST_GOPATH=`echo $GOPATH | cut -d':' -f1`
+export FRESH_GOPATH=`mktemp -d /tmp/gopath.XXXXXX`
 
-mkdir -p $FIRST_GOPATH/bin
-export PATH=$FIRST_GOPATH/bin:$PATH
+mkdir -p $FRESH_GOPATH/bin
+
+export GOPATH=$FRESH_GOPATH:$GOPATH
+export PATH=$FRESH_GOPATH/bin:$PATH
 
 go get -v github.com/vito/gocart
 
-for gopath in `echo $GOPATH | cut -d':' -f1`; do
-  find $gopath
-done
-
 gocart
 go install github.com/onsi/ginkgo/ginkgo
-
-git status
-git diff Cartridge.lock
-cat Cartridge.lock
 
 ginkgo -r -i -skipMeasurements -randomizeAllSpecs "$@"
