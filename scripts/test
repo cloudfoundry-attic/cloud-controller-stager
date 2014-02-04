@@ -7,7 +7,7 @@ export FRESH_GOPATH=`mktemp -d /tmp/gopath.XXXXXX`
 
 mkdir -p $FRESH_GOPATH/bin
 
-export GOPATH=$FRESH_GOPATH:$GOPATH
+export GOPATH=$FRESH_GOPATH
 export PATH=$FRESH_GOPATH/bin:$PATH
 
 go get -v github.com/vito/gocart
