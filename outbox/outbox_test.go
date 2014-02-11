@@ -6,7 +6,6 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/cloudfoundry-incubator/stager/outbox"
 	steno "github.com/cloudfoundry/gosteno"
-	"github.com/cloudfoundry/storeadapter"
 	"github.com/cloudfoundry/yagnats"
 	"github.com/cloudfoundry/yagnats/fakeyagnats"
 	. "github.com/onsi/ginkgo"
@@ -15,14 +14,11 @@ import (
 
 var _ = Describe("Outbox", func() {
 	var fakenats *fakeyagnats.FakeYagnats
-	var adapter storeadapter.StoreAdapter
 	var logger *steno.Logger
 
 	var bbs *fakebbs.FakeStagerBBS
 
 	BeforeEach(func() {
-		adapter = etcdRunner.Adapter()
-
 		fakenats = fakeyagnats.New()
 		logger = steno.NewLogger("fakelogger")
 
