@@ -29,11 +29,10 @@ func (stager *stager) Stage(request StagingRequest, replyTo string) error {
 		DiskMB:   request.DiskMB,
 		Actions: []models.ExecutorAction{
 			{
-				models.CopyAction{
-					From:     request.DownloadUri,
-					To:       "/app",
-					Extract:  true,
-					Compress: false,
+				models.DownloadAction{
+					From:    request.DownloadUri,
+					To:      "/app",
+					Extract: true,
 				},
 			},
 		},

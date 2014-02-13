@@ -7,11 +7,11 @@
 	"Deps": [
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/bbs",
-			"Rev": "3dd337ad5759002b5ab7cc30940bf603210e1d24"
+			"Rev": "b6d89b48a122d2f53d2d4c7c61514c6d140df09c"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/models",
-			"Rev": "3dd337ad5759002b5ab7cc30940bf603210e1d24"
+			"Rev": "b6d89b48a122d2f53d2d4c7c61514c6d140df09c"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gosteno",
@@ -37,11 +37,11 @@
 		},
 		{
 			"ImportPath": "github.com/onsi/ginkgo",
-			"Rev": "5aab1d47f591b3d773ec676e6232df7d799af9ee"
+			"Rev": "d71f32f5dc46c47cafde0b96a628e3594e96b75a"
 		},
 		{
 			"ImportPath": "github.com/onsi/gomega",
-			"Rev": "96f78f1eec17555a416b86839fe5a3c1c2086c8a"
+			"Rev": "930b4522e0d3027320b5d56f8a375796f2e376e5"
 		}
 	]
 }
