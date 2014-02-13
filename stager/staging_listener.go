@@ -53,11 +53,6 @@ func (stagingListener *StagingListener) Listen() error {
 			},
 			"staging.request.succeeded",
 		)
-
-		response := StagingResponse{}
-		if responseJson, err := json.Marshal(response); err == nil {
-			stagingListener.natsClient.Publish(message.ReplyTo, responseJson)
-		}
 	})
 
 	return err

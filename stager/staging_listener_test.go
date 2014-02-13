@@ -77,21 +77,12 @@ var _ = Describe("StagingListener", func() {
 		}
 
 		Context("when staging finishes successfully", func() {
-			It("responds with a success message", func() {
+			It("does not send a nats message", func() {
 				publishStagingMessage()
 
 				replyTo := fakenats.PublishedMessages["diego.staging.start"][0].ReplyTo
 
-				Ω(fakenats.PublishedMessages[replyTo]).To(HaveLen(1))
-				response := fakenats.PublishedMessages[replyTo][0]
-
-				//we want to make sure the "error" key doesn't exist in the json string
-				//because the receiver considers any JSON with an error key a failed staging,
-				//regardless of what the error value is.
-				Ω(string(response.Payload)).NotTo(ContainSubstring("error"))
-				stagingResponse := StagingResponse{}
-				json.Unmarshal(response.Payload, &stagingResponse)
-				Ω(stagingResponse.Error).To(Equal(""))
+				Ω(fakenats.PublishedMessages[replyTo]).To(HaveLen(0))
 			})
 		})
 
