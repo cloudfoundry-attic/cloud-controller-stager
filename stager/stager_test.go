@@ -34,6 +34,10 @@ var _ = Describe("Stage", func() {
 			Stack:       "rabbit_hole",
 			MemoryMB:    256,
 			DiskMB:      1024,
+			AdminBuildpacks: []AdminBuildpack{
+				AdminBuildpack{Key: "first-buildpack", Url: "first-buildpack-url"},
+				AdminBuildpack{Key: "second-buildpack", Url: "second-buildpack-url"},
+			},
 		}, "me")
 		Ω(err).ShouldNot(HaveOccurred())
 
@@ -53,6 +57,20 @@ var _ = Describe("Stage", func() {
 				DownloadAction{
 					From:    "http://example-uri.com/bunny",
 					To:      "/app",
+					Extract: true,
+				},
+			},
+			{
+				DownloadAction{
+					From:    "first-buildpack-url",
+					To:      "/buildpacks/first-buildpack",
+					Extract: true,
+				},
+			},
+			{
+				DownloadAction{
+					From:    "second-buildpack-url",
+					To:      "/buildpacks/second-buildpack",
 					Extract: true,
 				},
 			},

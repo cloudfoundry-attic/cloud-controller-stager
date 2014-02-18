@@ -30,13 +30,24 @@ func (stager *stager) Stage(request StagingRequest, replyTo string) error {
 		return errors.New("No compiler defined for requested stack")
 	}
 
+	buildpackDownloadActions := []models.ExecutorAction{}
+	for _, buildpack := range request.AdminBuildpacks {
+		buildpackDownloadActions = append(buildpackDownloadActions, models.ExecutorAction{
+			models.DownloadAction{
+				From:    buildpack.Url,
+				To:      "/buildpacks/" + buildpack.Key,
+				Extract: true,
+			},
+		})
+	}
+
 	err := stager.stagerBBS.DesireRunOnce(models.RunOnce{
 		Guid:     strings.Join([]string{request.AppId, request.TaskId}, "-"),
 		Stack:    request.Stack,
 		ReplyTo:  replyTo,
 		MemoryMB: request.MemoryMB,
 		DiskMB:   request.DiskMB,
-		Actions: []models.ExecutorAction{
+		Actions: append([]models.ExecutorAction{
 			{
 				models.DownloadAction{
 					From:    compiler,
@@ -51,7 +62,7 @@ func (stager *stager) Stage(request StagingRequest, replyTo string) error {
 					Extract: true,
 				},
 			},
-		},
+		}, buildpackDownloadActions...),
 	})
 
 	return err
