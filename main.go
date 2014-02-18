@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
@@ -40,7 +41,7 @@ var natsPassword = flag.String(
 
 var compilers = flag.String(
 	"compilers",
-	"[]",
+	"{}",
 	"Map of compilers for different stacks (name => uri)",
 )
 
@@ -86,7 +87,13 @@ func main() {
 
 	bbs := Bbs.New(etcdAdapter)
 
-	stager := stgr.NewStager(bbs)
+	compilersMap := make(map[string]string)
+	err = json.Unmarshal([]byte(*compilers), &compilersMap)
+	if err != nil {
+		log.Fatalf("Error parsing compilers flag: %s\n", err)
+	}
+
+	stager := stgr.NewStager(bbs, compilersMap)
 
 	err = stgr.Listen(natsClient, stager, log)
 	if err != nil {

@@ -16,7 +16,11 @@ var _ = Describe("Stage", func() {
 	BeforeEach(func() {
 		fauxStoreAdapter = fakestoreadapter.New()
 		stagerBBS := bbs.New(fauxStoreAdapter)
-		stager = NewStager(stagerBBS)
+		compilers := map[string]string{
+			"penguin":     "http://penguin.com",
+			"rabbit_hole": "http://rabbit_hole.com",
+		}
+		stager = NewStager(stagerBBS, compilers)
 	})
 
 	It("creates a RunOnce with an instruction to download the app bits", func(done Done) {
@@ -40,6 +44,13 @@ var _ = Describe("Stage", func() {
 		Ω(runOnce.Actions).To(Equal([]ExecutorAction{
 			{
 				DownloadAction{
+					From:    "http://rabbit_hole.com",
+					To:      "/compiler",
+					Extract: false,
+				},
+			},
+			{
+				DownloadAction{
 					From:    "http://example-uri.com/bunny",
 					To:      "/app",
 					Extract: true,
@@ -51,4 +62,24 @@ var _ = Describe("Stage", func() {
 
 		close(done)
 	}, 2)
+
+	Context("when no compiler is defined for the requested stack in stager configuration", func() {
+		It("should return an error", func(done Done) {
+			executorBBS := bbs.New(fauxStoreAdapter).ExecutorBBS
+			executorBBS.WatchForDesiredRunOnce()
+
+			err := stager.Stage(StagingRequest{
+				AppId:       "bunny",
+				TaskId:      "hop",
+				DownloadUri: "http://example-uri.com/bunny",
+				Stack:       "no_such_stack",
+				MemoryMB:    256,
+				DiskMB:      1024,
+			}, "me")
+
+			Ω(err).Should(HaveOccurred())
+			Ω(err.Error()).Should(Equal("No compiler defined for requested stack"))
+			close(done)
+		})
+	})
 })

@@ -108,7 +108,7 @@ var _ = Describe("StagingListener", func() {
 				response := fakenats.PublishedMessages[replyTo][0]
 				stagingResponse := StagingResponse{}
 				json.Unmarshal(response.Payload, &stagingResponse)
-				Ω(stagingResponse.Error).To(Equal("Staging failed"))
+				Ω(stagingResponse.Error).To(Equal("Staging failed: The thingy broke :("))
 			})
 		})
 	})
