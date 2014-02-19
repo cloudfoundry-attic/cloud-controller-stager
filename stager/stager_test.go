@@ -7,6 +7,7 @@ import (
 	"github.com/cloudfoundry/storeadapter/fakestoreadapter"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"time"
 )
 
 var _ = Describe("Stage", func() {
@@ -35,8 +36,8 @@ var _ = Describe("Stage", func() {
 			MemoryMB:    256,
 			DiskMB:      1024,
 			AdminBuildpacks: []AdminBuildpack{
-				AdminBuildpack{Key: "first-buildpack", Url: "first-buildpack-url"},
-				AdminBuildpack{Key: "second-buildpack", Url: "second-buildpack-url"},
+				AdminBuildpack{Key: "zfirst-buildpack", Url: "first-buildpack-url"},
+				AdminBuildpack{Key: "asecond-buildpack", Url: "second-buildpack-url"},
 			},
 		}, "me")
 		Ω(err).ShouldNot(HaveOccurred())
@@ -45,33 +46,50 @@ var _ = Describe("Stage", func() {
 		Ω(runOnce.Guid).To(Equal("bunny-hop"))
 		Ω(runOnce.ReplyTo).To(Equal("me"))
 		Ω(runOnce.Stack).To(Equal("rabbit_hole"))
+		Ω(runOnce.Log.Guid).To(Equal("bunny"))
+		Ω(runOnce.Log.SourceName).To(Equal("STG"))
+		Ω(runOnce.Log.Index).To(BeNil())
 		Ω(runOnce.Actions).To(Equal([]ExecutorAction{
 			{
 				DownloadAction{
 					From:    "http://rabbit_hole.com",
-					To:      "/compiler",
-					Extract: false,
+					To:      "/tmp/compiler",
+					Extract: true,
 				},
 			},
 			{
 				DownloadAction{
 					From:    "http://example-uri.com/bunny",
-					To:      "/app",
+					To:      "/tmp/app",
 					Extract: true,
 				},
 			},
 			{
 				DownloadAction{
 					From:    "first-buildpack-url",
-					To:      "/buildpacks/first-buildpack",
+					To:      "/tmp/buildpacks/zfirst-buildpack",
 					Extract: true,
 				},
 			},
 			{
 				DownloadAction{
 					From:    "second-buildpack-url",
-					To:      "/buildpacks/second-buildpack",
+					To:      "/tmp/buildpacks/asecond-buildpack",
 					Extract: true,
+				},
+			},
+			{
+				RunAction{
+					Script: "/tmp/compiler/run",
+					Env: map[string]string{
+						"APP_DIR":         "/tmp/app",
+						"OUTPUT_DIR":      "/tmp/droplet",
+						"BUILDPACKS_DIR":  "/tmp/buildpacks",
+						"BUILDPACK_ORDER": `["zfirst-buildpack","asecond-buildpack"]`,
+						"CACHE_DIR":       "/tmp/cache",
+						"MEMORY_LIMIT":    "256m",
+					},
+					Timeout: 15 * time.Minute,
 				},
 			},
 		}))
