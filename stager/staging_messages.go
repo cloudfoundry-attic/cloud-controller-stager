@@ -8,6 +8,7 @@ type StagingRequest struct {
 	MemoryMB        int              `json:"memoryMB"`
 	DiskMB          int              `json:"diskMB"`
 	AdminBuildpacks []AdminBuildpack `json:"admin_buildpacks"`
+	Environment     [][]string       `json:"environment"`
 	//	BuildpackCacheUploadUri   string                 `json:"buildpack_cache_upload_uri"`
 	//	BuildpackCacheDownloadUri string                 `json:"buildpack_cache_download_uri"`
 	//	UploadUri                 string                 `json:"upload_uri"`

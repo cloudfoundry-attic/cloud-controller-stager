@@ -39,6 +39,10 @@ var _ = Describe("Stage", func() {
 				AdminBuildpack{Key: "zfirst-buildpack", Url: "first-buildpack-url"},
 				AdminBuildpack{Key: "asecond-buildpack", Url: "second-buildpack-url"},
 			},
+			Environment: [][]string{
+				{"VCAP_APPLICATION", "foo"},
+				{"VCAP_SERVICES", "bar"},
+			},
 		}, "me")
 		Ω(err).ShouldNot(HaveOccurred())
 
@@ -81,13 +85,14 @@ var _ = Describe("Stage", func() {
 			{
 				RunAction{
 					Script: "/tmp/compiler/run",
-					Env: map[string]string{
-						"APP_DIR":         "/tmp/app",
-						"OUTPUT_DIR":      "/tmp/droplet",
-						"BUILDPACKS_DIR":  "/tmp/buildpacks",
-						"BUILDPACK_ORDER": `["zfirst-buildpack","asecond-buildpack"]`,
-						"CACHE_DIR":       "/tmp/cache",
-						"MEMORY_LIMIT":    "256m",
+					Env: [][]string{
+						{"VCAP_APPLICATION", "foo"},
+						{"VCAP_SERVICES", "bar"},
+						{"APP_DIR", "/tmp/app"},
+						{"OUTPUT_DIR", "/tmp/droplet"},
+						{"BUILDPACKS_DIR", "/tmp/buildpacks"},
+						{"BUILDPACK_ORDER", `["zfirst-buildpack","asecond-buildpack"]`},
+						{"CACHE_DIR", "/tmp/cache"},
 					},
 					Timeout: 15 * time.Minute,
 				},

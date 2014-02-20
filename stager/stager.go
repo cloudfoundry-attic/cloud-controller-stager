@@ -3,7 +3,6 @@ package stager
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"strings"
@@ -65,17 +64,19 @@ func (stager *stager) Stage(request StagingRequest, replyTo string) error {
 	}
 	buildpacksOrderJSON, _ := json.Marshal(buildpacksOrder)
 
+	env := [][]string{
+		{"APP_DIR", "/tmp/app"},
+		{"OUTPUT_DIR", "/tmp/droplet"},
+		{"BUILDPACKS_DIR", "/tmp/buildpacks"},
+		{"BUILDPACK_ORDER", string(buildpacksOrderJSON)},
+		{"CACHE_DIR", "/tmp/cache"},
+	}
+	env = append(request.Environment, env...)
+
 	actions = append(actions, models.ExecutorAction{
 		models.RunAction{
-			Script: "/tmp/compiler/run",
-			Env: map[string]string{
-				"APP_DIR":         "/tmp/app",
-				"OUTPUT_DIR":      "/tmp/droplet",
-				"BUILDPACKS_DIR":  "/tmp/buildpacks",
-				"BUILDPACK_ORDER": string(buildpacksOrderJSON),
-				"CACHE_DIR":       "/tmp/cache",
-				"MEMORY_LIMIT":    fmt.Sprintf("%dm", request.MemoryMB),
-			},
+			Script:  "/tmp/compiler/run",
+			Env:     env,
 			Timeout: 15 * time.Minute,
 		},
 	})
