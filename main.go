@@ -42,7 +42,7 @@ var natsPassword = flag.String(
 var compilers = flag.String(
 	"compilers",
 	"{}",
-	"Map of compilers for different stacks (name => uri)",
+	"Map of compilers for different stacks (name => compiler_name)",
 )
 
 func main() {

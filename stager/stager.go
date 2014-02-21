@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"path"
 	"strings"
 	"time"
 )
@@ -26,17 +27,23 @@ func NewStager(stagerBBS bbs.StagerBBS, compilers map[string]string) Stager {
 }
 
 func (stager *stager) Stage(request StagingRequest, replyTo string) error {
-	compiler, ok := stager.compilers[request.Stack]
-
+	compilerPath, ok := stager.compilers[request.Stack]
 	if !ok {
 		return errors.New("No compiler defined for requested stack")
 	}
+
+	fileServerURL, err := stager.stagerBBS.GetAvailableFileServer()
+	if err != nil {
+		return errors.New("No available file server present")
+	}
+
+	compilerURL := path.Join(fileServerURL, compilerPath)
 
 	actions := []models.ExecutorAction{}
 
 	actions = append(actions, models.ExecutorAction{
 		models.DownloadAction{
-			From:    compiler,
+			From:    compilerURL,
 			To:      "/tmp/compiler",
 			Extract: true,
 		},
@@ -81,7 +88,7 @@ func (stager *stager) Stage(request StagingRequest, replyTo string) error {
 		},
 	})
 
-	err := stager.stagerBBS.DesireRunOnce(models.RunOnce{
+	err = stager.stagerBBS.DesireRunOnce(models.RunOnce{
 		Guid:     strings.Join([]string{request.AppId, request.TaskId}, "-"),
 		Stack:    request.Stack,
 		ReplyTo:  replyTo,
