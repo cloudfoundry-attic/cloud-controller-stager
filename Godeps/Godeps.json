@@ -19,6 +19,10 @@
 			"Rev": "b73889e1b4e9e2c99103929016324ccf4f1d00ce"
 		},
 		{
+			"ImportPath": "github.com/cloudfoundry/gunk/urljoiner",
+			"Rev": "a9926dd26379b0650e99d96ce60e841dfc7ade71"
+		},
+		{
 			"ImportPath": "github.com/cloudfoundry/storeadapter",
 			"Rev": "3bffe313636bb48c0ae2f7cc36c3d43a30e65e09"
 		},

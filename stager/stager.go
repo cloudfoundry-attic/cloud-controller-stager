@@ -3,9 +3,9 @@ package stager
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry/gunk/urljoiner"
 	"strings"
 	"time"
 )
@@ -37,7 +37,7 @@ func (stager *stager) Stage(request StagingRequest, replyTo string) error {
 		return errors.New("No available file server present")
 	}
 
-	compilerURL := fmt.Sprintf("%s%s", fileServerURL, compilerPath)
+	compilerURL := urljoiner.Join(fileServerURL, compilerPath)
 	actions := []models.ExecutorAction{}
 
 	actions = append(actions, models.ExecutorAction{

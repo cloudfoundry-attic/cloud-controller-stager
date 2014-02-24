@@ -41,7 +41,7 @@ var _ = Describe("Stage", func() {
 		})
 	})
 
-	Context("when file server is available", func() {
+	Context("when file the server is available", func() {
 		BeforeEach(func() {
 			bbs.MaintainFileServerPresence(10, "http://hello.com/", "abc123")
 		})
