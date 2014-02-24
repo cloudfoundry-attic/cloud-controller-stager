@@ -7,7 +7,6 @@ import (
 	"github.com/cloudfoundry/storeadapter/fakestoreadapter"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"path"
 	"time"
 )
 
@@ -44,7 +43,7 @@ var _ = Describe("Stage", func() {
 
 	Context("when file server is available", func() {
 		BeforeEach(func() {
-			bbs.MaintainFileServerPresence(10, "hello.com", "abc123")
+			bbs.MaintainFileServerPresence(10, "http://hello.com/", "abc123")
 		})
 
 		It("creates a RunOnce with an instruction to download the app bits", func(done Done) {
@@ -78,7 +77,7 @@ var _ = Describe("Stage", func() {
 			Ω(runOnce.Actions).To(Equal([]ExecutorAction{
 				{
 					DownloadAction{
-						From:    path.Join("hello.com", "rabbit-hole-compiler"),
+						From:    "http://hello.com/rabbit-hole-compiler",
 						To:      "/tmp/compiler",
 						Extract: true,
 					},

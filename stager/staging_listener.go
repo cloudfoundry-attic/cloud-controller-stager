@@ -61,7 +61,7 @@ func (stagingListener *StagingListener) Listen() error {
 func (stagingListener *StagingListener) logError(logMessage string, err error, message interface{}) {
 	stagingListener.logger.Errord(map[string]interface{}{
 		"message": message,
-		"error":   err,
+		"error":   err.Error(),
 	}, logMessage)
 }
 
