@@ -16,7 +16,9 @@ func Listen(bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logg
 				logger.Infod(map[string]interface{}{
 					"guid": runOnce.Guid,
 				}, "stager.resolve.runonce")
+
 				err := bbs.ResolveRunOnce(runOnce)
+
 				if err == nil {
 					natsClient.Publish(runOnce.ReplyTo, []byte("{}"))
 					logger.Infod(map[string]interface{}{
