@@ -14,7 +14,13 @@ type StagingRequest struct {
 	//	UploadUri                 string                 `json:"upload_uri"`
 }
 
+type StagingResult struct {
+	DetectedBuildpack string `json:"detected_buildpack"`
+}
+
 type StagingResponse struct {
+	DetectedBuildpack string `json:"detected_buildpack"`
+
 	Error string `json:"error,omitempty"`
 }
 

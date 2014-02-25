@@ -1,10 +1,12 @@
 package outbox_test
 
 import (
+	"encoding/json"
 	"errors"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fakebbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/cloudfoundry-incubator/stager/outbox"
+	"github.com/cloudfoundry-incubator/stager/stager"
 	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/yagnats"
 	"github.com/cloudfoundry/yagnats/fakeyagnats"
@@ -31,28 +33,92 @@ var _ = Describe("Outbox", func() {
 	})
 
 	Context("when a completed RunOnce appears in the outbox", func() {
-		runOnce := models.RunOnce{
-			Guid:    "some-task-id",
-			ReplyTo: "some-requester",
-		}
+		var runOnce models.RunOnce
 
-		It("publishes to ReplyTo and then marks the RunOnce as completed", func(done Done) {
-			published := make(chan bool)
+		BeforeEach(func() {
+			runOnce = models.RunOnce{
+				Guid:    "some-task-id",
+				ReplyTo: "some-requester",
+				Result:  `{"detected_buildpack":"Some Buildpack"}`,
+			}
+		})
 
-			fakenats.Subscribe("some-requester", func(*yagnats.Message) {
-				published <- true
+		It("publishes its result to ReplyTo and then marks the RunOnce as completed", func(done Done) {
+			published := make(chan []byte)
+
+			fakenats.Subscribe("some-requester", func(msg *yagnats.Message) {
+				published <- msg.Payload
 			})
 
 			bbs.CompletedRunOnceChan <- runOnce
 
-			Expect(<-published).To(BeTrue())
+			responsePayload := <-published
+
+			var response stager.StagingResponse
+
+			err := json.Unmarshal(responsePayload, &response)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			Ω(response.DetectedBuildpack).Should(Equal("Some Buildpack"))
+
 			Ω(bbs.ResolvedRunOnce).Should(Equal(runOnce))
 
 			close(done)
 		}, 5.0)
 
 		Context("when the RunOnce fails to resolve", func() {
-			It("should not send a response to the requester", func(done Done) {
+			It("does not send a response to the requester, because another stager probably resolved it", func(done Done) {
+				published := make(chan bool)
+				fakenats.Subscribe("some-requester", func(*yagnats.Message) {
+					published <- true
+				})
+
+				bbs.ResolveRunOnceErr = errors.New("oops")
+				bbs.CompletedRunOnceChan <- runOnce
+				Consistently(published).ShouldNot(Receive())
+				close(done)
+			}, 5.0)
+		})
+	})
+
+	Context("when a failed RunOnce appears in the outbox", func() {
+		var runOnce models.RunOnce
+
+		BeforeEach(func() {
+			runOnce = models.RunOnce{
+				Guid:    "some-task-id",
+				ReplyTo: "some-requester",
+
+				Failed:        true,
+				FailureReason: "because i said so",
+			}
+		})
+
+		It("publishes its reason as an error to ReplyTo and then marks the RunOnce as completed", func(done Done) {
+			published := make(chan []byte)
+
+			fakenats.Subscribe("some-requester", func(msg *yagnats.Message) {
+				published <- msg.Payload
+			})
+
+			bbs.CompletedRunOnceChan <- runOnce
+
+			responsePayload := <-published
+
+			var response stager.StagingResponse
+
+			err := json.Unmarshal(responsePayload, &response)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			Ω(response.Error).Should(Equal("because i said so"))
+
+			Ω(bbs.ResolvedRunOnce).Should(Equal(runOnce))
+
+			close(done)
+		}, 5.0)
+
+		Context("when the RunOnce fails to resolve", func() {
+			It("does not send a response to the requester, because another stager probably resolved it", func(done Done) {
 				published := make(chan bool)
 				fakenats.Subscribe("some-requester", func(*yagnats.Message) {
 					published <- true
@@ -81,6 +147,7 @@ var _ = Describe("Outbox", func() {
 			runOnce := models.RunOnce{
 				Guid:    "some-other-task-id",
 				ReplyTo: "requester",
+				Result:  "{}",
 			}
 
 			bbs.CompletedRunOnceChan <- runOnce
