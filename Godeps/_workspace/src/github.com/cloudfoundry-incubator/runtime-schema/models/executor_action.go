@@ -20,9 +20,13 @@ type UploadAction struct {
 }
 
 type RunAction struct {
-	Script  string
-	Env     [][]string
-	Timeout time.Duration
+	Script  string        `json:"script"`
+	Env     [][]string    `json:"env"`
+	Timeout time.Duration `json:"timeout"`
+}
+
+type FetchResultAction struct {
+	File string `json:"file"`
 }
 
 type executorActionEnvelope struct {
@@ -32,35 +36,6 @@ type executorActionEnvelope struct {
 
 type ExecutorAction struct {
 	Action interface{} `json:"-"`
-}
-
-type runActionSerialized struct {
-	Script           string     `json:"script"`
-	TimeoutInSeconds uint64     `json:"timeout_in_seconds"`
-	Env              [][]string `json:"env"`
-}
-
-func (a RunAction) MarshalJSON() ([]byte, error) {
-	return json.Marshal(runActionSerialized{
-		Script:           a.Script,
-		TimeoutInSeconds: uint64(a.Timeout / time.Second),
-		Env:              a.Env,
-	})
-}
-
-func (a *RunAction) UnmarshalJSON(payload []byte) error {
-	var intermediate runActionSerialized
-
-	err := json.Unmarshal(payload, &intermediate)
-	if err != nil {
-		return err
-	}
-
-	a.Script = intermediate.Script
-	a.Timeout = time.Duration(intermediate.TimeoutInSeconds) * time.Second
-	a.Env = intermediate.Env
-
-	return nil
 }
 
 func (a ExecutorAction) MarshalJSON() ([]byte, error) {
@@ -79,6 +54,8 @@ func (a ExecutorAction) MarshalJSON() ([]byte, error) {
 		envelope.Name = "run"
 	case UploadAction:
 		envelope.Name = "upload"
+	case FetchResultAction:
+		envelope.Name = "fetch_result"
 	default:
 		return nil, InvalidActionConversion
 	}
@@ -109,6 +86,10 @@ func (a *ExecutorAction) UnmarshalJSON(bytes []byte) error {
 		uploadAction := UploadAction{}
 		err = json.Unmarshal(*envelope.ActionPayload, &uploadAction)
 		a.Action = uploadAction
+	case "fetch_result":
+		fetchResultAction := FetchResultAction{}
+		err = json.Unmarshal(*envelope.ActionPayload, &fetchResultAction)
+		a.Action = fetchResultAction
 	default:
 		err = InvalidActionConversion
 	}
