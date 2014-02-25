@@ -1,12 +1,10 @@
 package outbox_test
 
 import (
-	"encoding/json"
 	"errors"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fakebbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/cloudfoundry-incubator/stager/outbox"
-	"github.com/cloudfoundry-incubator/stager/stager"
 	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/yagnats"
 	"github.com/cloudfoundry/yagnats/fakeyagnats"
@@ -52,14 +50,7 @@ var _ = Describe("Outbox", func() {
 
 			bbs.CompletedRunOnceChan <- runOnce
 
-			responsePayload := <-published
-
-			var response stager.StagingResponse
-
-			err := json.Unmarshal(responsePayload, &response)
-			Ω(err).ShouldNot(HaveOccurred())
-
-			Ω(response.DetectedBuildpack).Should(Equal("Some Buildpack"))
+			Ω(string(<-published)).Should(Equal(`{"detected_buildpack":"Some Buildpack"}`))
 
 			Ω(bbs.ResolvedRunOnce).Should(Equal(runOnce))
 
@@ -103,14 +94,7 @@ var _ = Describe("Outbox", func() {
 
 			bbs.CompletedRunOnceChan <- runOnce
 
-			responsePayload := <-published
-
-			var response stager.StagingResponse
-
-			err := json.Unmarshal(responsePayload, &response)
-			Ω(err).ShouldNot(HaveOccurred())
-
-			Ω(response.Error).Should(Equal("because i said so"))
+			Ω(string(<-published)).Should(Equal(`{"error":"because i said so"}`))
 
 			Ω(bbs.ResolvedRunOnce).Should(Equal(runOnce))
 

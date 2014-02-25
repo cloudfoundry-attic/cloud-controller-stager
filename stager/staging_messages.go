@@ -19,7 +19,7 @@ type StagingResult struct {
 }
 
 type StagingResponse struct {
-	DetectedBuildpack string `json:"detected_buildpack"`
+	DetectedBuildpack string `json:"detected_buildpack,omitempty"`
 
 	Error string `json:"error,omitempty"`
 }
