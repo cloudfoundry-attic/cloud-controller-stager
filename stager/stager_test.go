@@ -111,11 +111,17 @@ var _ = Describe("Stage", func() {
 							{"VCAP_SERVICES", "bar"},
 							{"APP_DIR", "/app"},
 							{"OUTPUT_DIR", "/tmp/droplet"},
+							{"RESULT_DIR", "/tmp/result"},
 							{"BUILDPACKS_DIR", "/tmp/buildpacks"},
 							{"BUILDPACK_ORDER", `["zfirst-buildpack","asecond-buildpack"]`},
 							{"CACHE_DIR", "/tmp/cache"},
 						},
 						Timeout: 15 * time.Minute,
+					},
+				},
+				{
+					FetchResultAction{
+						File: "/tmp/result/result.json",
 					},
 				},
 			}))

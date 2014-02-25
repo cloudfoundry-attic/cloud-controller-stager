@@ -73,6 +73,7 @@ func (stager *stager) Stage(request StagingRequest, replyTo string) error {
 	env := [][]string{
 		{"APP_DIR", "/app"},
 		{"OUTPUT_DIR", "/tmp/droplet"},
+		{"RESULT_DIR", "/tmp/result"},
 		{"BUILDPACKS_DIR", "/tmp/buildpacks"},
 		{"BUILDPACK_ORDER", string(buildpacksOrderJSON)},
 		{"CACHE_DIR", "/tmp/cache"},
@@ -84,6 +85,12 @@ func (stager *stager) Stage(request StagingRequest, replyTo string) error {
 			Script:  "/tmp/compiler/run",
 			Env:     env,
 			Timeout: 15 * time.Minute,
+		},
+	})
+
+	actions = append(actions, models.ExecutorAction{
+		models.FetchResultAction{
+			File: "/tmp/result/result.json",
 		},
 	})
 
