@@ -51,7 +51,7 @@ func (stager *stager) Stage(request StagingRequest, replyTo string) error {
 	actions = append(actions, models.ExecutorAction{
 		models.DownloadAction{
 			From:    request.DownloadUri,
-			To:      "/tmp/app",
+			To:      "/app",
 			Extract: true,
 		},
 	})
@@ -71,7 +71,7 @@ func (stager *stager) Stage(request StagingRequest, replyTo string) error {
 	buildpacksOrderJSON, _ := json.Marshal(buildpacksOrder)
 
 	env := [][]string{
-		{"APP_DIR", "/tmp/app"},
+		{"APP_DIR", "/app"},
 		{"OUTPUT_DIR", "/tmp/droplet"},
 		{"BUILDPACKS_DIR", "/tmp/buildpacks"},
 		{"BUILDPACK_ORDER", string(buildpacksOrderJSON)},

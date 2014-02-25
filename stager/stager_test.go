@@ -85,7 +85,7 @@ var _ = Describe("Stage", func() {
 				{
 					DownloadAction{
 						From:    "http://example-uri.com/bunny",
-						To:      "/tmp/app",
+						To:      "/app",
 						Extract: true,
 					},
 				},
@@ -109,7 +109,7 @@ var _ = Describe("Stage", func() {
 						Env: [][]string{
 							{"VCAP_APPLICATION", "foo"},
 							{"VCAP_SERVICES", "bar"},
-							{"APP_DIR", "/tmp/app"},
+							{"APP_DIR", "/app"},
 							{"OUTPUT_DIR", "/tmp/droplet"},
 							{"BUILDPACKS_DIR", "/tmp/buildpacks"},
 							{"BUILDPACK_ORDER", `["zfirst-buildpack","asecond-buildpack"]`},
