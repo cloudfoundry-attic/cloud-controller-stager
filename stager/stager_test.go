@@ -48,7 +48,7 @@ var _ = Describe("Stage", func() {
 
 		It("creates a RunOnce with an instruction to download the app bits", func(done Done) {
 			modelChannel, _, _ := bbs.WatchForDesiredRunOnce()
-			now := time.Now()
+			now := time.Now().UnixNano()
 
 			err := stager.Stage(StagingRequest{
 				AppId:       "bunny",
@@ -70,8 +70,8 @@ var _ = Describe("Stage", func() {
 
 			runOnce := <-modelChannel
 
-			Ω(runOnce.CreatedAt.After(now)).To(BeTrue())
-			Ω(runOnce.CreatedAt.Before(now.Add(5 * time.Second))).To(BeTrue())
+			Ω(runOnce.CreatedAt > now).To(BeTrue())
+			Ω(runOnce.CreatedAt < (now + int64(5*time.Second))).To(BeTrue())
 
 			Ω(runOnce.Guid).To(Equal("bunny-hop"))
 			Ω(runOnce.ReplyTo).To(Equal("me"))

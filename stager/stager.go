@@ -105,7 +105,7 @@ func (stager *stager) Stage(request StagingRequest, replyTo string) error {
 			Guid:       request.AppId,
 			SourceName: "STG",
 		},
-		CreatedAt: time.Now(),
+		CreatedAt: time.Now().UnixNano(),
 	})
 
 	return err
