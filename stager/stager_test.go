@@ -46,7 +46,7 @@ var _ = Describe("Stage", func() {
 			bbs.MaintainFileServerPresence(10, "http://hello.com/", "abc123")
 		})
 
-		It("creates a RunOnce with an instruction to download the app bits", func(done Done) {
+		It("creates a RunOnce with staging instructions", func(done Done) {
 			modelChannel, _, _ := bbs.WatchForDesiredRunOnce()
 			now := time.Now().UnixNano()
 
@@ -54,6 +54,7 @@ var _ = Describe("Stage", func() {
 				AppId:       "bunny",
 				TaskId:      "hop",
 				DownloadUri: "http://example-uri.com/bunny",
+				UploadUri:   "http://example.com/upload-destination",
 				Stack:       "rabbit_hole",
 				MemoryMB:    256,
 				DiskMB:      1024,
@@ -122,6 +123,12 @@ var _ = Describe("Stage", func() {
 							{"CACHE_DIR", "/tmp/cache"},
 						},
 						Timeout: 15 * time.Minute,
+					},
+				},
+				{
+					UploadAction{
+						From: "/tmp/droplet/droplet.tgz",
+						To:   "http://example.com/upload-destination",
 					},
 				},
 				{

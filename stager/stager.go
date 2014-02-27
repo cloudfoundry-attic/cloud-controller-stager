@@ -89,6 +89,13 @@ func (stager *stager) Stage(request StagingRequest, replyTo string) error {
 	})
 
 	actions = append(actions, models.ExecutorAction{
+		models.UploadAction{
+			From: "/tmp/droplet/droplet.tgz",
+			To:   request.UploadUri,
+		},
+	})
+
+	actions = append(actions, models.ExecutorAction{
 		models.FetchResultAction{
 			File: "/tmp/result/result.json",
 		},

@@ -34,6 +34,7 @@ var _ = Describe("StagingMessages", func() {
 				TaskId:      "fake-task_id",
 				Stack:       "fake-stack",
 				DownloadUri: "fake-download_uri",
+				UploadUri:   "fake-upload_uri",
 				MemoryMB:    1024,
 				DiskMB:      10000,
 				AdminBuildpacks: []AdminBuildpack{

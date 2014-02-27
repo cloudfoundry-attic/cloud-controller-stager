@@ -5,13 +5,14 @@ type StagingRequest struct {
 	TaskId          string           `json:"task_id"`
 	Stack           string           `json:"stack"`
 	DownloadUri     string           `json:"download_uri"`
+	UploadUri       string           `json:"upload_uri"`
 	MemoryMB        int              `json:"memoryMB"`
 	DiskMB          int              `json:"diskMB"`
 	AdminBuildpacks []AdminBuildpack `json:"admin_buildpacks"`
 	Environment     [][]string       `json:"environment"`
+
 	//	BuildpackCacheUploadUri   string                 `json:"buildpack_cache_upload_uri"`
 	//	BuildpackCacheDownloadUri string                 `json:"buildpack_cache_download_uri"`
-	//	UploadUri                 string                 `json:"upload_uri"`
 }
 
 type StagingResult struct {
