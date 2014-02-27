@@ -1,7 +1,6 @@
 package stager
 
 import (
-	"encoding/json"
 	"errors"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -68,14 +67,13 @@ func (stager *stager) Stage(request StagingRequest, replyTo string) error {
 
 		buildpacksOrder = append(buildpacksOrder, buildpack.Key)
 	}
-	buildpacksOrderJSON, _ := json.Marshal(buildpacksOrder)
 
 	env := [][]string{
 		{"APP_DIR", "/app"},
 		{"OUTPUT_DIR", "/tmp/droplet"},
 		{"RESULT_DIR", "/tmp/result"},
 		{"BUILDPACKS_DIR", "/tmp/buildpacks"},
-		{"BUILDPACK_ORDER", string(buildpacksOrderJSON)},
+		{"BUILDPACK_ORDER", strings.Join(buildpacksOrder, ",")},
 		{"CACHE_DIR", "/tmp/cache"},
 	}
 	env = append(request.Environment, env...)
