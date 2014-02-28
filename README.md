@@ -1,4 +1,4 @@
 stager
 ======
 
-Stager for Cloud Foundry
+Stager for Cloud Foundry.
