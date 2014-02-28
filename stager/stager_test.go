@@ -4,7 +4,6 @@ import (
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	. "github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/cloudfoundry-incubator/stager/stager"
-	"github.com/cloudfoundry/storeadapter/fakestoreadapter"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"time"
@@ -13,11 +12,9 @@ import (
 var _ = Describe("Stage", func() {
 	var stager Stager
 	var bbs *Bbs.BBS
-	var fauxStoreAdapter *fakestoreadapter.FakeStoreAdapter
 
 	BeforeEach(func() {
-		fauxStoreAdapter = fakestoreadapter.New()
-		bbs = Bbs.New(fauxStoreAdapter)
+		bbs = Bbs.New(etcdRunner.Adapter())
 		compilers := map[string]string{
 			"penguin":     "penguin-compiler",
 			"rabbit_hole": "rabbit-hole-compiler",
@@ -43,7 +40,8 @@ var _ = Describe("Stage", func() {
 
 	Context("when file the server is available", func() {
 		BeforeEach(func() {
-			bbs.MaintainFileServerPresence(10, "http://hello.com/", "abc123")
+			_, _, err := bbs.MaintainFileServerPresence(10, "http://hello.com/", "abc123")
+			Ω(err).ShouldNot(HaveOccurred())
 		})
 
 		It("creates a RunOnce with staging instructions", func(done Done) {
