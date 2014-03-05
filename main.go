@@ -15,8 +15,8 @@ import (
 	"strings"
 )
 
-var etcdMachines = flag.String(
-	"etcdMachines",
+var etcdCluster = flag.String(
+	"etcdCluster",
 	"http://127.0.0.1:4001",
 	"comma-separated list of etcd addresses (http://ip:port)",
 )
@@ -57,7 +57,7 @@ func main() {
 	log := steno.NewLogger("Stager")
 
 	etcdAdapter := etcdstoreadapter.NewETCDStoreAdapter(
-		strings.Split(*etcdMachines, ","),
+		strings.Split(*etcdCluster, ","),
 		workerpool.NewWorkerPool(10),
 	)
 
