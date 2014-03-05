@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	"github.com/cloudfoundry/gunk/urljoiner"
 	"strings"
 	"time"
@@ -26,17 +27,11 @@ func NewStager(stagerBBS bbs.StagerBBS, compilers map[string]string) Stager {
 }
 
 func (stager *stager) Stage(request StagingRequest, replyTo string) error {
-	compilerPath, ok := stager.compilers[request.Stack]
-	if !ok {
-		return errors.New("No compiler defined for requested stack")
-	}
-
-	fileServerURL, err := stager.stagerBBS.GetAvailableFileServer()
+	compilerURL, err := stager.compilerDownloadURL(request)
 	if err != nil {
-		return errors.New("No available file server present")
+		return err
 	}
 
-	compilerURL := urljoiner.Join(fileServerURL, compilerPath)
 	actions := []models.ExecutorAction{}
 
 	actions = append(actions, models.ExecutorAction{
@@ -113,4 +108,23 @@ func (stager *stager) Stage(request StagingRequest, replyTo string) error {
 	})
 
 	return err
+}
+
+func (stager *stager) compilerDownloadURL(request StagingRequest) (string, error) {
+	compilerPath, ok := stager.compilers[request.Stack]
+	if !ok {
+		return "", errors.New("No compiler defined for requested stack")
+	}
+
+	fileServerURL, err := stager.stagerBBS.GetAvailableFileServer()
+	if err != nil {
+		return "", errors.New("No available file server present")
+	}
+
+	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_STATIC)
+	if !ok {
+		return "", errors.New("Couldn't generate the compiler download path")
+	}
+
+	return urljoiner.Join(fileServerURL, staticRoute.Path, compilerPath), nil
 }

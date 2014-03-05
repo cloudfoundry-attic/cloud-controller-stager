@@ -77,7 +77,7 @@ var _ = Describe("Stage", func() {
 			Ω(runOnce.Actions).To(Equal([]ExecutorAction{
 				{
 					DownloadAction{
-						From:    "http://hello.com/rabbit-hole-compiler",
+						From:    "http://hello.com/static/rabbit-hole-compiler",
 						To:      "/tmp/compiler",
 						Extract: true,
 					},
