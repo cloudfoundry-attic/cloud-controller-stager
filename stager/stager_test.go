@@ -40,7 +40,7 @@ var _ = Describe("Stage", func() {
 
 	Context("when file the server is available", func() {
 		BeforeEach(func() {
-			_, _, err := bbs.MaintainFileServerPresence(10*time.Second, "http://hello.com/", "abc123")
+			_, _, err := bbs.MaintainFileServerPresence(10*time.Second, "http://file-server.com/", "abc123")
 			Ω(err).ShouldNot(HaveOccurred())
 		})
 
@@ -51,7 +51,6 @@ var _ = Describe("Stage", func() {
 				AppId:       "bunny",
 				TaskId:      "hop",
 				DownloadUri: "http://example-uri.com/bunny",
-				UploadUri:   "http://example.com/upload-destination",
 				Stack:       "rabbit_hole",
 				MemoryMB:    256,
 				DiskMB:      1024,
@@ -77,7 +76,7 @@ var _ = Describe("Stage", func() {
 			Ω(runOnce.Actions).To(Equal([]ExecutorAction{
 				{
 					DownloadAction{
-						From:    "http://hello.com/static/rabbit-hole-compiler",
+						From:    "http://file-server.com/static/rabbit-hole-compiler",
 						To:      "/tmp/compiler",
 						Extract: true,
 					},
@@ -122,7 +121,7 @@ var _ = Describe("Stage", func() {
 				{
 					UploadAction{
 						From: "/tmp/droplet/droplet.tgz",
-						To:   "http://example.com/upload-destination",
+						To:   "http://file-server.com/droplet/bunny",
 					},
 				},
 				{
@@ -139,6 +138,11 @@ var _ = Describe("Stage", func() {
 	})
 
 	Context("when no compiler is defined for the requested stack in stager configuration", func() {
+		BeforeEach(func() {
+			_, _, err := bbs.MaintainFileServerPresence(10*time.Second, "http://file-server.com/", "abc123")
+			Ω(err).ShouldNot(HaveOccurred())
+		})
+
 		It("should return an error", func(done Done) {
 			bbs.WatchForDesiredRunOnce()
 

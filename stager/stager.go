@@ -2,6 +2,7 @@ package stager
 
 import (
 	"errors"
+	"fmt"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
@@ -27,7 +28,12 @@ func NewStager(stagerBBS bbs.StagerBBS, compilers map[string]string) Stager {
 }
 
 func (stager *stager) Stage(request StagingRequest, replyTo string) error {
-	compilerURL, err := stager.compilerDownloadURL(request)
+	fileServerURL, err := stager.stagerBBS.GetAvailableFileServer()
+	if err != nil {
+		return errors.New("No available file server present")
+	}
+
+	compilerURL, err := stager.compilerDownloadURL(request, fileServerURL)
 	if err != nil {
 		return err
 	}
@@ -81,10 +87,15 @@ func (stager *stager) Stage(request StagingRequest, replyTo string) error {
 		},
 	})
 
+	uploadURL, err := stager.dropletUploadURL(request, fileServerURL)
+	if err != nil {
+		return err
+	}
+
 	actions = append(actions, models.ExecutorAction{
 		models.UploadAction{
 			From: "/tmp/droplet/droplet.tgz",
-			To:   request.UploadUri,
+			To:   uploadURL,
 		},
 	})
 
@@ -110,15 +121,10 @@ func (stager *stager) Stage(request StagingRequest, replyTo string) error {
 	return err
 }
 
-func (stager *stager) compilerDownloadURL(request StagingRequest) (string, error) {
+func (stager *stager) compilerDownloadURL(request StagingRequest, fileServerURL string) (string, error) {
 	compilerPath, ok := stager.compilers[request.Stack]
 	if !ok {
 		return "", errors.New("No compiler defined for requested stack")
-	}
-
-	fileServerURL, err := stager.stagerBBS.GetAvailableFileServer()
-	if err != nil {
-		return "", errors.New("No available file server present")
 	}
 
 	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_STATIC)
@@ -127,4 +133,21 @@ func (stager *stager) compilerDownloadURL(request StagingRequest) (string, error
 	}
 
 	return urljoiner.Join(fileServerURL, staticRoute.Path, compilerPath), nil
+}
+
+func (stager *stager) dropletUploadURL(request StagingRequest, fileServerURL string) (string, error) {
+	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_UPLOAD_DROPLET)
+	if !ok {
+		return "", errors.New("Couldn't generate the compiler download path")
+	}
+
+	path, err := staticRoute.PathWithParams(map[string]string{
+		"guid": request.AppId,
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("Failed to build droplet upload URL: %s", err)
+	}
+
+	return urljoiner.Join(fileServerURL, path), nil
 }

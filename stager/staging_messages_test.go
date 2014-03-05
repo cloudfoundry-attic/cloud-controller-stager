@@ -18,7 +18,6 @@ var _ = Describe("StagingMessages", func() {
            "environment" : [["FOO", "BAR"]],
            "stack" : "fake-stack",
            "download_uri" : "fake-download_uri",
-           "upload_uri" : "fake-upload_uri",
            "buildpack_cache_download_uri" : "fake-buildpack_cache_download_uri",
            "buildpack_cache_upload_uri" : "fake-buildpack_cache_upload_uri",
            "admin_buildpacks" : [{"key":"fake-buildpack-key" ,"url":"fake-buildpack-url"}]
@@ -34,7 +33,6 @@ var _ = Describe("StagingMessages", func() {
 				TaskId:      "fake-task_id",
 				Stack:       "fake-stack",
 				DownloadUri: "fake-download_uri",
-				UploadUri:   "fake-upload_uri",
 				MemoryMB:    1024,
 				DiskMB:      10000,
 				AdminBuildpacks: []AdminBuildpack{
