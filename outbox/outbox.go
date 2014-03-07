@@ -13,39 +13,52 @@ import (
 func Listen(bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logger) {
 	for {
 		runOnces, _, errs := bbs.WatchForCompletedRunOnce()
-	dance:
+	waitForRunOnce:
 		for {
 			select {
 			case runOnce := <-runOnces:
+				var err error
+
+				err = bbs.ResolvingRunOnce(runOnce)
+				if err != nil {
+					logger.Errord(map[string]interface{}{
+						"guid":  runOnce.Guid,
+						"error": err.Error(),
+					}, "stager.resolving.runonce.failed")
+					continue
+				}
+
 				logger.Infod(map[string]interface{}{
 					"guid": runOnce.Guid,
-				}, "stager.resolve.runonce")
+				}, "stager.resolving.runonce")
 
-				err := bbs.ResolveRunOnce(runOnce)
-
-				if err == nil {
-					logger.Infod(map[string]interface{}{
+				err = publishResponse(natsClient, runOnce)
+				if err != nil {
+					logger.Errord(map[string]interface{}{
 						"guid":     runOnce.Guid,
+						"error":    err.Error(),
 						"reply-to": runOnce.ReplyTo,
-					}, "stager.resolve.runonce.success")
+					}, "stager.publish.runonce.failed")
+					continue
+				}
 
-					err := publishResponse(natsClient, runOnce)
-					if err != nil {
-						logger.Errord(map[string]interface{}{
-							"guid":     runOnce.Guid,
-							"error":    err.Error(),
-							"reply-to": runOnce.ReplyTo,
-						}, "stager.publish.runonce.failed")
-					}
-				} else {
+				err = bbs.ResolveRunOnce(runOnce)
+				if err != nil {
 					logger.Errord(map[string]interface{}{
 						"guid":  runOnce.Guid,
 						"error": err.Error(),
 					}, "stager.resolve.runonce.failed")
+					continue
 				}
+
+				logger.Infod(map[string]interface{}{
+					"guid":     runOnce.Guid,
+					"reply-to": runOnce.ReplyTo,
+				}, "stager.resolve.runonce.success")
+
 			case err := <-errs:
 				logger.Warnf("error watching for completions: %s\n", err)
-				break dance
+				break waitForRunOnce
 			}
 		}
 	}
