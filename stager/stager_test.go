@@ -48,12 +48,13 @@ var _ = Describe("Stage", func() {
 			modelChannel, _, _ := bbs.WatchForDesiredRunOnce()
 
 			err := stager.Stage(StagingRequest{
-				AppId:       "bunny",
-				TaskId:      "hop",
-				DownloadUri: "http://example-uri.com/bunny",
-				Stack:       "rabbit_hole",
-				MemoryMB:    256,
-				DiskMB:      1024,
+				AppId:           "bunny",
+				TaskId:          "hop",
+				DownloadUri:     "http://example-uri.com/bunny",
+				Stack:           "rabbit_hole",
+				FileDescriptors: 17,
+				MemoryMB:        256,
+				DiskMB:          1024,
 				AdminBuildpacks: []AdminBuildpack{
 					AdminBuildpack{Key: "zfirst-buildpack", Url: "first-buildpack-url"},
 					AdminBuildpack{Key: "asecond-buildpack", Url: "second-buildpack-url"},
@@ -72,6 +73,7 @@ var _ = Describe("Stage", func() {
 			Ω(runOnce.Stack).To(Equal("rabbit_hole"))
 			Ω(runOnce.Log.Guid).To(Equal("bunny"))
 			Ω(runOnce.Log.SourceName).To(Equal("STG"))
+			Ω(runOnce.FileDescriptors).To(Equal(17))
 			Ω(runOnce.Log.Index).To(BeNil())
 			Ω(runOnce.Actions).To(Equal([]ExecutorAction{
 				{

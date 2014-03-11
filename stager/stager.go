@@ -106,12 +106,13 @@ func (stager *stager) Stage(request StagingRequest, replyTo string) error {
 	})
 
 	err = stager.stagerBBS.DesireRunOnce(models.RunOnce{
-		Guid:     strings.Join([]string{request.AppId, request.TaskId}, "-"),
-		Stack:    request.Stack,
-		ReplyTo:  replyTo,
-		MemoryMB: request.MemoryMB,
-		DiskMB:   request.DiskMB,
-		Actions:  actions,
+		Guid:            strings.Join([]string{request.AppId, request.TaskId}, "-"),
+		Stack:           request.Stack,
+		ReplyTo:         replyTo,
+		FileDescriptors: request.FileDescriptors,
+		MemoryMB:        request.MemoryMB,
+		DiskMB:          request.DiskMB,
+		Actions:         actions,
 		Log: models.LogConfig{
 			Guid:       request.AppId,
 			SourceName: "STG",

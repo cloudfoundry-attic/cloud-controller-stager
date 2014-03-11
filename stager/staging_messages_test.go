@@ -14,7 +14,7 @@ var _ = Describe("StagingMessages", func() {
            "task_id" : "fake-task_id",
            "memoryMB" : 1024,
            "diskMB" : 10000,
-           "fileDescriptors" : "fake-fileDescriptors",
+           "fileDescriptors" : 3,
            "environment" : [["FOO", "BAR"]],
            "stack" : "fake-stack",
            "download_uri" : "fake-download_uri",
@@ -29,12 +29,13 @@ var _ = Describe("StagingMessages", func() {
 			Ω(err).ShouldNot(HaveOccurred())
 
 			Ω(stagingRequest).Should(Equal(StagingRequest{
-				AppId:       "fake-app_id",
-				TaskId:      "fake-task_id",
-				Stack:       "fake-stack",
-				DownloadUri: "fake-download_uri",
-				MemoryMB:    1024,
-				DiskMB:      10000,
+				AppId:           "fake-app_id",
+				TaskId:          "fake-task_id",
+				Stack:           "fake-stack",
+				DownloadUri:     "fake-download_uri",
+				MemoryMB:        1024,
+				FileDescriptors: 3,
+				DiskMB:          10000,
 				AdminBuildpacks: []AdminBuildpack{
 					{
 						Key: "fake-buildpack-key",
