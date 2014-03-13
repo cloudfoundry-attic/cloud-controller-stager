@@ -111,4 +111,16 @@ var _ = Describe("Outbox", func() {
 			close(done)
 		}, 2.0)
 	})
+
+	Describe("asynchronous message processing", func() {
+		It("can accept new Completed RunOnces before it's done processing existing RunOnces in the queue", func(done Done) {
+			runOnce.Result = `{"detected_buildpack":"Some Buildpack"}`
+			bbs.CompletedRunOnceChan <- runOnce
+			bbs.CompletedRunOnceChan <- runOnce
+
+			Ω(string(<-published)).Should(Equal(`{"detected_buildpack":"Some Buildpack"}`))
+			Ω(string(<-published)).Should(Equal(`{"detected_buildpack":"Some Buildpack"}`))
+			close(done)
+		})
+	})
 })
