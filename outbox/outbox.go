@@ -12,14 +12,22 @@ import (
 
 func Listen(bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logger) {
 	for {
+		logger.Info("stager.watching-for-completed-runonce")
 		runOnces, _, errs := bbs.WatchForCompletedRunOnce()
 	waitForRunOnce:
 		for {
 			select {
-			case runOnce := <-runOnces:
+			case runOnce, ok := <-runOnces:
+				if !ok {
+					break waitForRunOnce
+				}
 				go handleCompletedRunOnce(runOnce, bbs, natsClient, logger)
-			case err := <-errs:
-				logger.Warnf("error watching for completions: %s\n", err)
+			case err, ok := <-errs:
+				if ok && err != nil {
+					logger.Errord(map[string]interface{}{
+						"error": err.Error(),
+					}, "stager.watch-completed-runonce.failed")
+				}
 				break waitForRunOnce
 			}
 		}
