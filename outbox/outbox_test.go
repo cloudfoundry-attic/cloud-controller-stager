@@ -2,7 +2,7 @@ package outbox_test
 
 import (
 	"errors"
-	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fakebbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/cloudfoundry-incubator/stager/outbox"
 	steno "github.com/cloudfoundry/gosteno"
@@ -16,7 +16,7 @@ var _ = Describe("Outbox", func() {
 	var fakenats *fakeyagnats.FakeYagnats
 	var logger *steno.Logger
 	var runOnce models.RunOnce
-	var bbs *fakebbs.FakeStagerBBS
+	var bbs *fake_bbs.FakeStagerBBS
 	var published chan []byte
 
 	BeforeEach(func() {
@@ -27,7 +27,7 @@ var _ = Describe("Outbox", func() {
 			ReplyTo: "some-requester",
 			Result:  "{}",
 		}
-		bbs = fakebbs.NewFakeStagerBBS()
+		bbs = fake_bbs.NewFakeStagerBBS()
 		published = make(chan []byte)
 
 		fakenats.Subscribe("some-requester", func(msg *yagnats.Message) {
