@@ -106,16 +106,16 @@ var _ = Describe("Stage", func() {
 				},
 				{
 					RunAction{
-						Script: "/tmp/compiler/run",
+						Script: "/tmp/compiler/run" +
+							" -appDir /app" +
+							" -outputDir /tmp/droplet" +
+							" -resultDir /tmp/result" +
+							" -buildpacksDir /tmp/buildpacks" +
+							" -buildpackOrder zfirst-buildpack,asecond-buildpack" +
+							" -cacheDir /tmp/cache",
 						Env: [][]string{
 							{"VCAP_APPLICATION", "foo"},
 							{"VCAP_SERVICES", "bar"},
-							{"APP_DIR", "/app"},
-							{"OUTPUT_DIR", "/tmp/droplet"},
-							{"RESULT_DIR", "/tmp/result"},
-							{"BUILDPACKS_DIR", "/tmp/buildpacks"},
-							{"BUILDPACK_ORDER", "zfirst-buildpack,asecond-buildpack"},
-							{"CACHE_DIR", "/tmp/cache"},
 						},
 						Timeout: 15 * time.Minute,
 					},
