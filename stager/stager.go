@@ -69,20 +69,18 @@ func (stager *stager) Stage(request StagingRequest, replyTo string) error {
 		buildpacksOrder = append(buildpacksOrder, buildpack.Key)
 	}
 
-	env := [][]string{
-		{"APP_DIR", "/app"},
-		{"OUTPUT_DIR", "/tmp/droplet"},
-		{"RESULT_DIR", "/tmp/result"},
-		{"BUILDPACKS_DIR", "/tmp/buildpacks"},
-		{"BUILDPACK_ORDER", strings.Join(buildpacksOrder, ",")},
-		{"CACHE_DIR", "/tmp/cache"},
-	}
-	env = append(request.Environment, env...)
+	script := "/tmp/compiler/run" +
+		" -appDir /app" +
+		" -outputDir /tmp/droplet" +
+		" -resultDir /tmp/result" +
+		" -buildpacksDir /tmp/buildpacks" +
+		" -buildpackOrder " + strings.Join(buildpacksOrder, ",") +
+		" -cacheDir /tmp/cache"
 
 	actions = append(actions, models.ExecutorAction{
 		models.RunAction{
-			Script:  "/tmp/compiler/run",
-			Env:     env,
+			Script:  script,
+			Env:     request.Environment,
 			Timeout: 15 * time.Minute,
 		},
 	})
