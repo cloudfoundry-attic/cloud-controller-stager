@@ -1,4 +1,4 @@
-package fakestager
+package fake_stager
 
 import (
 	"errors"

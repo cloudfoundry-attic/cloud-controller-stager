@@ -3,7 +3,7 @@ package stager_test
 import (
 	"encoding/json"
 	. "github.com/cloudfoundry-incubator/stager/stager"
-	"github.com/cloudfoundry-incubator/stager/stager/fakestager"
+	"github.com/cloudfoundry-incubator/stager/stager/fake_stager"
 	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/yagnats/fakeyagnats"
 	. "github.com/onsi/ginkgo"
@@ -13,7 +13,7 @@ import (
 var _ = Describe("StagingListener", func() {
 	Context("when it receives a staging request", func() {
 		var fakenats *fakeyagnats.FakeYagnats
-		var fauxstager *fakestager.FakeStager
+		var fauxstager *fake_stager.FakeStager
 		var testingSink *steno.TestingSink
 		var logger *steno.Logger
 
@@ -25,7 +25,7 @@ var _ = Describe("StagingListener", func() {
 			steno.Init(stenoConfig)
 
 			fakenats = fakeyagnats.New()
-			fauxstager = &fakestager.FakeStager{}
+			fauxstager = &fake_stager.FakeStager{}
 			logger = steno.NewLogger("fakelogger")
 		})
 
