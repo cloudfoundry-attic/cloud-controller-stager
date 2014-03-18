@@ -2,7 +2,7 @@ package stager_test
 
 import (
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
-	. "github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/cloudfoundry-incubator/stager/stager"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	. "github.com/onsi/ginkgo"
@@ -25,7 +25,7 @@ var _ = Describe("Stage", func() {
 
 	Context("when file server is not available", func() {
 		It("should return an error", func() {
-			err := stager.Stage(StagingRequest{
+			err := stager.Stage(models.StagingRequestFromCC{
 				AppId:       "bunny",
 				TaskId:      "hop",
 				DownloadUri: "http://example-uri.com/bunny",
@@ -48,7 +48,7 @@ var _ = Describe("Stage", func() {
 		It("creates a RunOnce with staging instructions", func(done Done) {
 			modelChannel, _, _ := bbs.WatchForDesiredRunOnce()
 
-			err := stager.Stage(StagingRequest{
+			err := stager.Stage(models.StagingRequestFromCC{
 				AppId:           "bunny",
 				TaskId:          "hop",
 				DownloadUri:     "http://example-uri.com/bunny",
@@ -56,9 +56,9 @@ var _ = Describe("Stage", func() {
 				FileDescriptors: 17,
 				MemoryMB:        256,
 				DiskMB:          1024,
-				AdminBuildpacks: []AdminBuildpack{
-					AdminBuildpack{Key: "zfirst-buildpack", Url: "first-buildpack-url"},
-					AdminBuildpack{Key: "asecond-buildpack", Url: "second-buildpack-url"},
+				AdminBuildpacks: []models.AdminBuildpack{
+					{Key: "zfirst-buildpack", Url: "first-buildpack-url"},
+					{Key: "asecond-buildpack", Url: "second-buildpack-url"},
 				},
 				Environment: [][]string{
 					{"VCAP_APPLICATION", "foo"},
@@ -76,37 +76,37 @@ var _ = Describe("Stage", func() {
 			Ω(runOnce.Log.SourceName).To(Equal("STG"))
 			Ω(runOnce.FileDescriptors).To(Equal(17))
 			Ω(runOnce.Log.Index).To(BeNil())
-			Ω(runOnce.Actions).To(Equal([]ExecutorAction{
+			Ω(runOnce.Actions).To(Equal([]models.ExecutorAction{
 				{
-					DownloadAction{
+					models.DownloadAction{
 						From:    "http://file-server.com/static/rabbit-hole-compiler",
 						To:      "/tmp/compiler",
 						Extract: true,
 					},
 				},
 				{
-					DownloadAction{
+					models.DownloadAction{
 						From:    "http://example-uri.com/bunny",
 						To:      "/app",
 						Extract: true,
 					},
 				},
 				{
-					DownloadAction{
+					models.DownloadAction{
 						From:    "first-buildpack-url",
 						To:      "/tmp/buildpacks/zfirst-buildpack",
 						Extract: true,
 					},
 				},
 				{
-					DownloadAction{
+					models.DownloadAction{
 						From:    "second-buildpack-url",
 						To:      "/tmp/buildpacks/asecond-buildpack",
 						Extract: true,
 					},
 				},
 				{
-					RunAction{
+					models.RunAction{
 						Script: "/tmp/compiler/run" +
 							" -appDir /app" +
 							" -outputDir /tmp/droplet" +
@@ -122,13 +122,13 @@ var _ = Describe("Stage", func() {
 					},
 				},
 				{
-					UploadAction{
+					models.UploadAction{
 						From: "/tmp/droplet/droplet.tgz",
 						To:   "http://file-server.com/droplet/bunny",
 					},
 				},
 				{
-					FetchResultAction{
+					models.FetchResultAction{
 						File: "/tmp/result/result.json",
 					},
 				},
@@ -149,7 +149,7 @@ var _ = Describe("Stage", func() {
 		It("should return an error", func(done Done) {
 			bbs.WatchForDesiredRunOnce()
 
-			err := stager.Stage(StagingRequest{
+			err := stager.Stage(models.StagingRequestFromCC{
 				AppId:       "bunny",
 				TaskId:      "hop",
 				DownloadUri: "http://example-uri.com/bunny",

@@ -2,6 +2,7 @@ package stager
 
 import (
 	"encoding/json"
+	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/yagnats"
 )
@@ -24,7 +25,7 @@ func Listen(natsClient yagnats.NATSClient, stager Stager, logger *steno.Logger) 
 
 func (stagingListener *StagingListener) Listen() error {
 	_, err := stagingListener.natsClient.SubscribeWithQueue("diego.staging.start", "diego.stagers", func(message *yagnats.Message) {
-		startMessage := StagingRequest{}
+		startMessage := models.StagingRequestFromCC{}
 
 		err := json.Unmarshal(message.Payload, &startMessage)
 		if err != nil {
@@ -60,7 +61,7 @@ func (stagingListener *StagingListener) logError(logMessage string, err error, m
 }
 
 func (stagingListener *StagingListener) sendErrorResponse(replyTo string, errorMessage string) {
-	response := StagingResponse{Error: errorMessage}
+	response := models.StagingResponseForCC{Error: errorMessage}
 	if responseJson, err := json.Marshal(response); err == nil {
 		stagingListener.natsClient.Publish(replyTo, responseJson)
 	}

@@ -12,7 +12,7 @@ import (
 )
 
 type Stager interface {
-	Stage(StagingRequest, string) error
+	Stage(models.StagingRequestFromCC, string) error
 }
 
 type stager struct {
@@ -27,7 +27,7 @@ func NewStager(stagerBBS bbs.StagerBBS, compilers map[string]string) Stager {
 	}
 }
 
-func (stager *stager) Stage(request StagingRequest, replyTo string) error {
+func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string) error {
 	fileServerURL, err := stager.stagerBBS.GetAvailableFileServer()
 	if err != nil {
 		return errors.New("No available file server present")
@@ -120,7 +120,7 @@ func (stager *stager) Stage(request StagingRequest, replyTo string) error {
 	return err
 }
 
-func (stager *stager) compilerDownloadURL(request StagingRequest, fileServerURL string) (string, error) {
+func (stager *stager) compilerDownloadURL(request models.StagingRequestFromCC, fileServerURL string) (string, error) {
 	compilerPath, ok := stager.compilers[request.Stack]
 	if !ok {
 		return "", errors.New("No compiler defined for requested stack")
@@ -134,7 +134,7 @@ func (stager *stager) compilerDownloadURL(request StagingRequest, fileServerURL 
 	return urljoiner.Join(fileServerURL, staticRoute.Path, compilerPath), nil
 }
 
-func (stager *stager) dropletUploadURL(request StagingRequest, fileServerURL string) (string, error) {
+func (stager *stager) dropletUploadURL(request models.StagingRequestFromCC, fileServerURL string) (string, error) {
 	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_UPLOAD_DROPLET)
 	if !ok {
 		return "", errors.New("Couldn't generate the compiler download path")

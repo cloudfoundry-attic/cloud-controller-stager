@@ -2,6 +2,7 @@ package stager_test
 
 import (
 	"encoding/json"
+	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/cloudfoundry-incubator/stager/stager"
 	"github.com/cloudfoundry-incubator/stager/stager/fake_stager"
 	steno "github.com/cloudfoundry/gosteno"
@@ -34,7 +35,7 @@ var _ = Describe("StagingListener", func() {
 		})
 
 		It("kicks off staging", func() {
-			stagingRequest := StagingRequest{
+			stagingRequest := models.StagingRequestFromCC{
 				AppId:  "myapp",
 				TaskId: "mytask",
 			}
@@ -60,14 +61,14 @@ var _ = Describe("StagingListener", func() {
 
 				Ω(fakenats.PublishedMessages[replyTo]).To(HaveLen(1))
 				response := fakenats.PublishedMessages[replyTo][0]
-				stagingResponse := StagingResponse{}
+				stagingResponse := models.StagingResponseForCC{}
 				json.Unmarshal(response.Payload, &stagingResponse)
 				Ω(stagingResponse.Error).To(Equal("Staging message contained invalid JSON"))
 			})
 		})
 
 		publishStagingMessage := func() {
-			stagingRequest := StagingRequest{
+			stagingRequest := models.StagingRequestFromCC{
 				AppId:  "myapp",
 				TaskId: "mytask",
 			}
@@ -106,7 +107,7 @@ var _ = Describe("StagingListener", func() {
 
 				Ω(fakenats.PublishedMessages[replyTo]).To(HaveLen(1))
 				response := fakenats.PublishedMessages[replyTo][0]
-				stagingResponse := StagingResponse{}
+				stagingResponse := models.StagingResponseForCC{}
 				json.Unmarshal(response.Payload, &stagingResponse)
 				Ω(stagingResponse.Error).To(Equal("Staging failed: The thingy broke :("))
 			})

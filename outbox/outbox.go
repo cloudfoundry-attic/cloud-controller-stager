@@ -5,7 +5,6 @@ import (
 
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	"github.com/cloudfoundry-incubator/stager/stager"
 	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/yagnats"
 )
@@ -76,12 +75,12 @@ func handleCompletedRunOnce(runOnce *models.RunOnce, bbs bbs.StagerBBS, natsClie
 }
 
 func publishResponse(natsClient yagnats.NATSClient, runOnce *models.RunOnce) error {
-	var response stager.StagingResponse
+	var response models.StagingResponseForCC
 
 	if runOnce.Failed {
 		response.Error = runOnce.FailureReason
 	} else {
-		var result stager.StagingResult
+		var result models.StagingInfo
 		err := json.Unmarshal([]byte(runOnce.Result), &result)
 		if err != nil {
 			return err
