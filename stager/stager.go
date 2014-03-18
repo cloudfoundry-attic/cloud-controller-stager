@@ -38,12 +38,19 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 		return err
 	}
 
+	buildpacksOrder := []string{}
+	for _, buildpack := range request.AdminBuildpacks {
+		buildpacksOrder = append(buildpacksOrder, buildpack.Key)
+	}
+
+	smeltingConfig := models.NewLinuxSmeltingConfig(buildpacksOrder)
+
 	actions := []models.ExecutorAction{}
 
 	actions = append(actions, models.ExecutorAction{
 		models.DownloadAction{
 			From:    compilerURL,
-			To:      "/tmp/compiler",
+			To:      smeltingConfig.CompilerPath(),
 			Extract: true,
 		},
 	})
@@ -51,35 +58,24 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 	actions = append(actions, models.ExecutorAction{
 		models.DownloadAction{
 			From:    request.DownloadUri,
-			To:      "/app",
+			To:      smeltingConfig.AppPath(),
 			Extract: true,
 		},
 	})
 
-	buildpacksOrder := []string{}
 	for _, buildpack := range request.AdminBuildpacks {
 		actions = append(actions, models.ExecutorAction{
 			models.DownloadAction{
 				From:    buildpack.Url,
-				To:      "/tmp/buildpacks/" + buildpack.Key,
+				To:      smeltingConfig.BuildpackPath(buildpack.Key),
 				Extract: true,
 			},
 		})
-
-		buildpacksOrder = append(buildpacksOrder, buildpack.Key)
 	}
-
-	script := "/tmp/compiler/run" +
-		" -appDir /app" +
-		" -outputDir /tmp/droplet" +
-		" -resultDir /tmp/result" +
-		" -buildpacksDir /tmp/buildpacks" +
-		" -buildpackOrder " + strings.Join(buildpacksOrder, ",") +
-		" -cacheDir /tmp/cache"
 
 	actions = append(actions, models.ExecutorAction{
 		models.RunAction{
-			Script:  script,
+			Script:  smeltingConfig.Script(),
 			Env:     request.Environment,
 			Timeout: 15 * time.Minute,
 		},
@@ -92,14 +88,14 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 
 	actions = append(actions, models.ExecutorAction{
 		models.UploadAction{
-			From: "/tmp/droplet/droplet.tgz",
+			From: smeltingConfig.DropletArchivePath(),
 			To:   uploadURL,
 		},
 	})
 
 	actions = append(actions, models.ExecutorAction{
 		models.FetchResultAction{
-			File: "/tmp/result/result.json",
+			File: smeltingConfig.ResultJsonPath(),
 		},
 	})
 
