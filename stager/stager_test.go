@@ -4,6 +4,7 @@ import (
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	. "github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/cloudfoundry-incubator/stager/stager"
+	"github.com/cloudfoundry/gunk/timeprovider"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"time"
@@ -14,7 +15,7 @@ var _ = Describe("Stage", func() {
 	var bbs *Bbs.BBS
 
 	BeforeEach(func() {
-		bbs = Bbs.New(etcdRunner.Adapter())
+		bbs = Bbs.New(etcdRunner.Adapter(), timeprovider.NewTimeProvider())
 		compilers := map[string]string{
 			"penguin":     "penguin-compiler",
 			"rabbit_hole": "rabbit-hole-compiler",

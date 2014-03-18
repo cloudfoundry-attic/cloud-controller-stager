@@ -8,6 +8,7 @@ import (
 	"github.com/cloudfoundry-incubator/stager/outbox"
 	stgr "github.com/cloudfoundry-incubator/stager/stager"
 	steno "github.com/cloudfoundry/gosteno"
+	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
 	"github.com/cloudfoundry/yagnats"
@@ -85,7 +86,7 @@ func main() {
 		log.Fatalf("Error connecting to NATS: %s\n", err)
 	}
 
-	bbs := Bbs.New(etcdAdapter)
+	bbs := Bbs.New(etcdAdapter, timeprovider.NewTimeProvider())
 
 	compilersMap := make(map[string]string)
 	err = json.Unmarshal([]byte(*compilers), &compilersMap)

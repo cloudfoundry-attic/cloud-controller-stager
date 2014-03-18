@@ -15,14 +15,14 @@ import (
 var _ = Describe("Outbox", func() {
 	var fakenats *fakeyagnats.FakeYagnats
 	var logger *steno.Logger
-	var runOnce models.RunOnce
+	var runOnce *models.RunOnce
 	var bbs *fake_bbs.FakeStagerBBS
 	var published chan []byte
 
 	BeforeEach(func() {
 		fakenats = fakeyagnats.New()
 		logger = steno.NewLogger("fakelogger")
-		runOnce = models.RunOnce{
+		runOnce = &models.RunOnce{
 			Guid:    "some-task-id",
 			ReplyTo: "some-requester",
 			Result:  "{}",

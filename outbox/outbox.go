@@ -34,7 +34,7 @@ func Listen(bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logg
 	}
 }
 
-func handleCompletedRunOnce(runOnce models.RunOnce, bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logger) {
+func handleCompletedRunOnce(runOnce *models.RunOnce, bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logger) {
 	var err error
 
 	err = bbs.ResolvingRunOnce(runOnce)
@@ -75,7 +75,7 @@ func handleCompletedRunOnce(runOnce models.RunOnce, bbs bbs.StagerBBS, natsClien
 	}, "stager.resolve.runonce.success")
 }
 
-func publishResponse(natsClient yagnats.NATSClient, runOnce models.RunOnce) error {
+func publishResponse(natsClient yagnats.NATSClient, runOnce *models.RunOnce) error {
 	var response stager.StagingResponse
 
 	if runOnce.Failed {
