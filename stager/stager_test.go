@@ -108,12 +108,12 @@ var _ = Describe("Stage", func() {
 				{
 					models.RunAction{
 						Script: "/tmp/compiler/run" +
-							" -appDir /app" +
-							" -outputDir /tmp/droplet" +
-							" -resultDir /tmp/result" +
-							" -buildpacksDir /tmp/buildpacks" +
-							" -buildpackOrder zfirst-buildpack,asecond-buildpack" +
-							" -cacheDir /tmp/cache",
+							" -appDir='/app'" +
+							" -buildpackOrder='zfirst-buildpack,asecond-buildpack'" +
+							" -buildpacksDir='/tmp/buildpacks'" +
+							" -cacheDir='/tmp/cache'" +
+							" -outputDir='/tmp/droplet'" +
+							" -resultDir='/tmp/result'",
 						Env: [][]string{
 							{"VCAP_APPLICATION", "foo"},
 							{"VCAP_SERVICES", "bar"},
