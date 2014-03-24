@@ -11,15 +11,15 @@
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/bbs",
-			"Rev": "85e7358f4edf0025deb5c2b13223604d678c84c3"
+			"Rev": "dd5c07f6e0fe610412712037abcfff7997c31199"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/models",
-			"Rev": "85e7358f4edf0025deb5c2b13223604d678c84c3"
+			"Rev": "dd5c07f6e0fe610412712037abcfff7997c31199"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/router",
-			"Rev": "85e7358f4edf0025deb5c2b13223604d678c84c3"
+			"Rev": "dd5c07f6e0fe610412712037abcfff7997c31199"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gosteno",
@@ -28,15 +28,15 @@
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/timeprovider",
-			"Rev": "0ab08c4a0d1b32c0db1ecd53b55603662de9e767"
+			"Rev": "0dfce73f2060a23c01134f5880295b70cc325e14"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/urljoiner",
-			"Rev": "0ab08c4a0d1b32c0db1ecd53b55603662de9e767"
+			"Rev": "0dfce73f2060a23c01134f5880295b70cc325e14"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/storeadapter",
-			"Rev": "92c60f30dea8e910648b01d7f7ba411908ea615e"
+			"Rev": "40121f26551acde4dceb9556b5cd106f2b5143d6"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/yagnats",
@@ -53,7 +53,7 @@
 		},
 		{
 			"ImportPath": "github.com/onsi/ginkgo",
-			"Rev": "5f27c85969c8a7a2ba9c277115563d5ae2d1f6b4"
+			"Rev": "16fad02eaa84166bf43945c944c60154621f5fdf"
 		},
 		{
 			"ImportPath": "github.com/onsi/gomega",
