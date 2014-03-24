@@ -39,7 +39,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 	}
 
 	buildpacksOrder := []string{}
-	for _, buildpack := range request.AdminBuildpacks {
+	for _, buildpack := range request.Buildpacks {
 		buildpacksOrder = append(buildpacksOrder, buildpack.Key)
 	}
 
@@ -57,13 +57,13 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 
 	actions = append(actions, models.ExecutorAction{
 		models.DownloadAction{
-			From:    request.DownloadUri,
+			From:    request.AppBitsDownloadUri,
 			To:      smeltingConfig.AppDir(),
 			Extract: true,
 		},
 	})
 
-	for _, buildpack := range request.AdminBuildpacks {
+	for _, buildpack := range request.Buildpacks {
 		actions = append(actions, models.ExecutorAction{
 			models.DownloadAction{
 				From:    buildpack.Url,

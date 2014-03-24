@@ -26,12 +26,12 @@ var _ = Describe("Stage", func() {
 	Context("when file server is not available", func() {
 		It("should return an error", func() {
 			err := stager.Stage(models.StagingRequestFromCC{
-				AppId:       "bunny",
-				TaskId:      "hop",
-				DownloadUri: "http://example-uri.com/bunny",
-				Stack:       "rabbit_hole",
-				MemoryMB:    256,
-				DiskMB:      1024,
+				AppId:              "bunny",
+				TaskId:             "hop",
+				AppBitsDownloadUri: "http://example-uri.com/bunny",
+				Stack:              "rabbit_hole",
+				MemoryMB:           256,
+				DiskMB:             1024,
 			}, "me")
 
 			Ω(err).Should(HaveOccurred())
@@ -49,14 +49,14 @@ var _ = Describe("Stage", func() {
 			modelChannel, _, _ := bbs.WatchForDesiredRunOnce()
 
 			err := stager.Stage(models.StagingRequestFromCC{
-				AppId:           "bunny",
-				TaskId:          "hop",
-				DownloadUri:     "http://example-uri.com/bunny",
-				Stack:           "rabbit_hole",
-				FileDescriptors: 17,
-				MemoryMB:        256,
-				DiskMB:          1024,
-				AdminBuildpacks: []models.AdminBuildpack{
+				AppId:              "bunny",
+				TaskId:             "hop",
+				AppBitsDownloadUri: "http://example-uri.com/bunny",
+				Stack:              "rabbit_hole",
+				FileDescriptors:    17,
+				MemoryMB:           256,
+				DiskMB:             1024,
+				Buildpacks: []models.Buildpack{
 					{Key: "zfirst-buildpack", Url: "first-buildpack-url"},
 					{Key: "asecond-buildpack", Url: "second-buildpack-url"},
 				},
@@ -150,12 +150,12 @@ var _ = Describe("Stage", func() {
 			bbs.WatchForDesiredRunOnce()
 
 			err := stager.Stage(models.StagingRequestFromCC{
-				AppId:       "bunny",
-				TaskId:      "hop",
-				DownloadUri: "http://example-uri.com/bunny",
-				Stack:       "no_such_stack",
-				MemoryMB:    256,
-				DiskMB:      1024,
+				AppId:              "bunny",
+				TaskId:             "hop",
+				AppBitsDownloadUri: "http://example-uri.com/bunny",
+				Stack:              "no_such_stack",
+				MemoryMB:           256,
+				DiskMB:             1024,
 			}, "me")
 
 			Ω(err).Should(HaveOccurred())
