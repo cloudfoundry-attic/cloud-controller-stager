@@ -23,6 +23,22 @@ var _ = Describe("Stage", func() {
 		stager = NewStager(bbs, compilers)
 	})
 
+	Context("when the app id is missing", func() {
+		It("should return an error", func() {
+			err := stager.Stage(models.StagingRequestFromCC{
+				AppId:              "",
+				TaskId:             "hop",
+				AppBitsDownloadUri: "http://example-uri.com/bunny",
+				Stack:              "rabbit_hole",
+				MemoryMB:           256,
+				DiskMB:             1024,
+			}, "me")
+
+			Ω(err).Should(HaveOccurred())
+			Ω(err.Error()).Should(Equal("missing app id"))
+		})
+	})
+
 	Context("when file server is not available", func() {
 		It("should return an error", func() {
 			err := stager.Stage(models.StagingRequestFromCC{
@@ -35,7 +51,7 @@ var _ = Describe("Stage", func() {
 			}, "me")
 
 			Ω(err).Should(HaveOccurred())
-			Ω(err.Error()).Should(Equal("No available file server present"))
+			Ω(err.Error()).Should(Equal("no available file server present"))
 		})
 	})
 
@@ -159,7 +175,7 @@ var _ = Describe("Stage", func() {
 			}, "me")
 
 			Ω(err).Should(HaveOccurred())
-			Ω(err.Error()).Should(Equal("No compiler defined for requested stack"))
+			Ω(err.Error()).Should(Equal("no compiler defined for requested stack"))
 			close(done)
 		})
 	})

@@ -27,10 +27,18 @@ func NewStager(stagerBBS bbs.StagerBBS, compilers map[string]string) Stager {
 	}
 }
 
+var ErrNoFileServerPresent = errors.New("no available file server present")
+var ErrMissingAppId = errors.New("missing app id")
+var ErrNoCompilerDefined = errors.New("no compiler defined for requested stack")
+
 func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string) error {
+	if len(request.AppId) == 0 {
+		return ErrMissingAppId
+	}
+
 	fileServerURL, err := stager.stagerBBS.GetAvailableFileServer()
 	if err != nil {
-		return errors.New("No available file server present")
+		return ErrNoFileServerPresent
 	}
 
 	compilerURL, err := stager.compilerDownloadURL(request, fileServerURL)
@@ -119,12 +127,12 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 func (stager *stager) compilerDownloadURL(request models.StagingRequestFromCC, fileServerURL string) (string, error) {
 	compilerPath, ok := stager.compilers[request.Stack]
 	if !ok {
-		return "", errors.New("No compiler defined for requested stack")
+		return "", ErrNoCompilerDefined
 	}
 
 	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_STATIC)
 	if !ok {
-		return "", errors.New("Couldn't generate the compiler download path")
+		return "", errors.New("couldn't generate the compiler download path")
 	}
 
 	return urljoiner.Join(fileServerURL, staticRoute.Path, compilerPath), nil
@@ -133,7 +141,7 @@ func (stager *stager) compilerDownloadURL(request models.StagingRequestFromCC, f
 func (stager *stager) dropletUploadURL(request models.StagingRequestFromCC, fileServerURL string) (string, error) {
 	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_UPLOAD_DROPLET)
 	if !ok {
-		return "", errors.New("Couldn't generate the compiler download path")
+		return "", errors.New("couldn't generate the compiler download path")
 	}
 
 	path, err := staticRoute.PathWithParams(map[string]string{
@@ -141,7 +149,7 @@ func (stager *stager) dropletUploadURL(request models.StagingRequestFromCC, file
 	})
 
 	if err != nil {
-		return "", fmt.Errorf("Failed to build droplet upload URL: %s", err)
+		return "", fmt.Errorf("failed to build droplet upload URL: %s", err)
 	}
 
 	return urljoiner.Join(fileServerURL, path), nil
