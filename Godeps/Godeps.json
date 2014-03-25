@@ -23,8 +23,8 @@
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gosteno",
-			"Comment": "scotty_09012012-39-geb26b3d",
-			"Rev": "eb26b3da8f196059363f5828dee417364b1fdb2f"
+			"Comment": "scotty_09012012-40-g5eb8c6e",
+			"Rev": "5eb8c6e554f0dfc39d6468813b8ac19ec28fe74f"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/timeprovider",
