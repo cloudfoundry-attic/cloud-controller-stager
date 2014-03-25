@@ -40,7 +40,7 @@ func handleCompletedRunOnce(runOnce *models.RunOnce, bbs bbs.StagerBBS, natsClie
 
 	err = bbs.ResolvingRunOnce(runOnce)
 	if err != nil {
-		logger.Errord(map[string]interface{}{
+		logger.Infod(map[string]interface{}{
 			"guid":  runOnce.Guid,
 			"error": err.Error(),
 		}, "stager.resolving.runonce.failed")
@@ -63,7 +63,7 @@ func handleCompletedRunOnce(runOnce *models.RunOnce, bbs bbs.StagerBBS, natsClie
 
 	err = bbs.ResolveRunOnce(runOnce)
 	if err != nil {
-		logger.Errord(map[string]interface{}{
+		logger.Infod(map[string]interface{}{
 			"guid":  runOnce.Guid,
 			"error": err.Error(),
 		}, "stager.resolve.runonce.failed")
