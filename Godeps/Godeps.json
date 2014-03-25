@@ -11,20 +11,20 @@
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/bbs",
-			"Rev": "dd5c07f6e0fe610412712037abcfff7997c31199"
+			"Rev": "b20da7028401fd3d8d0b538e6956c9a92f43602c"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/models",
-			"Rev": "dd5c07f6e0fe610412712037abcfff7997c31199"
+			"Rev": "b20da7028401fd3d8d0b538e6956c9a92f43602c"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/router",
-			"Rev": "dd5c07f6e0fe610412712037abcfff7997c31199"
+			"Rev": "b20da7028401fd3d8d0b538e6956c9a92f43602c"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gosteno",
-			"Comment": "scotty_09012012-38-g969c2c5",
-			"Rev": "969c2c565f5f1638b45702f3a07f6c39013bf375"
+			"Comment": "scotty_09012012-39-geb26b3d",
+			"Rev": "eb26b3da8f196059363f5828dee417364b1fdb2f"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/timeprovider",
