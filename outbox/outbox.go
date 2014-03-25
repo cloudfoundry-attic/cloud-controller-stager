@@ -13,6 +13,7 @@ func Listen(bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logg
 	for {
 		logger.Info("stager.watching-for-completed-runonce")
 		runOnces, _, errs := bbs.WatchForCompletedRunOnce()
+
 	waitForRunOnce:
 		for {
 			select {

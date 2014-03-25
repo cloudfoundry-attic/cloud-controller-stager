@@ -37,7 +37,8 @@ var _ = Describe("Outbox", func() {
 
 	JustBeforeEach(func() {
 		go Listen(bbs, fakenats, logger)
-		<-bbs.CalledCompletedRunOnce
+
+		Eventually(bbs.WatchingForCompleted()).Should(Receive())
 	})
 
 	Context("when a completed RunOnce appears in the outbox", func() {
@@ -45,15 +46,17 @@ var _ = Describe("Outbox", func() {
 			runOnce.Result = `{"detected_buildpack":"Some Buildpack"}`
 		})
 
-		It("claims the completed runonce, publishes its result to ReplyTo and then marks the RunOnce as completed", func(done Done) {
-			bbs.CompletedRunOnceChan <- runOnce
+		It("claims the completed runonce, publishes its result to ReplyTo and then marks the RunOnce as completed", func() {
+			bbs.SendCompletedRunOnce(runOnce)
 
-			Ω(string(<-published)).Should(Equal(`{"detected_buildpack":"Some Buildpack"}`))
-			Ω(bbs.ResolvingRunOnceInput.RunOnceToResolve).ShouldNot(BeZero())
-			Ω(bbs.ResolvedRunOnce).Should(Equal(runOnce))
+			Eventually(bbs.ResolvingRunOnceInput).ShouldNot(BeZero())
 
-			close(done)
-		}, 5.0)
+			var receivedPayload []byte
+			Eventually(published).Should(Receive(&receivedPayload))
+			Ω(receivedPayload).Should(MatchJSON(`{"detected_buildpack":"Some Buildpack"}`))
+
+			Eventually(bbs.ResolvedRunOnce).Should(Equal(runOnce))
+		})
 
 		Context("when the response fails to go out", func() {
 			BeforeEach(func() {
@@ -62,11 +65,11 @@ var _ = Describe("Outbox", func() {
 				})
 			})
 
-			It("does not attempt to resolve the RunOnce", func(done Done) {
-				bbs.CompletedRunOnceChan <- runOnce
+			It("does not attempt to resolve the RunOnce", func() {
+				bbs.SendCompletedRunOnce(runOnce)
+
 				Consistently(bbs.ResolvedRunOnce).ShouldNot(Equal(runOnce))
-				close(done)
-			}, 5.0)
+			})
 		})
 	})
 
@@ -76,55 +79,59 @@ var _ = Describe("Outbox", func() {
 			runOnce.FailureReason = "because i said so"
 		})
 
-		It("publishes its reason as an error to ReplyTo and then marks the RunOnce as completed", func(done Done) {
-			bbs.CompletedRunOnceChan <- runOnce
+		It("publishes its reason as an error to ReplyTo and then marks the RunOnce as completed", func() {
+			bbs.SendCompletedRunOnce(runOnce)
 
-			Ω(string(<-published)).Should(Equal(`{"error":"because i said so"}`))
+			var receivedPayload []byte
+			Eventually(published).Should(Receive(&receivedPayload))
+			Ω(receivedPayload).Should(MatchJSON(`{"error":"because i said so"}`))
 
-			Ω(bbs.ResolvedRunOnce).Should(Equal(runOnce))
-
-			close(done)
-		}, 5.0)
+			Eventually(bbs.ResolvedRunOnce).Should(Equal(runOnce))
+		})
 	})
 
 	Context("when ResolvingRunOnce fails", func() {
 		BeforeEach(func() {
-			bbs.ResolvingRunOnceOutput.Err = errors.New("oops")
+			bbs.WhenSettingResolving(func() error {
+				return errors.New("oops")
+			})
 		})
 
-		It("does not send a response to the requester, because another stager probably resolved it", func(done Done) {
-			bbs.CompletedRunOnceChan <- runOnce
+		It("does not send a response to the requester, because another stager probably resolved it", func() {
+			bbs.SendCompletedRunOnce(runOnce)
 
 			Consistently(bbs.ResolvedRunOnce).ShouldNot(Equal(runOnce))
 			Consistently(published).ShouldNot(Receive())
-			close(done)
-		}, 5.0)
+		})
 	})
 
 	Context("when an error is seen while watching", func() {
+		It("starts watching again", func() {
+			bbs.SendCompletedRunOnceWatchError(errors.New("oh no!"))
 
-		It("starts watching again", func(done Done) {
-			bbs.CompletedRunOnceErrChan <- errors.New("hell")
+			Eventually(bbs.WatchingForCompleted()).Should(Receive())
 
-			<-bbs.CalledCompletedRunOnce
+			bbs.SendCompletedRunOnce(runOnce)
+			Eventually(published).Should(Receive())
 
-			bbs.CompletedRunOnceChan <- runOnce
-			<-published
-
-			Ω(bbs.ResolvedRunOnce).Should(Equal(runOnce))
-			close(done)
-		}, 2.0)
+			Eventually(bbs.ResolvedRunOnce).Should(Equal(runOnce))
+		})
 	})
 
 	Describe("asynchronous message processing", func() {
-		It("can accept new Completed RunOnces before it's done processing existing RunOnces in the queue", func(done Done) {
+		It("can accept new Completed RunOnces before it's done processing existing RunOnces in the queue", func() {
 			runOnce.Result = `{"detected_buildpack":"Some Buildpack"}`
-			bbs.CompletedRunOnceChan <- runOnce
-			bbs.CompletedRunOnceChan <- runOnce
 
-			Ω(string(<-published)).Should(Equal(`{"detected_buildpack":"Some Buildpack"}`))
-			Ω(string(<-published)).Should(Equal(`{"detected_buildpack":"Some Buildpack"}`))
-			close(done)
+			bbs.SendCompletedRunOnce(runOnce)
+			bbs.SendCompletedRunOnce(runOnce)
+
+			var receivedPayload []byte
+
+			Eventually(published).Should(Receive(&receivedPayload))
+			Ω(receivedPayload).Should(MatchJSON(`{"detected_buildpack":"Some Buildpack"}`))
+
+			Eventually(published).Should(Receive(&receivedPayload))
+			Ω(receivedPayload).Should(MatchJSON(`{"detected_buildpack":"Some Buildpack"}`))
 		})
 	})
 })

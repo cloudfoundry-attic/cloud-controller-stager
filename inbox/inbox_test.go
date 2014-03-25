@@ -99,8 +99,8 @@ var _ = Describe("Inbox", func() {
 
 				fakenats.Publish("diego.staging.start", msg)
 
-				Ω(fauxstager.TimesStageInvoked).To(Equal(1))
-				Ω(fauxstager.StagingRequests[0]).To(Equal(stagingRequest))
+				Ω(fauxstager.TimesStageInvoked).Should(Equal(1))
+				Ω(fauxstager.StagingRequests[0]).Should(Equal(stagingRequest))
 			})
 		})
 
@@ -108,22 +108,22 @@ var _ = Describe("Inbox", func() {
 			BeforeEach(listen)
 
 			It("logs the failure", func() {
-				Ω(testingSink.Records).To(HaveLen(0))
+				Ω(testingSink.Records()).Should(HaveLen(0))
 
 				fakenats.PublishWithReplyTo("diego.staging.start", "reply string", []byte("fdsaljkfdsljkfedsews:/sdfa:''''"))
 
-				Ω(testingSink.Records).ToNot(HaveLen(0))
+				Ω(testingSink.Records()).ShouldNot(HaveLen(0))
 			})
 
 			It("sends a staging failure response", func() {
 				fakenats.PublishWithReplyTo("diego.staging.start", "reply string", []byte("fdsaljkfdsljkfedsews:/sdfa:''''"))
 				replyTo := fakenats.PublishedMessages("diego.staging.start")[0].ReplyTo
 
-				Ω(fakenats.PublishedMessages(replyTo)).To(HaveLen(1))
+				Ω(fakenats.PublishedMessages(replyTo)).Should(HaveLen(1))
 				response := fakenats.PublishedMessages(replyTo)[0]
 				stagingResponse := models.StagingResponseForCC{}
 				json.Unmarshal(response.Payload, &stagingResponse)
-				Ω(stagingResponse.Error).To(Equal("Staging message contained malformed JSON"))
+				Ω(stagingResponse.Error).Should(Equal("Staging message contained malformed JSON"))
 			})
 		})
 
@@ -145,7 +145,7 @@ var _ = Describe("Inbox", func() {
 
 				replyTo := fakenats.PublishedMessages("diego.staging.start")[0].ReplyTo
 
-				Ω(fakenats.PublishedMessages(replyTo)).To(HaveLen(0))
+				Ω(fakenats.PublishedMessages(replyTo)).Should(HaveLen(0))
 			})
 		})
 
@@ -161,7 +161,7 @@ var _ = Describe("Inbox", func() {
 			It("logs the failure", func() {
 				publishStagingMessage()
 
-				Ω(testingSink.Records).ShouldNot(HaveLen(0))
+				Ω(testingSink.Records()).ShouldNot(HaveLen(0))
 			})
 
 			It("sends a staging failure response", func() {
@@ -169,11 +169,11 @@ var _ = Describe("Inbox", func() {
 
 				replyTo := fakenats.PublishedMessages("diego.staging.start")[0].ReplyTo
 
-				Ω(fakenats.PublishedMessages(replyTo)).To(HaveLen(1))
+				Ω(fakenats.PublishedMessages(replyTo)).Should(HaveLen(1))
 				response := fakenats.PublishedMessages(replyTo)[0]
 				stagingResponse := models.StagingResponseForCC{}
 				json.Unmarshal(response.Payload, &stagingResponse)
-				Ω(stagingResponse.Error).To(Equal("Invalid staging request: NO."))
+				Ω(stagingResponse.Error).Should(Equal("Invalid staging request: NO."))
 			})
 		})
 
@@ -185,11 +185,11 @@ var _ = Describe("Inbox", func() {
 			})
 
 			It("logs the failure", func() {
-				Ω(testingSink.Records).To(HaveLen(0))
+				Ω(testingSink.Records()).Should(HaveLen(0))
 
 				publishStagingMessage()
 
-				Ω(testingSink.Records).ShouldNot(HaveLen(0))
+				Ω(testingSink.Records()).ShouldNot(HaveLen(0))
 			})
 
 			It("sends a staging failure response", func() {
@@ -197,11 +197,11 @@ var _ = Describe("Inbox", func() {
 
 				replyTo := fakenats.PublishedMessages("diego.staging.start")[0].ReplyTo
 
-				Ω(fakenats.PublishedMessages(replyTo)).To(HaveLen(1))
+				Ω(fakenats.PublishedMessages(replyTo)).Should(HaveLen(1))
 				response := fakenats.PublishedMessages(replyTo)[0]
 				stagingResponse := models.StagingResponseForCC{}
 				json.Unmarshal(response.Payload, &stagingResponse)
-				Ω(stagingResponse.Error).To(Equal("Staging failed: The thingy broke :("))
+				Ω(stagingResponse.Error).Should(Equal("Staging failed: The thingy broke :("))
 			})
 		})
 	})
