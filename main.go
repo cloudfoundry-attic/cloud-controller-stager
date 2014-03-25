@@ -97,8 +97,9 @@ func main() {
 		log.Fatalf("Error parsing compilers flag: %s\n", err)
 	}
 
-	go inbox.Listen(natsClient, stager.New(bbs, compilersMap), inbox.ValidateRequest, log)
 	go outbox.Listen(bbs, natsClient, log)
+
+	inbox.Listen(natsClient, stager.New(bbs, compilersMap), inbox.ValidateRequest, log)
 
 	fmt.Println("Listening for staging requests!")
 

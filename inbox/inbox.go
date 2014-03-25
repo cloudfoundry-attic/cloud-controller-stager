@@ -2,6 +2,7 @@ package inbox
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	steno "github.com/cloudfoundry/gosteno"
@@ -20,7 +21,7 @@ type Inbox struct {
 
 type RequestValidator func(models.StagingRequestFromCC) error
 
-func Listen(natsClient yagnats.NATSClient, stager stager.Stager, validator RequestValidator, logger *steno.Logger) error {
+func Listen(natsClient yagnats.NATSClient, stager stager.Stager, validator RequestValidator, logger *steno.Logger) {
 	inbox := Inbox{
 		natsClient:      natsClient,
 		stager:          stager,
@@ -29,44 +30,48 @@ func Listen(natsClient yagnats.NATSClient, stager stager.Stager, validator Reque
 		logger: logger,
 	}
 
-	return inbox.Listen()
+	inbox.Listen()
 }
 
-func (inbox *Inbox) Listen() error {
-	_, err := inbox.natsClient.SubscribeWithQueue("diego.staging.start", "diego.stagers", func(message *yagnats.Message) {
-		stagingRequest := models.StagingRequestFromCC{}
+func (inbox *Inbox) Listen() {
+	for {
+		_, err := inbox.natsClient.SubscribeWithQueue("diego.staging.start", "diego.stagers", func(message *yagnats.Message) {
+			stagingRequest := models.StagingRequestFromCC{}
 
-		err := json.Unmarshal(message.Payload, &stagingRequest)
-		if err != nil {
-			inbox.logError("staging.request.malformed", err, message)
-			inbox.sendErrorResponse(message.ReplyTo, "Staging message contained malformed JSON")
-			return
+			err := json.Unmarshal(message.Payload, &stagingRequest)
+			if err != nil {
+				inbox.logError("staging.request.malformed", err, message)
+				inbox.sendErrorResponse(message.ReplyTo, "Staging message contained malformed JSON")
+				return
+			}
+
+			err = inbox.validateRequest(stagingRequest)
+			if err != nil {
+				inbox.logError("staging.request.invalid", err, message)
+				inbox.sendErrorResponse(message.ReplyTo, "Invalid staging request: "+err.Error())
+				return
+			}
+
+			inbox.logger.Infod(
+				map[string]interface{}{
+					"message": stagingRequest,
+				},
+				"staging.request.received",
+			)
+
+			err = inbox.stager.Stage(stagingRequest, message.ReplyTo)
+			if err != nil {
+				inbox.logError("stager.staging.failed", err, stagingRequest)
+				inbox.sendErrorResponse(message.ReplyTo, "Staging failed: "+err.Error())
+				return
+			}
+		})
+
+		if err == nil {
+			time.Sleep(500 * time.Millisecond)
+			break
 		}
-
-		err = inbox.validateRequest(stagingRequest)
-		if err != nil {
-			inbox.logError("staging.request.invalid", err, message)
-			inbox.sendErrorResponse(message.ReplyTo, "Invalid staging request: "+err.Error())
-			return
-		}
-
-		inbox.logger.Infod(
-			map[string]interface{}{
-				"message": stagingRequest,
-			},
-			"staging.request.received",
-		)
-
-		err = inbox.stager.Stage(stagingRequest, message.ReplyTo)
-		if err != nil {
-			inbox.logError("stager.staging.failed", err, stagingRequest)
-			inbox.sendErrorResponse(message.ReplyTo, "Staging failed: "+err.Error())
-			return
-		}
-
-	})
-
-	return err
+	}
 }
 
 func (inbox *Inbox) logError(logMessage string, err error, message interface{}) {

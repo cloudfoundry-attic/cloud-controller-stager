@@ -56,9 +56,13 @@ var _ = Describe("Outbox", func() {
 		}, 5.0)
 
 		Context("when the response fails to go out", func() {
-			It("does not attempt to resolve the RunOnce", func(done Done) {
-				fakenats.PublishError = errors.New("kaboom!")
+			BeforeEach(func() {
+				fakenats.WhenPublishing("some-requester", func() error {
+					return errors.New("kaboom!")
+				})
+			})
 
+			It("does not attempt to resolve the RunOnce", func(done Done) {
 				bbs.CompletedRunOnceChan <- runOnce
 				Consistently(bbs.ResolvedRunOnce).ShouldNot(Equal(runOnce))
 				close(done)
