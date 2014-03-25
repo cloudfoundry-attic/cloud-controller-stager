@@ -3,12 +3,12 @@ package stager
 import (
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	"github.com/cloudfoundry/gunk/urljoiner"
-	"strings"
-	"time"
 )
 
 type Stager interface {
@@ -20,7 +20,7 @@ type stager struct {
 	compilers map[string]string
 }
 
-func NewStager(stagerBBS bbs.StagerBBS, compilers map[string]string) Stager {
+func New(stagerBBS bbs.StagerBBS, compilers map[string]string) Stager {
 	return &stager{
 		stagerBBS: stagerBBS,
 		compilers: compilers,
@@ -28,14 +28,9 @@ func NewStager(stagerBBS bbs.StagerBBS, compilers map[string]string) Stager {
 }
 
 var ErrNoFileServerPresent = errors.New("no available file server present")
-var ErrMissingAppId = errors.New("missing app id")
 var ErrNoCompilerDefined = errors.New("no compiler defined for requested stack")
 
 func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string) error {
-	if len(request.AppId) == 0 {
-		return ErrMissingAppId
-	}
-
 	fileServerURL, err := stager.stagerBBS.GetAvailableFileServer()
 	if err != nil {
 		return ErrNoFileServerPresent
@@ -108,7 +103,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 	})
 
 	err = stager.stagerBBS.DesireRunOnce(&models.RunOnce{
-		Guid:            strings.Join([]string{request.AppId, request.TaskId}, "-"),
+		Guid:            stager.runOnceGuid(request),
 		Stack:           request.Stack,
 		ReplyTo:         replyTo,
 		FileDescriptors: request.FileDescriptors,
@@ -122,6 +117,10 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 	})
 
 	return err
+}
+
+func (stager *stager) runOnceGuid(request models.StagingRequestFromCC) string {
+	return fmt.Sprintf("%s-%s", request.AppId, request.TaskId)
 }
 
 func (stager *stager) compilerDownloadURL(request models.StagingRequestFromCC, fileServerURL string) (string, error) {

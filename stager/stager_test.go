@@ -20,39 +20,7 @@ var _ = Describe("Stage", func() {
 			"penguin":     "penguin-compiler",
 			"rabbit_hole": "rabbit-hole-compiler",
 		}
-		stager = NewStager(bbs, compilers)
-	})
-
-	Context("when the app id is missing", func() {
-		It("should return an error", func() {
-			err := stager.Stage(models.StagingRequestFromCC{
-				AppId:              "",
-				TaskId:             "hop",
-				AppBitsDownloadUri: "http://example-uri.com/bunny",
-				Stack:              "rabbit_hole",
-				MemoryMB:           256,
-				DiskMB:             1024,
-			}, "me")
-
-			Ω(err).Should(HaveOccurred())
-			Ω(err.Error()).Should(Equal("missing app id"))
-		})
-	})
-
-	Context("when file server is not available", func() {
-		It("should return an error", func() {
-			err := stager.Stage(models.StagingRequestFromCC{
-				AppId:              "bunny",
-				TaskId:             "hop",
-				AppBitsDownloadUri: "http://example-uri.com/bunny",
-				Stack:              "rabbit_hole",
-				MemoryMB:           256,
-				DiskMB:             1024,
-			}, "me")
-
-			Ω(err).Should(HaveOccurred())
-			Ω(err.Error()).Should(Equal("no available file server present"))
-		})
+		stager = New(bbs, compilers)
 	})
 
 	Context("when file the server is available", func() {
@@ -154,6 +122,22 @@ var _ = Describe("Stage", func() {
 
 			close(done)
 		}, 2)
+	})
+
+	Context("when file server is not available", func() {
+		It("should return an error", func() {
+			err := stager.Stage(models.StagingRequestFromCC{
+				AppId:              "bunny",
+				TaskId:             "hop",
+				AppBitsDownloadUri: "http://example-uri.com/bunny",
+				Stack:              "rabbit_hole",
+				MemoryMB:           256,
+				DiskMB:             1024,
+			}, "me")
+
+			Ω(err).Should(HaveOccurred())
+			Ω(err.Error()).Should(Equal("no available file server present"))
+		})
 	})
 
 	Context("when no compiler is defined for the requested stack in stager configuration", func() {

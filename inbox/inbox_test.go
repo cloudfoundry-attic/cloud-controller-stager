@@ -1,22 +1,27 @@
-package stager_test
+package inbox_test
 
 import (
 	"encoding/json"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	. "github.com/cloudfoundry-incubator/stager/stager"
-	"github.com/cloudfoundry-incubator/stager/stager/fake_stager"
-	steno "github.com/cloudfoundry/gosteno"
-	"github.com/cloudfoundry/yagnats/fakeyagnats"
+	"errors"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	steno "github.com/cloudfoundry/gosteno"
+	"github.com/cloudfoundry/yagnats/fakeyagnats"
+
+	. "github.com/cloudfoundry-incubator/stager/inbox"
+	"github.com/cloudfoundry-incubator/stager/stager/fake_stager"
 )
 
-var _ = Describe("StagingListener", func() {
+var _ = Describe("Inbox", func() {
 	Context("when it receives a staging request", func() {
 		var fakenats *fakeyagnats.FakeYagnats
 		var fauxstager *fake_stager.FakeStager
 		var testingSink *steno.TestingSink
 		var logger *steno.Logger
+		var validator RequestValidator
 
 		BeforeEach(func() {
 			testingSink = steno.NewTestingSink()
@@ -28,10 +33,13 @@ var _ = Describe("StagingListener", func() {
 			fakenats = fakeyagnats.New()
 			fauxstager = &fake_stager.FakeStager{}
 			logger = steno.NewLogger("fakelogger")
+			validator = func(request models.StagingRequestFromCC) error {
+				return nil
+			}
 		})
 
 		JustBeforeEach(func() {
-			Listen(fakenats, fauxstager, logger)
+			Listen(fakenats, fauxstager, validator, logger)
 		})
 
 		It("kicks off staging", func() {
@@ -63,7 +71,7 @@ var _ = Describe("StagingListener", func() {
 				response := fakenats.PublishedMessages[replyTo][0]
 				stagingResponse := models.StagingResponseForCC{}
 				json.Unmarshal(response.Payload, &stagingResponse)
-				Ω(stagingResponse.Error).To(Equal("Staging message contained invalid JSON"))
+				Ω(stagingResponse.Error).To(Equal("Staging message contained malformed JSON"))
 			})
 		})
 
@@ -87,6 +95,32 @@ var _ = Describe("StagingListener", func() {
 			})
 		})
 
+		Context("when the request is invalid", func() {
+			BeforeEach(func() {
+				validator = func(models.StagingRequestFromCC) error {
+					return errors.New("NO.")
+				}
+			})
+
+			It("logs the failure", func() {
+				publishStagingMessage()
+
+				Ω(testingSink.Records).ShouldNot(HaveLen(0))
+			})
+
+			It("sends a staging failure response", func() {
+				publishStagingMessage()
+
+				replyTo := fakenats.PublishedMessages["diego.staging.start"][0].ReplyTo
+
+				Ω(fakenats.PublishedMessages[replyTo]).To(HaveLen(1))
+				response := fakenats.PublishedMessages[replyTo][0]
+				stagingResponse := models.StagingResponseForCC{}
+				json.Unmarshal(response.Payload, &stagingResponse)
+				Ω(stagingResponse.Error).To(Equal("Invalid staging request: NO."))
+			})
+		})
+
 		Context("when staging finishes unsuccessfully", func() {
 			BeforeEach(func() {
 				fauxstager.AlwaysFail = true
@@ -97,7 +131,7 @@ var _ = Describe("StagingListener", func() {
 
 				publishStagingMessage()
 
-				Eventually(testingSink.Records).ShouldNot(HaveLen(0))
+				Ω(testingSink.Records).ShouldNot(HaveLen(0))
 			})
 
 			It("sends a staging failure response", func() {

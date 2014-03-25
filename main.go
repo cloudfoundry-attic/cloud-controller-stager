@@ -4,16 +4,19 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"os"
+	"strings"
+
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
-	"github.com/cloudfoundry-incubator/stager/outbox"
-	stgr "github.com/cloudfoundry-incubator/stager/stager"
 	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
 	"github.com/cloudfoundry/yagnats"
-	"os"
-	"strings"
+
+	"github.com/cloudfoundry-incubator/stager/inbox"
+	"github.com/cloudfoundry-incubator/stager/outbox"
+	"github.com/cloudfoundry-incubator/stager/stager"
 )
 
 var etcdCluster = flag.String(
@@ -94,13 +97,7 @@ func main() {
 		log.Fatalf("Error parsing compilers flag: %s\n", err)
 	}
 
-	stager := stgr.NewStager(bbs, compilersMap)
-
-	err = stgr.Listen(natsClient, stager, log)
-	if err != nil {
-		log.Fatalf("Could not subscribe on NATS: %s\n", err)
-	}
-
+	go inbox.Listen(natsClient, stager.New(bbs, compilersMap), inbox.ValidateRequest, log)
 	go outbox.Listen(bbs, natsClient, log)
 
 	fmt.Println("Listening for staging requests!")

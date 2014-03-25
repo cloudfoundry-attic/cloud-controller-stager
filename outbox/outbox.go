@@ -20,6 +20,7 @@ func Listen(bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logg
 				if !ok {
 					break waitForRunOnce
 				}
+
 				go handleCompletedRunOnce(runOnce, bbs, natsClient, logger)
 			case err, ok := <-errs:
 				if ok && err != nil {
