@@ -10,7 +10,7 @@ import (
 	. "github.com/cloudfoundry-incubator/runtime-schema/models"
 )
 
-var _ = Describe("ExecutorAction", func() {
+var _ = FDescribe("ExecutorAction", func() {
 	Describe("With an invalid action", func() {
 		It("should fail to marshal", func() {
 			invalidAction := []string{"butts", "from", "mars"}
@@ -54,12 +54,14 @@ var _ = Describe("ExecutorAction", func() {
 				"action": "download",
 				"args": {
 					"from": "web_location",
+					"name": "ruby buildback",
 					"to": "local_location",
 					"extract": true
 				}
 			}`,
 			ExecutorAction{
 				Action: DownloadAction{
+					Name:    "ruby buildback",
 					From:    "web_location",
 					To:      "local_location",
 					Extract: true,
@@ -73,12 +75,14 @@ var _ = Describe("ExecutorAction", func() {
 			`{
 				"action": "upload",
 				"args": {
+					"name": "app bits",
 					"from": "local_location",
 					"to": "web_location"
 				}
 			}`,
 			ExecutorAction{
 				Action: UploadAction{
+					Name: "app bits",
 					From: "local_location",
 					To:   "web_location",
 				},
@@ -91,6 +95,7 @@ var _ = Describe("ExecutorAction", func() {
 			`{
 				"action": "run",
 				"args": {
+					"name": "staging",
 					"script": "rm -rf /",
 					"timeout": 10000000,
 					"env": [
@@ -101,6 +106,7 @@ var _ = Describe("ExecutorAction", func() {
 			}`,
 			ExecutorAction{
 				Action: RunAction{
+					Name:    "staging",
 					Script:  "rm -rf /",
 					Timeout: 10 * time.Millisecond,
 					Env: [][]string{
@@ -117,11 +123,13 @@ var _ = Describe("ExecutorAction", func() {
 			`{
 				"action": "fetch_result",
 				"args": {
+					"name": "fetching temp file",
 					"file": "/tmp/foo"
 				}
 			}`,
 			ExecutorAction{
 				Action: FetchResultAction{
+					Name: "fetching temp file",
 					File: "/tmp/foo",
 				},
 			},
