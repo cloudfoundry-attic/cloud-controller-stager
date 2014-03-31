@@ -71,7 +71,7 @@ var _ = Describe("Stage", func() {
 				},
 				{
 					models.DownloadAction{
-						Name:    "App Bits",
+						Name:    "App Package",
 						From:    "http://example-uri.com/bunny",
 						To:      "/app",
 						Extract: true,

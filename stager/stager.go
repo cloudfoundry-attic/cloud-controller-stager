@@ -61,7 +61,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 
 	actions = append(actions, models.ExecutorAction{
 		models.DownloadAction{
-			Name:    "App Bits",
+			Name:    "App Package",
 			From:    request.AppBitsDownloadUri,
 			To:      smeltingConfig.AppDir(),
 			Extract: true,
