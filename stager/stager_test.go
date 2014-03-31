@@ -33,13 +33,15 @@ var _ = Describe("Stage", func() {
 			modelChannel, _, _ := bbs.WatchForDesiredRunOnce()
 
 			err := stager.Stage(models.StagingRequestFromCC{
-				AppId:              "bunny",
-				TaskId:             "hop",
-				AppBitsDownloadUri: "http://example-uri.com/bunny",
-				Stack:              "rabbit_hole",
-				FileDescriptors:    17,
-				MemoryMB:           256,
-				DiskMB:             1024,
+				AppId:                          "bunny",
+				TaskId:                         "hop",
+				AppBitsDownloadUri:             "http://example-uri.com/bunny",
+				BuildArtifactsCacheDownloadUri: "http://a-nice-place-to-get-nice-things",
+				BuildArtifactsCacheUploadUri:   "http://a-nice-place-to-put-nice-things",
+				Stack:           "rabbit_hole",
+				FileDescriptors: 17,
+				MemoryMB:        256,
+				DiskMB:          1024,
 				Buildpacks: []models.Buildpack{
 					{Key: "zfirst-buildpack", Url: "first-buildpack-url"},
 					{Key: "asecond-buildpack", Url: "second-buildpack-url"},
@@ -94,6 +96,17 @@ var _ = Describe("Stage", func() {
 					},
 				},
 				{
+					models.TryAction{
+						models.ExecutorAction{
+							models.DownloadAction{
+								From:    "http://a-nice-place-to-get-nice-things",
+								To:      "/tmp/cache",
+								Extract: true,
+							},
+						},
+					},
+				},
+				{
 					models.RunAction{
 						Name: "Staging",
 						Script: "/tmp/compiler/run" +
@@ -112,9 +125,21 @@ var _ = Describe("Stage", func() {
 				},
 				{
 					models.UploadAction{
-						Name: "Droplet",
-						From: "/tmp/droplet/droplet.tgz",
-						To:   "http://file-server.com/droplet/bunny",
+						Name:     "Droplet",
+						From:     "/tmp/droplet/droplet.tgz",
+						To:       "http://file-server.com/droplet/bunny",
+						Compress: false,
+					},
+				},
+				{
+					models.TryAction{
+						models.ExecutorAction{
+							models.UploadAction{
+								From:     "/tmp/cache",
+								To:       "http://a-nice-place-to-put-nice-things",
+								Compress: true,
+							},
+						},
 					},
 				},
 				{

@@ -80,6 +80,18 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 	}
 
 	actions = append(actions, models.ExecutorAction{
+		models.TryAction{
+			Action: models.ExecutorAction{
+				Action: models.DownloadAction{
+					From:    request.BuildArtifactsCacheDownloadUri,
+					To:      smeltingConfig.CacheDir(),
+					Extract: true,
+				},
+			},
+		},
+	})
+
+	actions = append(actions, models.ExecutorAction{
 		models.RunAction{
 			Name:    "Staging",
 			Script:  smeltingConfig.Script(),
@@ -98,6 +110,18 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 			Name: "Droplet",
 			From: smeltingConfig.DropletArchivePath(),
 			To:   uploadURL,
+		},
+	})
+
+	actions = append(actions, models.ExecutorAction{
+		models.TryAction{
+			Action: models.ExecutorAction{
+				Action: models.UploadAction{
+					From:     smeltingConfig.CacheDir(),
+					To:       request.BuildArtifactsCacheUploadUri,
+					Compress: true,
+				},
+			},
 		},
 	})
 

@@ -20,6 +20,8 @@ var _ = Describe("Validator", func() {
 			Stack:              "rabbit_hole",
 			MemoryMB:           256,
 			DiskMB:             1024,
+			BuildArtifactsCacheDownloadUri: "place-to-grab-from",
+			BuildArtifactsCacheUploadUri:   "place-to-stash",
 		}
 
 		validator = ValidateRequest
@@ -41,11 +43,27 @@ var _ = Describe("Validator", func() {
 		Ω(err.Error()).Should(Equal("missing task id"))
 	})
 
-	It("returns an error for a missing download uri", func() {
+	It("returns an error for a missing app bits download uri", func() {
 		request.AppBitsDownloadUri = ""
 
 		err := validator(request)
 		Ω(err).Should(HaveOccurred())
 		Ω(err.Error()).Should(Equal("missing app bits download uri"))
+	})
+
+	It("returns an error for a missing build artifacts cache download uri", func() {
+		request.BuildArtifactsCacheDownloadUri = ""
+
+		err := validator(request)
+		Ω(err).Should(HaveOccurred())
+		Ω(err.Error()).Should(Equal("missing build artifacts cache download uri"))
+	})
+
+	It("returns an error for a missing build artifacts cache upload uri", func() {
+		request.BuildArtifactsCacheUploadUri = ""
+
+		err := validator(request)
+		Ω(err).Should(HaveOccurred())
+		Ω(err.Error()).Should(Equal("missing build artifacts cache upload uri"))
 	})
 })
