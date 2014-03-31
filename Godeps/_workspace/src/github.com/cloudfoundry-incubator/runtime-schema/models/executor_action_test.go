@@ -10,7 +10,7 @@ import (
 	. "github.com/cloudfoundry-incubator/runtime-schema/models"
 )
 
-var _ = FDescribe("ExecutorAction", func() {
+var _ = Describe("ExecutorAction", func() {
 	Describe("With an invalid action", func() {
 		It("should fail to marshal", func() {
 			invalidAction := []string{"butts", "from", "mars"}
@@ -77,14 +77,16 @@ var _ = FDescribe("ExecutorAction", func() {
 				"args": {
 					"name": "app bits",
 					"from": "local_location",
-					"to": "web_location"
+					"to": "web_location",
+					"compress": true
 				}
 			}`,
 			ExecutorAction{
 				Action: UploadAction{
-					Name: "app bits",
-					From: "local_location",
-					To:   "web_location",
+					Name:     "app bits",
+					From:     "local_location",
+					To:       "web_location",
+					Compress: true,
 				},
 			},
 		)
@@ -131,6 +133,41 @@ var _ = FDescribe("ExecutorAction", func() {
 				Action: FetchResultAction{
 					Name: "fetching temp file",
 					File: "/tmp/foo",
+				},
+			},
+		)
+	})
+
+	Describe("Try", func() {
+		itSerializesAndDeserializes(
+			`{
+				"action": "try",
+				"args": {
+					"action": {
+						"action": "run",
+						"args": {
+							"script": "rm -rf /",
+							"timeout": 10000000,
+							"env": [
+								["FOO", "1"],
+								["BAR", "2"]
+							]
+						}
+					}
+				}
+			}`,
+			ExecutorAction{
+				Action: TryAction{
+					Action: ExecutorAction{
+						Action: RunAction{
+							Script:  "rm -rf /",
+							Timeout: 10 * time.Millisecond,
+							Env: [][]string{
+								{"FOO", "1"},
+								{"BAR", "2"},
+							},
+						},
+					},
 				},
 			},
 		)
