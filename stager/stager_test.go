@@ -63,6 +63,7 @@ var _ = Describe("Stage", func() {
 			Ω(runOnce.Actions).To(Equal([]models.ExecutorAction{
 				{
 					models.DownloadAction{
+						Name:    "Linux Smelter",
 						From:    "http://file-server.com/static/rabbit-hole-compiler",
 						To:      "/tmp/compiler",
 						Extract: true,
@@ -70,6 +71,7 @@ var _ = Describe("Stage", func() {
 				},
 				{
 					models.DownloadAction{
+						Name:    "App Bits",
 						From:    "http://example-uri.com/bunny",
 						To:      "/app",
 						Extract: true,
@@ -77,6 +79,7 @@ var _ = Describe("Stage", func() {
 				},
 				{
 					models.DownloadAction{
+						Name:    "Buildpack",
 						From:    "first-buildpack-url",
 						To:      "/tmp/buildpacks/zfirst-buildpack",
 						Extract: true,
@@ -84,6 +87,7 @@ var _ = Describe("Stage", func() {
 				},
 				{
 					models.DownloadAction{
+						Name:    "Buildpack",
 						From:    "second-buildpack-url",
 						To:      "/tmp/buildpacks/asecond-buildpack",
 						Extract: true,
@@ -91,6 +95,7 @@ var _ = Describe("Stage", func() {
 				},
 				{
 					models.RunAction{
+						Name: "Staging",
 						Script: "/tmp/compiler/run" +
 							" -appDir='/app'" +
 							" -buildpackOrder='zfirst-buildpack,asecond-buildpack'" +
@@ -107,12 +112,14 @@ var _ = Describe("Stage", func() {
 				},
 				{
 					models.UploadAction{
+						Name: "Droplet",
 						From: "/tmp/droplet/droplet.tgz",
 						To:   "http://file-server.com/droplet/bunny",
 					},
 				},
 				{
 					models.FetchResultAction{
+						Name: "Staging Result",
 						File: "/tmp/result/result.json",
 					},
 				},

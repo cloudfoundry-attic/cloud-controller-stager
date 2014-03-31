@@ -52,6 +52,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 
 	actions = append(actions, models.ExecutorAction{
 		models.DownloadAction{
+			Name:    "Linux Smelter",
 			From:    compilerURL,
 			To:      smeltingConfig.CompilerPath(),
 			Extract: true,
@@ -60,6 +61,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 
 	actions = append(actions, models.ExecutorAction{
 		models.DownloadAction{
+			Name:    "App Bits",
 			From:    request.AppBitsDownloadUri,
 			To:      smeltingConfig.AppDir(),
 			Extract: true,
@@ -69,6 +71,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 	for _, buildpack := range request.Buildpacks {
 		actions = append(actions, models.ExecutorAction{
 			models.DownloadAction{
+				Name:    "Buildpack",
 				From:    buildpack.Url,
 				To:      smeltingConfig.BuildpackPath(buildpack.Key),
 				Extract: true,
@@ -78,6 +81,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 
 	actions = append(actions, models.ExecutorAction{
 		models.RunAction{
+			Name:    "Staging",
 			Script:  smeltingConfig.Script(),
 			Env:     request.Environment,
 			Timeout: 15 * time.Minute,
@@ -91,6 +95,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 
 	actions = append(actions, models.ExecutorAction{
 		models.UploadAction{
+			Name: "Droplet",
 			From: smeltingConfig.DropletArchivePath(),
 			To:   uploadURL,
 		},
@@ -98,6 +103,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 
 	actions = append(actions, models.ExecutorAction{
 		models.FetchResultAction{
+			Name: "Staging Result",
 			File: smeltingConfig.ResultJsonPath(),
 		},
 	})
