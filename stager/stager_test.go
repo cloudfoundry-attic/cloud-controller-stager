@@ -1,13 +1,14 @@
 package stager_test
 
 import (
+	"time"
+
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/cloudfoundry-incubator/stager/stager"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"time"
 )
 
 var _ = Describe("Stage", func() {
@@ -126,7 +127,7 @@ var _ = Describe("Stage", func() {
 				{
 					models.UploadAction{
 						Name:     "Droplet",
-						From:     "/tmp/droplet/droplet.tgz",
+						From:     "/tmp/droplet/",
 						To:       "http://file-server.com/droplet/bunny",
 						Compress: false,
 					},
@@ -135,7 +136,7 @@ var _ = Describe("Stage", func() {
 					models.TryAction{
 						models.ExecutorAction{
 							models.UploadAction{
-								From:     "/tmp/cache/", // get the contents, not the directory itself
+								From:     "/tmp/cache/",
 								To:       "http://a-nice-place-to-put-nice-things",
 								Compress: true,
 							},
