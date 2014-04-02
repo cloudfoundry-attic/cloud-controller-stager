@@ -135,7 +135,7 @@ var _ = Describe("Stage", func() {
 					models.TryAction{
 						models.ExecutorAction{
 							models.UploadAction{
-								From:     "/tmp/cache",
+								From:     "/tmp/cache/", // get the contents, not the directory itself
 								To:       "http://a-nice-place-to-put-nice-things",
 								Compress: true,
 							},

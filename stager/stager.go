@@ -108,7 +108,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 	actions = append(actions, models.ExecutorAction{
 		models.UploadAction{
 			Name: "Droplet",
-			From: smeltingConfig.DropletArchivePath(),
+			From: smeltingConfig.OutputDir() + "/", // get the contents, not the directory itself
 			To:   uploadURL,
 		},
 	})
@@ -117,7 +117,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 		models.TryAction{
 			Action: models.ExecutorAction{
 				Action: models.UploadAction{
-					From:     smeltingConfig.CacheDir(),
+					From:     smeltingConfig.CacheDir() + "/", // get the contents, not the directory itself
 					To:       request.BuildArtifactsCacheUploadUri,
 					Compress: true,
 				},
