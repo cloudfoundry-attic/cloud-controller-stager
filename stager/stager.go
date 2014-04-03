@@ -79,17 +79,19 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 		})
 	}
 
-	actions = append(actions, models.ExecutorAction{
-		models.TryAction{
-			Action: models.ExecutorAction{
-				Action: models.DownloadAction{
-					From:    request.BuildArtifactsCacheDownloadUri,
-					To:      smeltingConfig.CacheDir(),
-					Extract: true,
+	if request.BuildArtifactsCacheDownloadUri != "" {
+		actions = append(actions, models.ExecutorAction{
+			models.TryAction{
+				Action: models.ExecutorAction{
+					Action: models.DownloadAction{
+						From:    request.BuildArtifactsCacheDownloadUri,
+						To:      smeltingConfig.CacheDir(),
+						Extract: true,
+					},
 				},
 			},
-		},
-	})
+		})
+	}
 
 	actions = append(actions, models.ExecutorAction{
 		models.RunAction{
@@ -113,17 +115,19 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 		},
 	})
 
-	actions = append(actions, models.ExecutorAction{
-		models.TryAction{
-			Action: models.ExecutorAction{
-				Action: models.UploadAction{
-					From:     smeltingConfig.CacheDir() + "/", // get the contents, not the directory itself
-					To:       request.BuildArtifactsCacheUploadUri,
-					Compress: true,
+	if request.BuildArtifactsCacheUploadUri != "" {
+		actions = append(actions, models.ExecutorAction{
+			models.TryAction{
+				Action: models.ExecutorAction{
+					Action: models.UploadAction{
+						From:     smeltingConfig.CacheDir() + "/", // get the contents, not the directory itself
+						To:       request.BuildArtifactsCacheUploadUri,
+						Compress: true,
+					},
 				},
 			},
-		},
-	})
+		})
+	}
 
 	actions = append(actions, models.ExecutorAction{
 		models.FetchResultAction{

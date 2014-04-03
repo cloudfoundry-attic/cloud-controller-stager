@@ -50,20 +50,4 @@ var _ = Describe("Validator", func() {
 		Ω(err).Should(HaveOccurred())
 		Ω(err.Error()).Should(Equal("missing app bits download uri"))
 	})
-
-	It("returns an error for a missing build artifacts cache download uri", func() {
-		request.BuildArtifactsCacheDownloadUri = ""
-
-		err := validator(request)
-		Ω(err).Should(HaveOccurred())
-		Ω(err.Error()).Should(Equal("missing build artifacts cache download uri"))
-	})
-
-	It("returns an error for a missing build artifacts cache upload uri", func() {
-		request.BuildArtifactsCacheUploadUri = ""
-
-		err := validator(request)
-		Ω(err).Should(HaveOccurred())
-		Ω(err.Error()).Should(Equal("missing build artifacts cache upload uri"))
-	})
 })

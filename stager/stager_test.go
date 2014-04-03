@@ -30,7 +30,7 @@ var _ = Describe("Stage", func() {
 			Ω(err).ShouldNot(HaveOccurred())
 		})
 
-		It("creates a RunOnce with staging instructions", func(done Done) {
+		It("creates a RunOnce with staging instructions", func() {
 			modelChannel, _, _ := bbs.WatchForDesiredRunOnce()
 
 			err := stager.Stage(models.StagingRequestFromCC{
@@ -54,7 +54,8 @@ var _ = Describe("Stage", func() {
 			}, "me")
 			Ω(err).ShouldNot(HaveOccurred())
 
-			runOnce := <-modelChannel
+			var runOnce *models.RunOnce
+			Eventually(modelChannel).Should(Receive(&runOnce))
 
 			Ω(runOnce.Guid).To(Equal("bunny-hop"))
 			Ω(runOnce.ReplyTo).To(Equal("me"))
@@ -152,9 +153,114 @@ var _ = Describe("Stage", func() {
 			}))
 			Ω(runOnce.MemoryMB).To(Equal(256))
 			Ω(runOnce.DiskMB).To(Equal(1024))
+		})
 
-			close(done)
-		}, 2)
+		Context("when build artifacts upload/download uris are not provided", func() {
+			It("does not instruct the executor to upload to/download the cache", func() {
+				modelChannel, _, _ := bbs.WatchForDesiredRunOnce()
+
+				err := stager.Stage(models.StagingRequestFromCC{
+					AppId:                          "bunny",
+					TaskId:                         "hop",
+					AppBitsDownloadUri:             "http://example-uri.com/bunny",
+					BuildArtifactsCacheDownloadUri: "",
+					BuildArtifactsCacheUploadUri:   "",
+					Stack:           "rabbit_hole",
+					FileDescriptors: 17,
+					MemoryMB:        256,
+					DiskMB:          1024,
+					Buildpacks: []models.Buildpack{
+						{Key: "zfirst-buildpack", Url: "first-buildpack-url"},
+						{Key: "asecond-buildpack", Url: "second-buildpack-url"},
+					},
+					Environment: [][]string{
+						{"VCAP_APPLICATION", "foo"},
+						{"VCAP_SERVICES", "bar"},
+					},
+				}, "me")
+				Ω(err).ShouldNot(HaveOccurred())
+
+				var runOnce *models.RunOnce
+				Eventually(modelChannel).Should(Receive(&runOnce))
+
+				Ω(runOnce.Guid).To(Equal("bunny-hop"))
+				Ω(runOnce.ReplyTo).To(Equal("me"))
+				Ω(runOnce.Stack).To(Equal("rabbit_hole"))
+				Ω(runOnce.Log.Guid).To(Equal("bunny"))
+				Ω(runOnce.Log.SourceName).To(Equal("STG"))
+				Ω(runOnce.FileDescriptors).To(Equal(17))
+				Ω(runOnce.Log.Index).To(BeNil())
+
+				Ω(runOnce.Actions).To(Equal([]models.ExecutorAction{
+					{
+						models.DownloadAction{
+							Name:    "Linux Smelter",
+							From:    "http://file-server.com/static/rabbit-hole-compiler",
+							To:      "/tmp/compiler",
+							Extract: true,
+						},
+					},
+					{
+						models.DownloadAction{
+							Name:    "App Package",
+							From:    "http://example-uri.com/bunny",
+							To:      "/app",
+							Extract: true,
+						},
+					},
+					{
+						models.DownloadAction{
+							Name:    "Buildpack",
+							From:    "first-buildpack-url",
+							To:      "/tmp/buildpacks/zfirst-buildpack",
+							Extract: true,
+						},
+					},
+					{
+						models.DownloadAction{
+							Name:    "Buildpack",
+							From:    "second-buildpack-url",
+							To:      "/tmp/buildpacks/asecond-buildpack",
+							Extract: true,
+						},
+					},
+					{
+						models.RunAction{
+							Name: "Staging",
+							Script: "/tmp/compiler/run" +
+								" -appDir='/app'" +
+								" -buildpackOrder='zfirst-buildpack,asecond-buildpack'" +
+								" -buildpacksDir='/tmp/buildpacks'" +
+								" -cacheDir='/tmp/cache'" +
+								" -outputDir='/tmp/droplet'" +
+								" -resultDir='/tmp/result'",
+							Env: [][]string{
+								{"VCAP_APPLICATION", "foo"},
+								{"VCAP_SERVICES", "bar"},
+							},
+							Timeout: 15 * time.Minute,
+						},
+					},
+					{
+						models.UploadAction{
+							Name:     "Droplet",
+							From:     "/tmp/droplet/",
+							To:       "http://file-server.com/droplet/bunny",
+							Compress: false,
+						},
+					},
+					{
+						models.FetchResultAction{
+							Name: "Staging Result",
+							File: "/tmp/result/result.json",
+						},
+					},
+				}))
+				Ω(runOnce.MemoryMB).To(Equal(256))
+				Ω(runOnce.DiskMB).To(Equal(1024))
+			})
+		})
+
 	})
 
 	Context("when file server is not available", func() {
@@ -179,7 +285,7 @@ var _ = Describe("Stage", func() {
 			Ω(err).ShouldNot(HaveOccurred())
 		})
 
-		It("should return an error", func(done Done) {
+		It("should return an error", func() {
 			bbs.WatchForDesiredRunOnce()
 
 			err := stager.Stage(models.StagingRequestFromCC{
@@ -193,7 +299,6 @@ var _ = Describe("Stage", func() {
 
 			Ω(err).Should(HaveOccurred())
 			Ω(err.Error()).Should(Equal("no compiler defined for requested stack"))
-			close(done)
 		})
 	})
 })
