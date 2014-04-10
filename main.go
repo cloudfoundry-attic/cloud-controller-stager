@@ -15,6 +15,7 @@ import (
 	"github.com/cloudfoundry/yagnats"
 
 	"github.com/cloudfoundry-incubator/stager/inbox"
+	"github.com/cloudfoundry-incubator/stager/metrics"
 	"github.com/cloudfoundry-incubator/stager/outbox"
 	"github.com/cloudfoundry-incubator/stager/stager"
 )
@@ -98,6 +99,7 @@ func main() {
 	}
 
 	go outbox.Listen(bbs, natsClient, log)
+	go metrics.Listen(natsClient, log, metrics.Config{})
 
 	inbox.Listen(natsClient, stager.New(bbs, compilersMap), inbox.ValidateRequest, log)
 
