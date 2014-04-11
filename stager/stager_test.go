@@ -101,6 +101,7 @@ var _ = Describe("Stage", func() {
 					models.TryAction{
 						models.ExecutorAction{
 							models.DownloadAction{
+								Name:    "Build Artifacts",
 								From:    "http://a-nice-place-to-get-nice-things",
 								To:      "/tmp/cache",
 								Extract: true,
@@ -137,6 +138,7 @@ var _ = Describe("Stage", func() {
 					models.TryAction{
 						models.ExecutorAction{
 							models.UploadAction{
+								Name:     "Build Artifacts",
 								From:     "/tmp/cache/",
 								To:       "http://a-nice-place-to-put-nice-things",
 								Compress: true,
