@@ -62,7 +62,8 @@ var _ = Describe("Stage", func() {
 			Ω(runOnce.Log.SourceName).To(Equal("STG"))
 			Ω(runOnce.FileDescriptors).To(Equal(17))
 			Ω(runOnce.Log.Index).To(BeNil())
-			Ω(runOnce.Actions).To(Equal([]models.ExecutorAction{
+
+			expectedActions := []models.ExecutorAction{
 				{
 					models.DownloadAction{
 						Name:    "Linux Smelter",
@@ -150,7 +151,12 @@ var _ = Describe("Stage", func() {
 						File: "/tmp/result/result.json",
 					},
 				},
-			}))
+			}
+
+			for i, action := range runOnce.Actions {
+				Ω(action).To(Equal(expectedActions[i]))
+			}
+
 			Ω(runOnce.MemoryMB).To(Equal(256))
 			Ω(runOnce.DiskMB).To(Equal(1024))
 		})
