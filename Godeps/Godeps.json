@@ -10,20 +10,16 @@
 			"Rev": "51b7af73e39f6dc59846b22d56ca886d105ef0c3"
 		},
 		{
-			"ImportPath": "github.com/cloudfoundry-incubator/metricz",
-			"Rev": "3a157031cfec2403137b230dc3a4a23a8b03e055"
-		},
-		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/bbs",
-			"Rev": "f2a12c0d5a38ad66115502720f709d997aed2f6c"
+			"Rev": "994cffd5e935e7b7c212f902073daeae8bb66278"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/models",
-			"Rev": "f2a12c0d5a38ad66115502720f709d997aed2f6c"
+			"Rev": "994cffd5e935e7b7c212f902073daeae8bb66278"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/router",
-			"Rev": "f2a12c0d5a38ad66115502720f709d997aed2f6c"
+			"Rev": "994cffd5e935e7b7c212f902073daeae8bb66278"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gosteno",
@@ -37,10 +33,6 @@
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/urljoiner",
 			"Rev": "0dfce73f2060a23c01134f5880295b70cc325e14"
-		},
-		{
-			"ImportPath": "github.com/cloudfoundry/loggregatorlib/cfcomponent/localip",
-			"Rev": "cbfe02db0270e435eaae0239a9c2eb4bffde94e5"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/storeadapter",
