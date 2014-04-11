@@ -3,10 +3,13 @@ package metrics_test
 import (
 	"encoding/json"
 	"github.com/cloudfoundry-incubator/metricz/localip"
+	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"io/ioutil"
 	"net/http"
 	"strings"
 
+	"github.com/cloudfoundry-incubator/metricz/instrumentation"
 	. "github.com/cloudfoundry-incubator/stager/metrics"
 	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/yagnats"
@@ -20,11 +23,20 @@ var _ = Describe("Metrics", func() {
 	var (
 		fakenats *fakeyagnats.FakeYagnats
 		logger   *steno.Logger
+		bbs      *fake_bbs.FakeMetricsBBS
+		server   *MetricsServer
 	)
 
 	BeforeEach(func() {
 		fakenats = fakeyagnats.New()
+		bbs = fake_bbs.NewFakeMetricsBBS()
 		logger = steno.NewLogger("fakelogger")
+		server = NewMetricsServer(fakenats, bbs, logger, Config{
+			Port:     34567,
+			Username: "the-username",
+			Password: "the-password",
+			Index:    3,
+		})
 	})
 
 	Describe("Listen", func() {
@@ -42,16 +54,15 @@ var _ = Describe("Metrics", func() {
 			fakenats.Subscribe("vcap.component.announce", func(msg *yagnats.Message) {
 				payloadChan <- msg.Payload
 			})
+
+			server.Listen()
+		})
+
+		AfterEach(func() {
+			server.Stop()
 		})
 
 		It("announces to the collector with the right type, port, credentials and index", func(done Done) {
-			Listen(fakenats, logger, Config{
-				Port:     34567,
-				Username: "the-username",
-				Password: "the-password",
-				Index:    3,
-			})
-
 			payload := <-payloadChan
 			response := make(map[string]interface{})
 			json.Unmarshal(payload, &response)
@@ -70,42 +81,77 @@ var _ = Describe("Metrics", func() {
 			close(done)
 		}, 3)
 
-		It("exposes a varz endpoint on the given port", func() {
-			Listen(fakenats, logger, Config{
-				Port:     34567,
-				Username: "the-username",
-				Password: "the-password",
-				Index:    3,
+		Describe("the varz endpoint", func() {
+			BeforeEach(func() {
+				bbs.GetAllRunOncesReturns.Models = []*models.RunOnce{
+					&models.RunOnce{State: models.RunOnceStatePending},
+					&models.RunOnce{State: models.RunOnceStatePending},
+					&models.RunOnce{State: models.RunOnceStatePending},
+
+					&models.RunOnce{State: models.RunOnceStateClaimed},
+					&models.RunOnce{State: models.RunOnceStateClaimed},
+
+					&models.RunOnce{State: models.RunOnceStateRunning},
+
+					&models.RunOnce{State: models.RunOnceStateCompleted},
+					&models.RunOnce{State: models.RunOnceStateCompleted},
+					&models.RunOnce{State: models.RunOnceStateCompleted},
+					&models.RunOnce{State: models.RunOnceStateCompleted},
+
+					&models.RunOnce{State: models.RunOnceStateResolving},
+					&models.RunOnce{State: models.RunOnceStateResolving},
+				}
+
 			})
 
-			request, _ := http.NewRequest("GET", "http://"+myIP+":34567/varz", nil)
-			request.SetBasicAuth("the-username", "the-password")
-			response, err := http.DefaultClient.Do(request)
+			It("returns the number of tasks in each state", func() {
+				request, _ := http.NewRequest("GET", "http://"+myIP+":34567/varz", nil)
+				request.SetBasicAuth("the-username", "the-password")
+				response, err := http.DefaultClient.Do(request)
+				Ω(err).ShouldNot(HaveOccurred())
+				bytes, _ := ioutil.ReadAll(response.Body)
+				varzMessage := instrumentation.VarzMessage{}
+				json.Unmarshal(bytes, &varzMessage)
 
-			Ω(err).ShouldNot(HaveOccurred())
-
-			bytes, _ := ioutil.ReadAll(response.Body)
-			data := make(map[string]interface{})
-			json.Unmarshal(bytes, &data)
-
-			Ω(data["name"]).Should(Equal("Stager"))
+				Ω(varzMessage.Name).Should(Equal("Stager"))
+				Ω(varzMessage.Contexts[0]).Should(Equal(instrumentation.Context{
+					Name: "Tasks",
+					Metrics: []instrumentation.Metric{
+						{
+							Name:  "Pending",
+							Value: float64(3),
+						},
+						{
+							Name:  "Claimed",
+							Value: float64(2),
+						},
+						{
+							Name:  "Running",
+							Value: float64(1),
+						},
+						{
+							Name:  "Completed",
+							Value: float64(4),
+						},
+						{
+							Name:  "Resolving",
+							Value: float64(2),
+						},
+					},
+				}))
+			})
 		})
 
-		It("exposes a healthz endpoint on the given port", func() {
-			Listen(fakenats, logger, Config{
-				Port:     34567,
-				Username: "the-username",
-				Password: "the-password",
-				Index:    3,
+		Describe("the healthz endpoint", func() {
+			It("returns success", func() {
+				request, _ := http.NewRequest("GET", "http://"+myIP+":34567/healthz", nil)
+				request.SetBasicAuth("the-username", "the-password")
+				response, err := http.DefaultClient.Do(request)
+
+				Ω(err).ShouldNot(HaveOccurred())
+
+				Ω(response.StatusCode).To(Equal(200))
 			})
-
-			request, _ := http.NewRequest("GET", "http://"+myIP+":34567/healthz", nil)
-			request.SetBasicAuth("the-username", "the-password")
-			response, err := http.DefaultClient.Do(request)
-
-			Ω(err).ShouldNot(HaveOccurred())
-
-			Ω(response.StatusCode).To(Equal(200))
 		})
 	})
 })

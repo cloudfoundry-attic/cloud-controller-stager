@@ -4,6 +4,7 @@ import (
 	"github.com/cloudfoundry-incubator/metricz"
 	"github.com/cloudfoundry-incubator/metricz/collector_registrar"
 	"github.com/cloudfoundry-incubator/metricz/instrumentation"
+	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/yagnats"
 )
@@ -15,25 +16,53 @@ type Config struct {
 	Index    uint
 }
 
-func Listen(natsClient yagnats.NATSClient, logger *gosteno.Logger, config Config) error {
-	registrar := collector_registrar.New(natsClient)
+type MetricsServer struct {
+	natsClient yagnats.NATSClient
+	bbs        bbs.MetricsBBS
+	logger     *gosteno.Logger
+	config     Config
+	component  metricz.Component
+}
 
-	component, err := metricz.NewComponent(
-		logger,
+func NewMetricsServer(
+	natsClient yagnats.NATSClient,
+	bbs bbs.MetricsBBS,
+	logger *gosteno.Logger,
+	config Config) *MetricsServer {
+	return &MetricsServer{
+		natsClient: natsClient,
+		bbs:        bbs,
+		logger:     logger,
+		config:     config,
+	}
+}
+
+func (server *MetricsServer) Listen() error {
+	registrar := collector_registrar.New(server.natsClient)
+
+	var err error
+	server.component, err = metricz.NewComponent(
+		server.logger,
 		"Stager",
-		config.Index,
+		server.config.Index,
 		NewHealthCheck(),
-		config.Port,
-		[]string{config.Username, config.Password},
-		[]instrumentation.Instrumentable{},
+		server.config.Port,
+		[]string{server.config.Username, server.config.Password},
+		[]instrumentation.Instrumentable{
+			NewTaskInstrument(server.bbs),
+		},
 	)
 
-	err = registrar.RegisterWithCollector(component)
+	err = registrar.RegisterWithCollector(server.component)
 	if err != nil {
 		return err
 	}
 
-	go component.StartMonitoringEndpoints()
+	go server.component.StartMonitoringEndpoints()
 
 	return nil
+}
+
+func (server *MetricsServer) Stop() {
+	server.component.StopMonitoringEndpoints()
 }

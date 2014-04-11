@@ -97,9 +97,15 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error parsing compilers flag: %s\n", err)
 	}
+	metricsServer := metrics.NewMetricsServer(natsClient, bbs, log, metrics.Config{
+		Port:     6789,
+		Username: "the-metrics-username",
+		Password: "the-metrics-password",
+		Index:    5,
+	})
 
 	go outbox.Listen(bbs, natsClient, log)
-	go metrics.Listen(natsClient, log, metrics.Config{})
+	go metricsServer.Listen()
 
 	inbox.Listen(natsClient, stager.New(bbs, compilersMap), inbox.ValidateRequest, log)
 
