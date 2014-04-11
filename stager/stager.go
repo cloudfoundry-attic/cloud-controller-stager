@@ -88,9 +88,9 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 		models.TryAction{
 			Action: models.ExecutorAction{
 				Action: models.DownloadAction{
-					Name:    "Build Artifacts",
+					Name:    "Build Artifacts Cache",
 					From:    downloadURL,
-					To:      smeltingConfig.CacheDir(),
+					To:      smeltingConfig.BuildArtifactsCacheDir(),
 					Extract: true,
 				},
 			},
@@ -128,8 +128,8 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 		models.TryAction{
 			Action: models.ExecutorAction{
 				Action: models.UploadAction{
-					Name:     "Build Artifacts",
-					From:     smeltingConfig.CacheDir() + "/", // get the contents, not the directory itself
+					Name:     "Build Artifacts Cache",
+					From:     smeltingConfig.BuildArtifactsCacheDir() + "/", // get the contents, not the directory itself
 					To:       uploadURL,
 					Compress: true,
 				},

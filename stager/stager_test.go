@@ -99,7 +99,7 @@ var _ = Describe("Stage", func() {
 					models.TryAction{
 						models.ExecutorAction{
 							models.DownloadAction{
-								Name:    "Build Artifacts",
+								Name:    "Build Artifacts Cache",
 								From:    "http://file-server.com/build_artifacts/bunny",
 								To:      "/tmp/cache",
 								Extract: true,
@@ -112,9 +112,9 @@ var _ = Describe("Stage", func() {
 						Name: "Staging",
 						Script: "/tmp/compiler/run" +
 							" -appDir='/app'" +
+							" -buildArtifactsCacheDir='/tmp/cache'" +
 							" -buildpackOrder='zfirst-buildpack,asecond-buildpack'" +
 							" -buildpacksDir='/tmp/buildpacks'" +
-							" -cacheDir='/tmp/cache'" +
 							" -outputDir='/tmp/droplet'" +
 							" -resultDir='/tmp/result'",
 						Env: [][]string{
@@ -136,7 +136,7 @@ var _ = Describe("Stage", func() {
 					models.TryAction{
 						models.ExecutorAction{
 							models.UploadAction{
-								Name:     "Build Artifacts",
+								Name:     "Build Artifacts Cache",
 								From:     "/tmp/cache/",
 								To:       "http://file-server.com/build_artifacts/bunny",
 								Compress: true,
