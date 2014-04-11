@@ -79,20 +79,23 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 		})
 	}
 
-	if request.BuildArtifactsCacheDownloadUri != "" {
-		actions = append(actions, models.ExecutorAction{
-			models.TryAction{
-				Action: models.ExecutorAction{
-					Action: models.DownloadAction{
-						Name:    "Build Artifacts",
-						From:    request.BuildArtifactsCacheDownloadUri,
-						To:      smeltingConfig.CacheDir(),
-						Extract: true,
-					},
+	downloadURL, err := stager.buildArtifactsDownloadURL(request, fileServerURL)
+	if err != nil {
+		return err
+	}
+
+	actions = append(actions, models.ExecutorAction{
+		models.TryAction{
+			Action: models.ExecutorAction{
+				Action: models.DownloadAction{
+					Name:    "Build Artifacts",
+					From:    downloadURL,
+					To:      smeltingConfig.CacheDir(),
+					Extract: true,
 				},
 			},
-		})
-	}
+		},
+	})
 
 	actions = append(actions, models.ExecutorAction{
 		models.RunAction{
@@ -116,20 +119,23 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 		},
 	})
 
-	if request.BuildArtifactsCacheUploadUri != "" {
-		actions = append(actions, models.ExecutorAction{
-			models.TryAction{
-				Action: models.ExecutorAction{
-					Action: models.UploadAction{
-						Name:     "Build Artifacts",
-						From:     smeltingConfig.CacheDir() + "/", // get the contents, not the directory itself
-						To:       request.BuildArtifactsCacheUploadUri,
-						Compress: true,
-					},
+	uploadURL, err = stager.buildArtifactsUploadURL(request, fileServerURL)
+	if err != nil {
+		return err
+	}
+
+	actions = append(actions, models.ExecutorAction{
+		models.TryAction{
+			Action: models.ExecutorAction{
+				Action: models.UploadAction{
+					Name:     "Build Artifacts",
+					From:     smeltingConfig.CacheDir() + "/", // get the contents, not the directory itself
+					To:       uploadURL,
+					Compress: true,
 				},
 			},
-		})
-	}
+		},
+	})
 
 	actions = append(actions, models.ExecutorAction{
 		models.FetchResultAction{
@@ -176,7 +182,7 @@ func (stager *stager) compilerDownloadURL(request models.StagingRequestFromCC, f
 func (stager *stager) dropletUploadURL(request models.StagingRequestFromCC, fileServerURL string) (string, error) {
 	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_UPLOAD_DROPLET)
 	if !ok {
-		return "", errors.New("couldn't generate the compiler download path")
+		return "", errors.New("couldn't generate the droplet upload path")
 	}
 
 	path, err := staticRoute.PathWithParams(map[string]string{
@@ -185,6 +191,40 @@ func (stager *stager) dropletUploadURL(request models.StagingRequestFromCC, file
 
 	if err != nil {
 		return "", fmt.Errorf("failed to build droplet upload URL: %s", err)
+	}
+
+	return urljoiner.Join(fileServerURL, path), nil
+}
+
+func (stager *stager) buildArtifactsUploadURL(request models.StagingRequestFromCC, fileServerURL string) (string, error) {
+	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_UPLOAD_BUILD_ARTIFACTS)
+	if !ok {
+		return "", errors.New("couldn't generate the build artifacts upload path")
+	}
+
+	path, err := staticRoute.PathWithParams(map[string]string{
+		"app_guid": request.AppId,
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to build build artifacts upload URL: %s", err)
+	}
+
+	return urljoiner.Join(fileServerURL, path), nil
+}
+
+func (stager *stager) buildArtifactsDownloadURL(request models.StagingRequestFromCC, fileServerURL string) (string, error) {
+	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_DOWNLOAD_BUILD_ARTIFACTS)
+	if !ok {
+		return "", errors.New("couldn't generate the build artifacts download path")
+	}
+
+	path, err := staticRoute.PathWithParams(map[string]string{
+		"app_guid": request.AppId,
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to build build artifacts download URL: %s", err)
 	}
 
 	return urljoiner.Join(fileServerURL, path), nil
