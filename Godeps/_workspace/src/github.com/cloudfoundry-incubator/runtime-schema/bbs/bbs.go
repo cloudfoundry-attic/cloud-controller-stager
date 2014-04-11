@@ -38,12 +38,22 @@ type StagerBBS interface {
 	GetAvailableFileServer() (string, error)
 }
 
+type MetricsBBS interface {
+	GetAllRunOnces() ([]*models.RunOnce, error)
+}
+
 type FileServerBBS interface {
 	MaintainFileServerPresence(
 		heartbeatInterval time.Duration,
 		fileServerURL string,
 		fileServerId string,
 	) (presence Presence, disappeared <-chan bool, err error)
+}
+
+type ServistryBBS interface {
+	GetAvailableCC() (urls []string, err error)
+	RegisterCC(msg models.CCRegistrationMessage, ttl time.Duration) error
+	UnregisterCC(msg models.CCRegistrationMessage) error
 }
 
 func New(store storeadapter.StoreAdapter, timeProvider timeprovider.TimeProvider) *BBS {
@@ -58,7 +68,15 @@ func New(store storeadapter.StoreAdapter, timeProvider timeprovider.TimeProvider
 			timeProvider: timeProvider,
 		},
 
+		MetricsBBS: &metricsBBS{
+			store: store,
+		},
+
 		FileServerBBS: &fileServerBBS{
+			store: store,
+		},
+
+		ServistryBBS: &servistryBBS{
 			store: store,
 		},
 
@@ -70,5 +88,7 @@ type BBS struct {
 	ExecutorBBS
 	StagerBBS
 	FileServerBBS
+	ServistryBBS
+	MetricsBBS
 	store storeadapter.StoreAdapter
 }
