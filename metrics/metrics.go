@@ -58,7 +58,7 @@ func (server *MetricsServer) Listen() error {
 		return err
 	}
 
-	go server.component.StartMonitoringEndpoints()
+	server.component.StartMonitoringEndpoints()
 
 	return nil
 }

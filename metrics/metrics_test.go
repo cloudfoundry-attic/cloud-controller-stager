@@ -55,7 +55,7 @@ var _ = Describe("Metrics", func() {
 				payloadChan <- msg.Payload
 			})
 
-			server.Listen()
+			go server.Listen()
 		})
 
 		AfterEach(func() {
