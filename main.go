@@ -15,8 +15,33 @@ import (
 	"github.com/cloudfoundry/yagnats"
 
 	"github.com/cloudfoundry-incubator/stager/inbox"
+	"github.com/cloudfoundry-incubator/stager/metrics"
 	"github.com/cloudfoundry-incubator/stager/outbox"
 	"github.com/cloudfoundry-incubator/stager/stager"
+)
+
+var index = flag.Uint(
+	"index",
+	0,
+	"index for this stager (starting at 0)",
+)
+
+var metricsPort = flag.Uint(
+	"metricsPort",
+	5678,
+	"the port for the /metricz endpoint",
+)
+
+var metricsUsername = flag.String(
+	"metricsUsername",
+	"",
+	"basic auth username for the /metricz endpoint",
+)
+
+var metricsPassword = flag.String(
+	"metricsPassword",
+	"",
+	"basic auth password for the /metricz endpoint",
 )
 
 var etcdCluster = flag.String(
@@ -98,6 +123,12 @@ func main() {
 	}
 
 	go outbox.Listen(bbs, natsClient, log)
+	go metrics.Listen(natsClient, log, metrics.Config{
+		Index:      *index,
+		StatusPort: uint32(*metricsPort),
+		Username:   *metricsUsername,
+		Password:   *metricsPassword,
+	})
 
 	inbox.Listen(natsClient, stager.New(bbs, compilersMap), inbox.ValidateRequest, log)
 
