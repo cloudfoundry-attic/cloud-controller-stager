@@ -10,21 +10,33 @@
 			"Rev": "51b7af73e39f6dc59846b22d56ca886d105ef0c3"
 		},
 		{
+			"ImportPath": "github.com/cloudfoundry-incubator/metricz",
+			"Rev": "6ed0d889b74dadd2ad862448145c63639a26a531"
+		},
+		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/bbs",
-			"Rev": "ddfec06828d48ae0aa0c7cffd6362260bbff459c"
+			"Rev": "5de283b182cd16c468009129febe4cd7cb2d766e"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/models",
-			"Rev": "ddfec06828d48ae0aa0c7cffd6362260bbff459c"
+			"Rev": "5de283b182cd16c468009129febe4cd7cb2d766e"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/router",
-			"Rev": "ddfec06828d48ae0aa0c7cffd6362260bbff459c"
+			"Rev": "5de283b182cd16c468009129febe4cd7cb2d766e"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gosteno",
 			"Comment": "scotty_09012012-40-g5eb8c6e",
 			"Rev": "5eb8c6e554f0dfc39d6468813b8ac19ec28fe74f"
+		},
+		{
+			"ImportPath": "github.com/cloudfoundry/gunk/natsrunner",
+			"Rev": "0dfce73f2060a23c01134f5880295b70cc325e14"
+		},
+		{
+			"ImportPath": "github.com/cloudfoundry/gunk/runner_support",
+			"Rev": "0dfce73f2060a23c01134f5880295b70cc325e14"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/timeprovider",
@@ -33,6 +45,10 @@
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/urljoiner",
 			"Rev": "0dfce73f2060a23c01134f5880295b70cc325e14"
+		},
+		{
+			"ImportPath": "github.com/cloudfoundry/loggregatorlib/cfcomponent/localip",
+			"Rev": "1ff4fff71d4839f6c429289a1169e38de205d14e"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/storeadapter",
@@ -53,11 +69,15 @@
 		},
 		{
 			"ImportPath": "github.com/onsi/ginkgo",
-			"Rev": "3632cbe0b58a9005513942e9d4c4920e375d6778"
+			"Rev": "9b5849f158eeaf7317f903456e671a3fd7ff2c93"
 		},
 		{
 			"ImportPath": "github.com/onsi/gomega",
-			"Rev": "b017f5b84e91054313ed33ba2422e992c3b08626"
+			"Rev": "b88ba4e0261c2948774c7a2c7d5c76f336e87330"
+		},
+		{
+			"ImportPath": "github.com/vito/cmdtest",
+			"Rev": "6fd93c13d3730be0dda712707179fa1edc9b08f7"
 		}
 	]
 }
