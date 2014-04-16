@@ -218,7 +218,5 @@ type Actual interface {
 //
 //For details on writing custom matchers, check out: http://onsi.github.io/gomega/#adding_your_own_matchers
 type OmegaMatcher interface {
-	Match(actual interface{}) (success bool, err error)
-	FailureMessage(actual interface{}) (message string)
-	NegatedFailureMessage(actual interface{}) (message string)
+	Match(actual interface{}) (success bool, message string, err error)
 }

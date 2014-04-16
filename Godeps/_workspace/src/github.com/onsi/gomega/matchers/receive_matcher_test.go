@@ -109,12 +109,12 @@ var _ = Describe("ReceiveMatcher", func() {
 				channel := make(chan int)
 				var incorrectType bool
 
-				success, err := (&ReceiveMatcher{Arg: &incorrectType}).Match(channel)
+				success, _, err := (&ReceiveMatcher{Arg: &incorrectType}).Match(channel)
 				Ω(success).Should(BeFalse())
 				Ω(err).Should(HaveOccurred())
 
 				var notAPointer int
-				success, err = (&ReceiveMatcher{Arg: notAPointer}).Match(channel)
+				success, _, err = (&ReceiveMatcher{Arg: notAPointer}).Match(channel)
 				Ω(success).Should(BeFalse())
 				Ω(err).Should(HaveOccurred())
 			})
@@ -131,7 +131,7 @@ var _ = Describe("ReceiveMatcher", func() {
 
 				Ω(channel).Should(Receive())
 
-				success, err := (&ReceiveMatcher{}).Match(channel)
+				success, _, err := (&ReceiveMatcher{}).Match(channel)
 				Ω(success).Should(BeFalse())
 				Ω(err).Should(HaveOccurred())
 			})
@@ -142,7 +142,7 @@ var _ = Describe("ReceiveMatcher", func() {
 				channel := make(chan bool)
 				close(channel)
 
-				success, err := (&ReceiveMatcher{}).Match(channel)
+				success, _, err := (&ReceiveMatcher{}).Match(channel)
 				Ω(success).Should(BeFalse())
 				Ω(err).Should(HaveOccurred())
 			})
@@ -156,7 +156,7 @@ var _ = Describe("ReceiveMatcher", func() {
 			var writerChannel chan<- bool
 			writerChannel = channel
 
-			success, err := (&ReceiveMatcher{}).Match(writerChannel)
+			success, _, err := (&ReceiveMatcher{}).Match(writerChannel)
 			Ω(success).Should(BeFalse())
 			Ω(err).Should(HaveOccurred())
 		})
@@ -166,15 +166,15 @@ var _ = Describe("ReceiveMatcher", func() {
 		It("should error", func() {
 			var nilChannel chan bool
 
-			success, err := (&ReceiveMatcher{}).Match(nilChannel)
+			success, _, err := (&ReceiveMatcher{}).Match(nilChannel)
 			Ω(success).Should(BeFalse())
 			Ω(err).Should(HaveOccurred())
 
-			success, err = (&ReceiveMatcher{}).Match(nil)
+			success, _, err = (&ReceiveMatcher{}).Match(nil)
 			Ω(success).Should(BeFalse())
 			Ω(err).Should(HaveOccurred())
 
-			success, err = (&ReceiveMatcher{}).Match(3)
+			success, _, err = (&ReceiveMatcher{}).Match(3)
 			Ω(success).Should(BeFalse())
 			Ω(err).Should(HaveOccurred())
 		})

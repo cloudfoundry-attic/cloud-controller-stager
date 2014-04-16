@@ -11,32 +11,23 @@ type BeNumericallyMatcher struct {
 	CompareTo  []interface{}
 }
 
-func (matcher *BeNumericallyMatcher) FailureMessage(actual interface{}) (message string) {
-	return format.Message(actual, fmt.Sprintf("to be %s", matcher.Comparator))
-}
-
-func (matcher *BeNumericallyMatcher) NegatedFailureMessage(actual interface{}) (message string) {
-	return format.Message(actual, fmt.Sprintf("not to be %s", matcher.Comparator), matcher.CompareTo[0])
-}
-
-func (matcher *BeNumericallyMatcher) Match(actual interface{}) (success bool, err error) {
+func (matcher *BeNumericallyMatcher) Match(actual interface{}) (success bool, message string, err error) {
 	if len(matcher.CompareTo) == 0 || len(matcher.CompareTo) > 2 {
-		return false, fmt.Errorf("BeNumerically requires 1 or 2 CompareTo arguments.  Got:\n%s", format.Object(matcher.CompareTo, 1))
+		return false, "", fmt.Errorf("BeNumerically requires 1 or 2 CompareTo arguments.  Got:\n%s", format.Object(matcher.CompareTo, 1))
 	}
 	if !isNumber(actual) {
-		return false, fmt.Errorf("Expected a number.  Got:\n%s", format.Object(actual, 1))
+		return false, "", fmt.Errorf("Expected a number.  Got:\n%s", format.Object(actual, 1))
 	}
 	if !isNumber(matcher.CompareTo[0]) {
-		return false, fmt.Errorf("Expected a number.  Got:\n%s", format.Object(matcher.CompareTo[0], 1))
+		return false, "", fmt.Errorf("Expected a number.  Got:\n%s", format.Object(matcher.CompareTo[0], 1))
 	}
 	if len(matcher.CompareTo) == 2 && !isNumber(matcher.CompareTo[1]) {
-		return false, fmt.Errorf("Expected a number.  Got:\n%s", format.Object(matcher.CompareTo[0], 1))
+		return false, "", fmt.Errorf("Expected a number.  Got:\n%s", format.Object(matcher.CompareTo[0], 1))
 	}
-
 	switch matcher.Comparator {
 	case "==", "~", ">", ">=", "<", "<=":
 	default:
-		return false, fmt.Errorf("Unknown comparator: %s", matcher.Comparator)
+		return false, "", fmt.Errorf("Unknown comparator: %s", matcher.Comparator)
 	}
 
 	if isFloat(actual) || isFloat(matcher.CompareTo[0]) {
@@ -58,10 +49,14 @@ func (matcher *BeNumericallyMatcher) Match(actual interface{}) (success bool, er
 		}
 		success = matcher.matchUnsignedIntegers(toUnsignedInteger(actual), toUnsignedInteger(matcher.CompareTo[0]), secondOperand)
 	} else {
-		return false, fmt.Errorf("Failed to compare:\n%s\n%s:\n%s", format.Object(actual, 1), matcher.Comparator, format.Object(matcher.CompareTo[0], 1))
+		return false, "", fmt.Errorf("Failed to compare:\n%s\n%s:\n%s", format.Object(actual, 1), matcher.Comparator, format.Object(matcher.CompareTo[0], 1))
 	}
 
-	return success, nil
+	if success {
+		return true, format.Message(actual, fmt.Sprintf("not to be %s", matcher.Comparator), matcher.CompareTo[0]), nil
+	} else {
+		return false, format.Message(actual, fmt.Sprintf("to be %s", matcher.Comparator), matcher.CompareTo[0]), nil
+	}
 }
 
 func (matcher *BeNumericallyMatcher) matchIntegers(actual, compareTo, threshold int64) (success bool) {

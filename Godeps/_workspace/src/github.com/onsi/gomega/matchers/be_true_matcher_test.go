@@ -13,8 +13,8 @@ var _ = Describe("BeTrue", func() {
 	})
 
 	It("should only support booleans", func() {
-		success, err := (&BeTrueMatcher{}).Match("foo")
+		success, _, err := (&BeTrueMatcher{}).Match("foo")
 		Ω(success).Should(BeFalse())
-		Ω(err).Should(HaveOccurred())
+		Ω(err).Should(HaveOccured())
 	})
 })

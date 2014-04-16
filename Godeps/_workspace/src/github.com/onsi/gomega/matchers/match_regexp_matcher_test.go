@@ -28,17 +28,17 @@ var _ = Describe("MatchRegexp", func() {
 
 	Context("when actual is neither a string nor a stringer", func() {
 		It("should error", func() {
-			success, err := (&MatchRegexpMatcher{Regexp: `\d`}).Match(2)
+			success, _, err := (&MatchRegexpMatcher{Regexp: `\d`}).Match(2)
 			Ω(success).Should(BeFalse())
-			Ω(err).Should(HaveOccurred())
+			Ω(err).Should(HaveOccured())
 		})
 	})
 
 	Context("when the passed in regexp fails to compile", func() {
 		It("should error", func() {
-			success, err := (&MatchRegexpMatcher{Regexp: "("}).Match("Foo")
+			success, _, err := (&MatchRegexpMatcher{Regexp: "("}).Match("Foo")
 			Ω(success).Should(BeFalse())
-			Ω(err).Should(HaveOccurred())
+			Ω(err).Should(HaveOccured())
 		})
 	})
 })

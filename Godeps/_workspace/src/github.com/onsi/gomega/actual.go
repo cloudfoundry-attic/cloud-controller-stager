@@ -51,19 +51,13 @@ func (actual *actual) buildDescription(optionalDescription ...interface{}) strin
 }
 
 func (actual *actual) match(matcher OmegaMatcher, desiredMatch bool, optionalDescription ...interface{}) bool {
-	matches, err := matcher.Match(actual.actualInput)
+	matches, message, err := matcher.Match(actual.actualInput)
 	description := actual.buildDescription(optionalDescription...)
 	if err != nil {
 		actual.fail(description+err.Error(), 2+actual.offset)
 		return false
 	}
 	if matches != desiredMatch {
-		var message string
-		if desiredMatch {
-			message = matcher.FailureMessage(actual)
-		} else {
-			message = matcher.NegatedFailureMessage(actual)
-		}
 		actual.fail(description+message, 2+actual.offset)
 		return false
 	}

@@ -40,13 +40,13 @@ var _ = Describe("BeEmpty", func() {
 
 	Context("when passed an unsupported type", func() {
 		It("should error", func() {
-			success, err := (&BeEmptyMatcher{}).Match(0)
+			success, _, err := (&BeEmptyMatcher{}).Match(0)
 			Ω(success).Should(BeFalse())
-			Ω(err).Should(HaveOccurred())
+			Ω(err).Should(HaveOccured())
 
-			success, err = (&BeEmptyMatcher{}).Match(nil)
+			success, _, err = (&BeEmptyMatcher{}).Match(nil)
 			Ω(success).Should(BeFalse())
-			Ω(err).Should(HaveOccurred())
+			Ω(err).Should(HaveOccured())
 		})
 	})
 })

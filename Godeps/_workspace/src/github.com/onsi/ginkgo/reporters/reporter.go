@@ -7,9 +7,7 @@ import (
 
 type Reporter interface {
 	SpecSuiteWillBegin(config config.GinkgoConfigType, summary *types.SuiteSummary)
-	BeforeSuiteDidRun(setupSummary *types.SetupSummary)
-	SpecWillRun(specSummary *types.SpecSummary)
-	SpecDidComplete(specSummary *types.SpecSummary)
-	AfterSuiteDidRun(setupSummary *types.SetupSummary)
+	ExampleWillRun(exampleSummary *types.ExampleSummary)
+	ExampleDidComplete(exampleSummary *types.ExampleSummary)
 	SpecSuiteDidEnd(summary *types.SuiteSummary)
 }

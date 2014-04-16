@@ -2,24 +2,26 @@ package testrunner
 
 import (
 	"bytes"
-	"fmt"
-	"io"
 	"log"
 	"strings"
 	"sync"
 )
 
-type logWriter struct {
-	buffer *bytes.Buffer
-	lock   *sync.Mutex
-	log    *log.Logger
+func init() {
+	log.SetFlags(0)
 }
 
-func newLogWriter(target io.Writer, node int) *logWriter {
+type logWriter struct {
+	prefix string
+	buffer *bytes.Buffer
+	lock   *sync.Mutex
+}
+
+func newLogWriter(prefix string) *logWriter {
 	return &logWriter{
+		prefix: prefix,
 		buffer: &bytes.Buffer{},
 		lock:   &sync.Mutex{},
-		log:    log.New(target, fmt.Sprintf("[%d] ", node), 0),
 	}
 }
 
@@ -32,7 +34,7 @@ func (w *logWriter) Write(data []byte) (n int, err error) {
 
 	lines := strings.Split(contents, "\n")
 	for _, line := range lines[0 : len(lines)-1] {
-		w.log.Println(line)
+		log.Printf("%s %s\n", w.prefix, line)
 	}
 
 	w.buffer.Reset()
@@ -45,7 +47,7 @@ func (w *logWriter) Close() error {
 	defer w.lock.Unlock()
 
 	if w.buffer.Len() > 0 {
-		w.log.Println(w.buffer.String())
+		log.Printf("%s %s\n", w.prefix, w.buffer.String())
 	}
 
 	return nil

@@ -87,23 +87,17 @@ func (actual *asyncActual) match(matcher OmegaMatcher, desiredMatch bool, option
 	description := actual.buildDescription(optionalDescription...)
 
 	var matches bool
+	var message string
 	var err error
 	value, err := actual.pollActual()
 	if err == nil {
-		matches, err = matcher.Match(value)
+		matches, message, err = matcher.Match(value)
 	}
 
 	fail := func(preamble string) {
 		errMsg := ""
 		if err != nil {
 			errMsg = "Error: " + err.Error()
-		}
-
-		var message string
-		if desiredMatch {
-			message = matcher.FailureMessage(actual)
-		} else {
-			message = matcher.NegatedFailureMessage(actual)
 		}
 		actual.fail(fmt.Sprintf("%s after %.3fs.\n%s%s%s", preamble, time.Since(timer).Seconds(), description, message, errMsg), 3+actual.offset)
 	}
@@ -118,7 +112,7 @@ func (actual *asyncActual) match(matcher OmegaMatcher, desiredMatch bool, option
 			case <-time.After(actual.pollingInterval):
 				value, err = actual.pollActual()
 				if err == nil {
-					matches, err = matcher.Match(value)
+					matches, message, err = matcher.Match(value)
 				}
 			case <-timeout:
 				fail("Timed out")
@@ -136,7 +130,7 @@ func (actual *asyncActual) match(matcher OmegaMatcher, desiredMatch bool, option
 			case <-time.After(actual.pollingInterval):
 				value, err = actual.pollActual()
 				if err == nil {
-					matches, err = matcher.Match(value)
+					matches, message, err = matcher.Match(value)
 				}
 			case <-timeout:
 				return true

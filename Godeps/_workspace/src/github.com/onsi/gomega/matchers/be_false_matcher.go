@@ -8,18 +8,13 @@ import (
 type BeFalseMatcher struct {
 }
 
-func (matcher *BeFalseMatcher) Match(actual interface{}) (success bool, err error) {
+func (matcher *BeFalseMatcher) Match(actual interface{}) (success bool, message string, err error) {
 	if !isBool(actual) {
-		return false, fmt.Errorf("Expected a boolean.  Got:\n%s", format.Object(actual, 1))
+		return false, "", fmt.Errorf("Expected a boolean.  Got:\n%s", format.Object(actual, 1))
 	}
-
-	return actual == false, nil
-}
-
-func (matcher *BeFalseMatcher) FailureMessage(actual interface{}) (message string) {
-	return format.Message(actual, "to be false")
-}
-
-func (matcher *BeFalseMatcher) NegatedFailureMessage(actual interface{}) (message string) {
-	return format.Message(actual, "not to be false")
+	if actual == false {
+		return true, format.Message(actual, "not to be false"), nil
+	} else {
+		return false, format.Message(actual, "to be false"), nil
+	}
 }

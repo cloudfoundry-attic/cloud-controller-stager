@@ -41,13 +41,13 @@ var _ = Describe("HaveLen", func() {
 
 	Context("when passed an unsupported type", func() {
 		It("should error", func() {
-			success, err := (&HaveLenMatcher{Count: 0}).Match(0)
+			success, _, err := (&HaveLenMatcher{Count: 0}).Match(0)
 			Ω(success).Should(BeFalse())
-			Ω(err).Should(HaveOccurred())
+			Ω(err).Should(HaveOccured())
 
-			success, err = (&HaveLenMatcher{Count: 0}).Match(nil)
+			success, _, err = (&HaveLenMatcher{Count: 0}).Match(nil)
 			Ω(success).Should(BeFalse())
-			Ω(err).Should(HaveOccurred())
+			Ω(err).Should(HaveOccured())
 		})
 	})
 })

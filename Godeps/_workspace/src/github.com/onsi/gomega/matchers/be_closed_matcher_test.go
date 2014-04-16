@@ -33,7 +33,7 @@ var _ = Describe("BeClosedMatcher", func() {
 			var openWriterChannel chan<- bool
 			openWriterChannel = openChannel
 
-			success, err := (&BeClosedMatcher{}).Match(openWriterChannel)
+			success, _, err := (&BeClosedMatcher{}).Match(openWriterChannel)
 			Ω(success).Should(BeFalse())
 			Ω(err).Should(HaveOccurred())
 
@@ -43,7 +43,7 @@ var _ = Describe("BeClosedMatcher", func() {
 			var closedWriterChannel chan<- bool
 			closedWriterChannel = closedChannel
 
-			success, err = (&BeClosedMatcher{}).Match(closedWriterChannel)
+			success, _, err = (&BeClosedMatcher{}).Match(closedWriterChannel)
 			Ω(success).Should(BeFalse())
 			Ω(err).Should(HaveOccurred())
 
@@ -54,15 +54,15 @@ var _ = Describe("BeClosedMatcher", func() {
 		It("should error", func() {
 			var nilChannel chan bool
 
-			success, err := (&BeClosedMatcher{}).Match(nilChannel)
+			success, _, err := (&BeClosedMatcher{}).Match(nilChannel)
 			Ω(success).Should(BeFalse())
 			Ω(err).Should(HaveOccurred())
 
-			success, err = (&BeClosedMatcher{}).Match(nil)
+			success, _, err = (&BeClosedMatcher{}).Match(nil)
 			Ω(success).Should(BeFalse())
 			Ω(err).Should(HaveOccurred())
 
-			success, err = (&BeClosedMatcher{}).Match(7)
+			success, _, err = (&BeClosedMatcher{}).Match(7)
 			Ω(success).Should(BeFalse())
 			Ω(err).Should(HaveOccurred())
 		})

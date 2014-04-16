@@ -14,9 +14,7 @@ import (
 )
 
 type omegaMatcher interface {
-	Match(actual interface{}) (success bool, err error)
-	FailureMessage(actual interface{}) (message string)
-	NegatedFailureMessage(actual interface{}) (message string)
+	Match(actual interface{}) (success bool, message string, err error)
 }
 
 func isBool(a interface{}) bool {

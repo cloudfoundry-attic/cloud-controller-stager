@@ -1,27 +1,21 @@
 package matchers
 
 import (
-	"github.com/onsi/gomega/format"
 	"reflect"
+	"github.com/onsi/gomega/format"
 )
 
 type BeZeroMatcher struct {
 }
 
-func (matcher *BeZeroMatcher) Match(actual interface{}) (success bool, err error) {
+func (matcher *BeZeroMatcher) Match(actual interface{}) (success bool, message string, err error) {
 	if actual == nil {
-		return true, nil
+		return true, format.Message(actual, "not to be zero-valued"), nil
 	}
 	zeroValue := reflect.Zero(reflect.TypeOf(actual)).Interface()
-
-	return reflect.DeepEqual(zeroValue, actual), nil
-
-}
-
-func (matcher *BeZeroMatcher) FailureMessage(actual interface{}) (message string) {
-	return format.Message(actual, "to be zero-valued")
-}
-
-func (matcher *BeZeroMatcher) NegatedFailureMessage(actual interface{}) (message string) {
-	return format.Message(actual, "not to be zero-valued")
+	if reflect.DeepEqual(zeroValue, actual) {
+		return true, format.Message(actual, "not to be zero-valued"), nil
+	} else {
+		return false, format.Message(actual, "to be zero-valued"), nil
+	}
 }
