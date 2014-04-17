@@ -100,10 +100,11 @@ var _ = Describe("Stage", func() {
 					models.TryAction{
 						models.ExecutorAction{
 							models.DownloadAction{
-								Name:    "Build Artifacts Cache",
-								From:    "http://file-server.com/build_artifacts/bunny",
-								To:      "/tmp/cache",
-								Extract: true,
+								Name:                   "Build Artifacts Cache",
+								From:                   "http://file-server.com/build_artifacts/bunny",
+								To:                     "/tmp/cache",
+								Extract:                true,
+								DownloadFailureMessage: "No Build Artifacts Cache Found",
 							},
 						},
 					},

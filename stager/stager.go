@@ -3,6 +3,7 @@ package stager
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
@@ -53,7 +54,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 	actions = append(actions, models.ExecutorAction{
 		models.DownloadAction{
 			Name:    "Linux Smelter",
-			From:    compilerURL,
+			From:    compilerURL.String(),
 			To:      smeltingConfig.CompilerPath(),
 			Extract: true,
 		},
@@ -88,10 +89,11 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 		models.TryAction{
 			Action: models.ExecutorAction{
 				Action: models.DownloadAction{
-					Name:    "Build Artifacts Cache",
-					From:    downloadURL,
-					To:      smeltingConfig.BuildArtifactsCacheDir(),
-					Extract: true,
+					Name:                   "Build Artifacts Cache",
+					From:                   downloadURL.String(),
+					To:                     smeltingConfig.BuildArtifactsCacheDir(),
+					Extract:                true,
+					DownloadFailureMessage: "No Build Artifacts Cache Found",
 				},
 			},
 		},
@@ -115,7 +117,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 		models.UploadAction{
 			Name: "Droplet",
 			From: smeltingConfig.OutputDir() + "/", // get the contents, not the directory itself
-			To:   uploadURL,
+			To:   uploadURL.String(),
 		},
 	})
 
@@ -130,7 +132,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 				Action: models.UploadAction{
 					Name:     "Build Artifacts Cache",
 					From:     smeltingConfig.BuildArtifactsCacheDir() + "/", // get the contents, not the directory itself
-					To:       uploadURL,
+					To:       uploadURL.String(),
 					Compress: true,
 				},
 			},
@@ -165,24 +167,31 @@ func (stager *stager) runOnceGuid(request models.StagingRequestFromCC) string {
 	return fmt.Sprintf("%s-%s", request.AppId, request.TaskId)
 }
 
-func (stager *stager) compilerDownloadURL(request models.StagingRequestFromCC, fileServerURL string) (string, error) {
+func (stager *stager) compilerDownloadURL(request models.StagingRequestFromCC, fileServerURL string) (*url.URL, error) {
 	compilerPath, ok := stager.compilers[request.Stack]
 	if !ok {
-		return "", ErrNoCompilerDefined
+		return nil, ErrNoCompilerDefined
 	}
 
 	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_STATIC)
 	if !ok {
-		return "", errors.New("couldn't generate the compiler download path")
+		return nil, errors.New("couldn't generate the compiler download path")
 	}
 
-	return urljoiner.Join(fileServerURL, staticRoute.Path, compilerPath), nil
+	urlString := urljoiner.Join(fileServerURL, staticRoute.Path, compilerPath)
+
+	url, err := url.ParseRequestURI(urlString)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse compiler download URL: %s", err)
+	}
+
+	return url, nil
 }
 
-func (stager *stager) dropletUploadURL(request models.StagingRequestFromCC, fileServerURL string) (string, error) {
+func (stager *stager) dropletUploadURL(request models.StagingRequestFromCC, fileServerURL string) (*url.URL, error) {
 	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_UPLOAD_DROPLET)
 	if !ok {
-		return "", errors.New("couldn't generate the droplet upload path")
+		return nil, errors.New("couldn't generate the droplet upload path")
 	}
 
 	path, err := staticRoute.PathWithParams(map[string]string{
@@ -190,16 +199,23 @@ func (stager *stager) dropletUploadURL(request models.StagingRequestFromCC, file
 	})
 
 	if err != nil {
-		return "", fmt.Errorf("failed to build droplet upload URL: %s", err)
+		return nil, fmt.Errorf("failed to build droplet upload URL: %s", err)
 	}
 
-	return urljoiner.Join(fileServerURL, path), nil
+	urlString := urljoiner.Join(fileServerURL, path)
+
+	url, err := url.ParseRequestURI(urlString)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse droplet upload URL: %s", err)
+	}
+
+	return url, nil
 }
 
-func (stager *stager) buildArtifactsUploadURL(request models.StagingRequestFromCC, fileServerURL string) (string, error) {
+func (stager *stager) buildArtifactsUploadURL(request models.StagingRequestFromCC, fileServerURL string) (*url.URL, error) {
 	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_UPLOAD_BUILD_ARTIFACTS)
 	if !ok {
-		return "", errors.New("couldn't generate the build artifacts upload path")
+		return nil, errors.New("couldn't generate the build artifacts cache upload path")
 	}
 
 	path, err := staticRoute.PathWithParams(map[string]string{
@@ -207,16 +223,23 @@ func (stager *stager) buildArtifactsUploadURL(request models.StagingRequestFromC
 	})
 
 	if err != nil {
-		return "", fmt.Errorf("failed to build build artifacts upload URL: %s", err)
+		return nil, fmt.Errorf("failed to build build artifacts cache upload URL: %s", err)
 	}
 
-	return urljoiner.Join(fileServerURL, path), nil
+	urlString := urljoiner.Join(fileServerURL, path)
+
+	url, err := url.ParseRequestURI(urlString)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse build artifacts cache upload URL: %s", err)
+	}
+
+	return url, nil
 }
 
-func (stager *stager) buildArtifactsDownloadURL(request models.StagingRequestFromCC, fileServerURL string) (string, error) {
+func (stager *stager) buildArtifactsDownloadURL(request models.StagingRequestFromCC, fileServerURL string) (*url.URL, error) {
 	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_DOWNLOAD_BUILD_ARTIFACTS)
 	if !ok {
-		return "", errors.New("couldn't generate the build artifacts download path")
+		return nil, errors.New("couldn't generate the build artifacts cache download path")
 	}
 
 	path, err := staticRoute.PathWithParams(map[string]string{
@@ -224,8 +247,15 @@ func (stager *stager) buildArtifactsDownloadURL(request models.StagingRequestFro
 	})
 
 	if err != nil {
-		return "", fmt.Errorf("failed to build build artifacts download URL: %s", err)
+		return nil, fmt.Errorf("failed to build build artifacts cache download URL: %s", err)
 	}
 
-	return urljoiner.Join(fileServerURL, path), nil
+	urlString := urljoiner.Join(fileServerURL, path)
+
+	url, err := url.ParseRequestURI(urlString)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse build artifacts cache download URL: %s", err)
+	}
+
+	return url, nil
 }
