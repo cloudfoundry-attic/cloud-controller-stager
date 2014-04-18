@@ -49,14 +49,26 @@ var compilers = flag.String(
 	"Map of compilers for different stacks (name => compiler_name)",
 )
 
+var syslogName = flag.String(
+	"syslogName",
+	"",
+	"syslog program name",
+)
+
 func main() {
 	flag.Parse()
 
-	steno.Init(&steno.Config{
+	stenoConfig := &steno.Config{
 		Sinks: []steno.Sink{
 			steno.NewIOSink(os.Stdout),
 		},
-	})
+	}
+
+	if *syslogName != "" {
+		stenoConfig.Sinks = append(stenoConfig.Sinks, steno.NewSyslogSink(*syslogName))
+	}
+
+	steno.Init(stenoConfig)
 
 	log := steno.NewLogger("Stager")
 
