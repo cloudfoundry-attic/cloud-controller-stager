@@ -123,7 +123,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 						},
 					},
 					"Downloading Build Artifacts Cache",
-					"Build Artifacts Cache Downloaded",
+					"Downloaded Build Artifacts Cache",
 					"No Build Artifacts Cache Found.  Proceeding...",
 				),
 			),

@@ -123,7 +123,7 @@ var _ = Describe("Stage", func() {
 							},
 						},
 						"Downloading Build Artifacts Cache",
-						"Build Artifacts Cache Downloaded",
+						"Downloaded Build Artifacts Cache",
 						"No Build Artifacts Cache Found.  Proceeding...",
 					),
 				),
