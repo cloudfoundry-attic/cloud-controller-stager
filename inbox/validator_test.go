@@ -20,6 +20,7 @@ var _ = Describe("Validator", func() {
 			Stack:              "rabbit_hole",
 			MemoryMB:           256,
 			DiskMB:             1024,
+			BuildArtifactsCacheDownloadUri: "http://example-uri.com/bunny-droppings",
 		}
 
 		validator = ValidateRequest

@@ -34,13 +34,14 @@ var _ = Describe("Stage", func() {
 			modelChannel, _, _ := bbs.WatchForDesiredRunOnce()
 
 			err := stager.Stage(models.StagingRequestFromCC{
-				AppId:              "bunny",
-				TaskId:             "hop",
-				AppBitsDownloadUri: "http://example-uri.com/bunny",
-				Stack:              "rabbit_hole",
-				FileDescriptors:    17,
-				MemoryMB:           256,
-				DiskMB:             1024,
+				AppId:                          "bunny",
+				TaskId:                         "hop",
+				AppBitsDownloadUri:             "http://example-uri.com/bunny",
+				BuildArtifactsCacheDownloadUri: "http://example-uri.com/bunny-droppings",
+				Stack:           "rabbit_hole",
+				FileDescriptors: 17,
+				MemoryMB:        256,
+				DiskMB:          1024,
 				Buildpacks: []models.Buildpack{
 					{Key: "zfirst-buildpack", Url: "first-buildpack-url"},
 					{Key: "asecond-buildpack", Url: "second-buildpack-url"},
@@ -116,7 +117,7 @@ var _ = Describe("Stage", func() {
 					models.EmitProgressFor(
 						models.ExecutorAction{
 							models.DownloadAction{
-								From:    "http://file-server.com/build_artifacts/bunny",
+								From:    "http://example-uri.com/bunny-droppings",
 								To:      "/tmp/cache",
 								Extract: true,
 							},
@@ -195,15 +196,40 @@ var _ = Describe("Stage", func() {
 
 	})
 
+	Context("when build artifacts download url is not a valid url", func() {
+		It("return a url parsing error", func() {
+			err := stager.Stage(models.StagingRequestFromCC{
+				AppId:                          "bunny",
+				TaskId:                         "hop",
+				AppBitsDownloadUri:             "http://example-uri.com/bunny",
+				BuildArtifactsCacheDownloadUri: "not-a-url",
+				Stack:           "rabbit_hole",
+				FileDescriptors: 17,
+				MemoryMB:        256,
+				DiskMB:          1024,
+				Buildpacks: []models.Buildpack{
+					{Key: "zfirst-buildpack", Url: "first-buildpack-url"},
+					{Key: "asecond-buildpack", Url: "second-buildpack-url"},
+				},
+				Environment: [][]string{
+					{"VCAP_APPLICATION", "foo"},
+					{"VCAP_SERVICES", "bar"},
+				},
+			}, "me")
+			Ω(err).Should(HaveOccurred())
+		})
+	})
+
 	Context("when file server is not available", func() {
 		It("should return an error", func() {
 			err := stager.Stage(models.StagingRequestFromCC{
-				AppId:              "bunny",
-				TaskId:             "hop",
-				AppBitsDownloadUri: "http://example-uri.com/bunny",
-				Stack:              "rabbit_hole",
-				MemoryMB:           256,
-				DiskMB:             1024,
+				AppId:                          "bunny",
+				TaskId:                         "hop",
+				AppBitsDownloadUri:             "http://example-uri.com/bunny",
+				BuildArtifactsCacheDownloadUri: "http://example-uri.com/bunny-droppings",
+				Stack:    "rabbit_hole",
+				MemoryMB: 256,
+				DiskMB:   1024,
 			}, "me")
 
 			Ω(err).Should(HaveOccurred())
@@ -221,12 +247,13 @@ var _ = Describe("Stage", func() {
 			bbs.WatchForDesiredRunOnce()
 
 			err := stager.Stage(models.StagingRequestFromCC{
-				AppId:              "bunny",
-				TaskId:             "hop",
-				AppBitsDownloadUri: "http://example-uri.com/bunny",
-				Stack:              "no_such_stack",
-				MemoryMB:           256,
-				DiskMB:             1024,
+				AppId:                          "bunny",
+				TaskId:                         "hop",
+				AppBitsDownloadUri:             "http://example-uri.com/bunny",
+				BuildArtifactsCacheDownloadUri: "http://example-uri.com/bunny-droppings",
+				Stack:    "no_such_stack",
+				MemoryMB: 256,
+				DiskMB:   1024,
 			}, "me")
 
 			Ω(err).Should(HaveOccurred())

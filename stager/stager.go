@@ -295,20 +295,8 @@ func (stager *stager) buildArtifactsUploadURL(request models.StagingRequestFromC
 }
 
 func (stager *stager) buildArtifactsDownloadURL(request models.StagingRequestFromCC, fileServerURL string) (*url.URL, error) {
-	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_DOWNLOAD_BUILD_ARTIFACTS)
-	if !ok {
-		return nil, errors.New("couldn't generate the build artifacts cache download path")
-	}
 
-	path, err := staticRoute.PathWithParams(map[string]string{
-		"app_guid": request.AppId,
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to build build artifacts cache download URL: %s", err)
-	}
-
-	urlString := urljoiner.Join(fileServerURL, path)
+	urlString := request.BuildArtifactsCacheDownloadUri
 
 	url, err := url.ParseRequestURI(urlString)
 	if err != nil {
