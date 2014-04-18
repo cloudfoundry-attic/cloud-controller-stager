@@ -46,7 +46,7 @@ var _ = Describe("Stage", func() {
 					{Key: "zfirst-buildpack", Url: "first-buildpack-url"},
 					{Key: "asecond-buildpack", Url: "second-buildpack-url"},
 				},
-				Environment: [][]string{
+				Environment: []models.EnvironmentVariable{
 					{"VCAP_APPLICATION", "foo"},
 					{"VCAP_SERVICES", "bar"},
 				},
@@ -137,7 +137,7 @@ var _ = Describe("Stage", func() {
 								" -buildpacksDir='/tmp/buildpacks'" +
 								" -outputDir='/tmp/droplet'" +
 								" -resultDir='/tmp/result'",
-							Env: [][]string{
+							Env: []models.EnvironmentVariable{
 								{"VCAP_APPLICATION", "foo"},
 								{"VCAP_SERVICES", "bar"},
 							},
@@ -217,7 +217,7 @@ var _ = Describe("Stage", func() {
 					{Key: "zfirst-buildpack", Url: "first-buildpack-url"},
 					{Key: "asecond-buildpack", Url: "second-buildpack-url"},
 				},
-				Environment: [][]string{
+				Environment: []models.EnvironmentVariable{
 					{"VCAP_APPLICATION", "foo"},
 					{"VCAP_SERVICES", "bar"},
 				},
@@ -294,7 +294,7 @@ var _ = Describe("Stage", func() {
 								" -buildpacksDir='/tmp/buildpacks'" +
 								" -outputDir='/tmp/droplet'" +
 								" -resultDir='/tmp/result'",
-							Env: [][]string{
+							Env: []models.EnvironmentVariable{
 								{"VCAP_APPLICATION", "foo"},
 								{"VCAP_SERVICES", "bar"},
 							},
@@ -367,7 +367,7 @@ var _ = Describe("Stage", func() {
 					{Key: "zfirst-buildpack", Url: "first-buildpack-url"},
 					{Key: "asecond-buildpack", Url: "second-buildpack-url"},
 				},
-				Environment: [][]string{
+				Environment: []models.EnvironmentVariable{
 					{"VCAP_APPLICATION", "foo"},
 					{"VCAP_SERVICES", "bar"},
 				},
