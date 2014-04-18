@@ -64,94 +64,125 @@ var _ = Describe("Stage", func() {
 			Ω(runOnce.Log.Index).To(BeNil())
 
 			expectedActions := []models.ExecutorAction{
-				{
-					models.DownloadAction{
-						Name:    "Linux Smelter",
-						From:    "http://file-server.com/static/rabbit-hole-compiler",
-						To:      "/tmp/compiler",
-						Extract: true,
+				models.EmitProgressFor(
+					models.ExecutorAction{
+						models.DownloadAction{
+							From:    "http://file-server.com/static/rabbit-hole-compiler",
+							To:      "/tmp/compiler",
+							Extract: true,
+						},
 					},
-				},
-				{
-					models.DownloadAction{
-						Name:    "App Package",
-						From:    "http://example-uri.com/bunny",
-						To:      "/app",
-						Extract: true,
+					"",
+					"",
+					"Failed to Download Smelter",
+				),
+				models.EmitProgressFor(
+					models.ExecutorAction{
+						models.DownloadAction{
+							From:    "http://example-uri.com/bunny",
+							To:      "/app",
+							Extract: true,
+						},
 					},
-				},
-				{
-					models.DownloadAction{
-						Name:    "Buildpack",
-						From:    "first-buildpack-url",
-						To:      "/tmp/buildpacks/zfirst-buildpack",
-						Extract: true,
+					"Downloading App Package",
+					"Downloaded App Package",
+					"Failed to Download App Package",
+				),
+				models.EmitProgressFor(
+					models.ExecutorAction{
+						models.DownloadAction{
+							From:    "first-buildpack-url",
+							To:      "/tmp/buildpacks/zfirst-buildpack",
+							Extract: true,
+						},
 					},
-				},
-				{
-					models.DownloadAction{
-						Name:    "Buildpack",
-						From:    "second-buildpack-url",
-						To:      "/tmp/buildpacks/asecond-buildpack",
-						Extract: true,
+					"Downloading Buildpack",
+					"Downloaded Buildpack",
+					"Failed to Download Buildpack",
+				),
+				models.EmitProgressFor(
+					models.ExecutorAction{
+						models.DownloadAction{
+							From:    "second-buildpack-url",
+							To:      "/tmp/buildpacks/asecond-buildpack",
+							Extract: true,
+						},
 					},
-				},
-				{
-					models.TryAction{
+					"Downloading Buildpack",
+					"Downloaded Buildpack",
+					"Failed to Download Buildpack",
+				),
+				models.Try(
+					models.EmitProgressFor(
 						models.ExecutorAction{
 							models.DownloadAction{
-								Name:                   "Build Artifacts Cache",
-								From:                   "http://file-server.com/build_artifacts/bunny",
-								To:                     "/tmp/cache",
-								Extract:                true,
-								DownloadFailureMessage: "No Build Artifacts Cache Found",
+								From:    "http://file-server.com/build_artifacts/bunny",
+								To:      "/tmp/cache",
+								Extract: true,
 							},
 						},
-					},
-				},
-				{
-					models.RunAction{
-						Name: "Staging",
-						Script: "/tmp/compiler/run" +
-							" -appDir='/app'" +
-							" -buildArtifactsCacheDir='/tmp/cache'" +
-							" -buildpackOrder='zfirst-buildpack,asecond-buildpack'" +
-							" -buildpacksDir='/tmp/buildpacks'" +
-							" -outputDir='/tmp/droplet'" +
-							" -resultDir='/tmp/result'",
-						Env: [][]string{
-							{"VCAP_APPLICATION", "foo"},
-							{"VCAP_SERVICES", "bar"},
+						"Downloading Build Artifacts Cache",
+						"Build Artifacts Cache Downloaded",
+						"No Build Artifacts Cache Found.  Proceeding...",
+					),
+				),
+				models.EmitProgressFor(
+					models.ExecutorAction{
+						models.RunAction{
+							Script: "/tmp/compiler/run" +
+								" -appDir='/app'" +
+								" -buildArtifactsCacheDir='/tmp/cache'" +
+								" -buildpackOrder='zfirst-buildpack,asecond-buildpack'" +
+								" -buildpacksDir='/tmp/buildpacks'" +
+								" -outputDir='/tmp/droplet'" +
+								" -resultDir='/tmp/result'",
+							Env: [][]string{
+								{"VCAP_APPLICATION", "foo"},
+								{"VCAP_SERVICES", "bar"},
+							},
+							Timeout: 15 * time.Minute,
 						},
-						Timeout: 15 * time.Minute,
 					},
-				},
-				{
-					models.UploadAction{
-						Name:     "Droplet",
-						From:     "/tmp/droplet/",
-						To:       "http://file-server.com/droplet/bunny",
-						Compress: false,
+					"Staging...",
+					"Staging Complete",
+					"Staging Failed",
+				),
+				models.EmitProgressFor(
+					models.ExecutorAction{
+						models.UploadAction{
+							From:     "/tmp/droplet/",
+							To:       "http://file-server.com/droplet/bunny",
+							Compress: false,
+						},
 					},
-				},
-				{
-					models.TryAction{
+					"Uploading Droplet",
+					"Droplet Uploaded",
+					"Failed to Upload Droplet",
+				),
+				models.Try(
+					models.EmitProgressFor(
 						models.ExecutorAction{
 							models.UploadAction{
-								Name:     "Build Artifacts Cache",
 								From:     "/tmp/cache/",
 								To:       "http://file-server.com/build_artifacts/bunny",
 								Compress: true,
 							},
 						},
+						"Uploading Build Artifacts Cache",
+						"Build Artifacts Cache Uploaded",
+						"Failed to Upload Build Artifacts Cache.  Proceeding...",
+					),
+				),
+				models.EmitProgressFor(
+					models.ExecutorAction{
+						models.FetchResultAction{
+							File: "/tmp/result/result.json",
+						},
 					},
-				},
-				{
-					models.FetchResultAction{
-						Name: "Staging Result",
-						File: "/tmp/result/result.json",
-					},
-				},
+					"",
+					"",
+					"Failed to Fetch Detected Buildpack",
+				),
 			}
 
 			for i, action := range runOnce.Actions {

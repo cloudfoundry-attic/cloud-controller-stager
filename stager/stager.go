@@ -51,101 +51,159 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 
 	actions := []models.ExecutorAction{}
 
-	actions = append(actions, models.ExecutorAction{
-		models.DownloadAction{
-			Name:    "Linux Smelter",
-			From:    compilerURL.String(),
-			To:      smeltingConfig.CompilerPath(),
-			Extract: true,
-		},
-	})
-
-	actions = append(actions, models.ExecutorAction{
-		models.DownloadAction{
-			Name:    "App Package",
-			From:    request.AppBitsDownloadUri,
-			To:      smeltingConfig.AppDir(),
-			Extract: true,
-		},
-	})
-
-	for _, buildpack := range request.Buildpacks {
-		actions = append(actions, models.ExecutorAction{
-			models.DownloadAction{
-				Name:    "Buildpack",
-				From:    buildpack.Url,
-				To:      smeltingConfig.BuildpackPath(buildpack.Key),
-				Extract: true,
+	//Download smelter
+	actions = append(
+		actions,
+		models.EmitProgressFor(
+			models.ExecutorAction{
+				models.DownloadAction{
+					From:    compilerURL.String(),
+					To:      smeltingConfig.CompilerPath(),
+					Extract: true,
+				},
 			},
-		})
+			"",
+			"",
+			"Failed to Download Smelter",
+		),
+	)
+
+	//Download App Package
+	actions = append(
+		actions,
+		models.EmitProgressFor(
+			models.ExecutorAction{
+				models.DownloadAction{
+					From:    request.AppBitsDownloadUri,
+					To:      smeltingConfig.AppDir(),
+					Extract: true,
+				},
+			},
+			"Downloading App Package",
+			"Downloaded App Package",
+			"Failed to Download App Package",
+		),
+	)
+
+	//Download Buildpacks
+	for _, buildpack := range request.Buildpacks {
+		actions = append(
+			actions,
+			models.EmitProgressFor(
+				models.ExecutorAction{
+					models.DownloadAction{
+						From:    buildpack.Url,
+						To:      smeltingConfig.BuildpackPath(buildpack.Key),
+						Extract: true,
+					},
+				},
+				"Downloading Buildpack",
+				"Downloaded Buildpack",
+				"Failed to Download Buildpack",
+			),
+		)
 	}
 
+	//Download Buildpack Artifacts Cache
 	downloadURL, err := stager.buildArtifactsDownloadURL(request, fileServerURL)
 	if err != nil {
 		return err
 	}
 
-	actions = append(actions, models.ExecutorAction{
-		models.TryAction{
-			Action: models.ExecutorAction{
-				Action: models.DownloadAction{
-					Name:                   "Build Artifacts Cache",
-					From:                   downloadURL.String(),
-					To:                     smeltingConfig.BuildArtifactsCacheDir(),
-					Extract:                true,
-					DownloadFailureMessage: "No Build Artifacts Cache Found",
+	actions = append(
+		actions,
+		models.Try(
+			models.EmitProgressFor(
+				models.ExecutorAction{
+					models.DownloadAction{
+						From:    downloadURL.String(),
+						To:      smeltingConfig.BuildArtifactsCacheDir(),
+						Extract: true,
+					},
+				},
+				"Downloading Build Artifacts Cache",
+				"Build Artifacts Cache Downloaded",
+				"No Build Artifacts Cache Found.  Proceeding...",
+			),
+		),
+	)
+
+	//Run Smelter
+	actions = append(
+		actions,
+		models.EmitProgressFor(
+			models.ExecutorAction{
+				models.RunAction{
+					Script:  smeltingConfig.Script(),
+					Env:     request.Environment,
+					Timeout: 15 * time.Minute,
 				},
 			},
-		},
-	})
+			"Staging...",
+			"Staging Complete",
+			"Staging Failed",
+		),
+	)
 
-	actions = append(actions, models.ExecutorAction{
-		models.RunAction{
-			Name:    "Staging",
-			Script:  smeltingConfig.Script(),
-			Env:     request.Environment,
-			Timeout: 15 * time.Minute,
-		},
-	})
-
+	//Upload Droplet
 	uploadURL, err := stager.dropletUploadURL(request, fileServerURL)
 	if err != nil {
 		return err
 	}
 
-	actions = append(actions, models.ExecutorAction{
-		models.UploadAction{
-			Name: "Droplet",
-			From: smeltingConfig.OutputDir() + "/", // get the contents, not the directory itself
-			To:   uploadURL.String(),
-		},
-	})
+	actions = append(
+		actions,
+		models.EmitProgressFor(
+			models.ExecutorAction{
+				models.UploadAction{
+					From: smeltingConfig.OutputDir() + "/", // get the contents, not the directory itself
+					To:   uploadURL.String(),
+				},
+			},
+			"Uploading Droplet",
+			"Droplet Uploaded",
+			"Failed to Upload Droplet",
+		),
+	)
 
+	//Upload Buildpack Artifacts Cache
 	uploadURL, err = stager.buildArtifactsUploadURL(request, fileServerURL)
 	if err != nil {
 		return err
 	}
 
-	actions = append(actions, models.ExecutorAction{
-		models.TryAction{
-			Action: models.ExecutorAction{
-				Action: models.UploadAction{
-					Name:     "Build Artifacts Cache",
-					From:     smeltingConfig.BuildArtifactsCacheDir() + "/", // get the contents, not the directory itself
-					To:       uploadURL.String(),
-					Compress: true,
+	actions = append(actions,
+		models.Try(
+			models.EmitProgressFor(
+				models.ExecutorAction{
+					models.UploadAction{
+						From:     smeltingConfig.BuildArtifactsCacheDir() + "/", // get the contents, not the directory itself
+						To:       uploadURL.String(),
+						Compress: true,
+					},
+				},
+				"Uploading Build Artifacts Cache",
+				"Build Artifacts Cache Uploaded",
+				"Failed to Upload Build Artifacts Cache.  Proceeding...",
+			),
+		),
+	)
+
+	//Fetch Result
+	actions = append(actions,
+		models.EmitProgressFor(
+			models.ExecutorAction{
+				models.FetchResultAction{
+					File: smeltingConfig.ResultJsonPath(),
 				},
 			},
-		},
-	})
+			"",
+			"",
+			"Failed to Fetch Detected Buildpack",
+		),
+	)
 
-	actions = append(actions, models.ExecutorAction{
-		models.FetchResultAction{
-			Name: "Staging Result",
-			File: smeltingConfig.ResultJsonPath(),
-		},
-	})
-
+	//Go!
 	err = stager.stagerBBS.DesireRunOnce(&models.RunOnce{
 		Guid:            stager.runOnceGuid(request),
 		Stack:           request.Stack,
