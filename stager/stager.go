@@ -110,23 +110,25 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 		return err
 	}
 
-	actions = append(
-		actions,
-		models.Try(
-			models.EmitProgressFor(
-				models.ExecutorAction{
-					models.DownloadAction{
-						From:    downloadURL.String(),
-						To:      smeltingConfig.BuildArtifactsCacheDir(),
-						Extract: true,
+	if downloadURL != nil {
+		actions = append(
+			actions,
+			models.Try(
+				models.EmitProgressFor(
+					models.ExecutorAction{
+						models.DownloadAction{
+							From:    downloadURL.String(),
+							To:      smeltingConfig.BuildArtifactsCacheDir(),
+							Extract: true,
+						},
 					},
-				},
-				"Downloading Build Artifacts Cache",
-				"Build Artifacts Cache Downloaded",
-				"No Build Artifacts Cache Found.  Proceeding...",
+					"Downloading Build Artifacts Cache",
+					"Build Artifacts Cache Downloaded",
+					"No Build Artifacts Cache Found.  Proceeding...",
+				),
 			),
-		),
-	)
+		)
+	}
 
 	//Run Smelter
 	actions = append(
@@ -297,6 +299,9 @@ func (stager *stager) buildArtifactsUploadURL(request models.StagingRequestFromC
 func (stager *stager) buildArtifactsDownloadURL(request models.StagingRequestFromCC, fileServerURL string) (*url.URL, error) {
 
 	urlString := request.BuildArtifactsCacheDownloadUri
+	if urlString == "" {
+		return nil, nil
+	}
 
 	url, err := url.ParseRequestURI(urlString)
 	if err != nil {

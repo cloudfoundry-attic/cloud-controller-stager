@@ -196,6 +196,162 @@ var _ = Describe("Stage", func() {
 
 	})
 
+	Context("when build artifacts download uris are not provided", func() {
+		BeforeEach(func() {
+			_, _, err := bbs.MaintainFileServerPresence(10*time.Second, "http://file-server.com/", "abc123")
+			Ω(err).ShouldNot(HaveOccurred())
+		})
+
+		It("does not instruct the executor to download the cache", func() {
+			modelChannel, _, _ := bbs.WatchForDesiredRunOnce()
+
+			err := stager.Stage(models.StagingRequestFromCC{
+				AppId:              "bunny",
+				TaskId:             "hop",
+				AppBitsDownloadUri: "http://example-uri.com/bunny",
+				Stack:              "rabbit_hole",
+				FileDescriptors:    17,
+				MemoryMB:           256,
+				DiskMB:             1024,
+				Buildpacks: []models.Buildpack{
+					{Key: "zfirst-buildpack", Url: "first-buildpack-url"},
+					{Key: "asecond-buildpack", Url: "second-buildpack-url"},
+				},
+				Environment: [][]string{
+					{"VCAP_APPLICATION", "foo"},
+					{"VCAP_SERVICES", "bar"},
+				},
+			}, "me")
+			Ω(err).ShouldNot(HaveOccurred())
+
+			var runOnce *models.RunOnce
+			Eventually(modelChannel).Should(Receive(&runOnce))
+
+			Ω(runOnce.Guid).To(Equal("bunny-hop"))
+			Ω(runOnce.ReplyTo).To(Equal("me"))
+			Ω(runOnce.Stack).To(Equal("rabbit_hole"))
+			Ω(runOnce.Log.Guid).To(Equal("bunny"))
+			Ω(runOnce.Log.SourceName).To(Equal("STG"))
+			Ω(runOnce.FileDescriptors).To(Equal(17))
+			Ω(runOnce.Log.Index).To(BeNil())
+
+			expectedActions := []models.ExecutorAction{
+				models.EmitProgressFor(
+					models.ExecutorAction{
+						models.DownloadAction{
+							From:    "http://file-server.com/static/rabbit-hole-compiler",
+							To:      "/tmp/compiler",
+							Extract: true,
+						},
+					},
+					"",
+					"",
+					"Failed to Download Smelter",
+				),
+				models.EmitProgressFor(
+					models.ExecutorAction{
+						models.DownloadAction{
+							From:    "http://example-uri.com/bunny",
+							To:      "/app",
+							Extract: true,
+						},
+					},
+					"Downloading App Package",
+					"Downloaded App Package",
+					"Failed to Download App Package",
+				),
+				models.EmitProgressFor(
+					models.ExecutorAction{
+						models.DownloadAction{
+							From:    "first-buildpack-url",
+							To:      "/tmp/buildpacks/zfirst-buildpack",
+							Extract: true,
+						},
+					},
+					"Downloading Buildpack",
+					"Downloaded Buildpack",
+					"Failed to Download Buildpack",
+				),
+				models.EmitProgressFor(
+					models.ExecutorAction{
+						models.DownloadAction{
+							From:    "second-buildpack-url",
+							To:      "/tmp/buildpacks/asecond-buildpack",
+							Extract: true,
+						},
+					},
+					"Downloading Buildpack",
+					"Downloaded Buildpack",
+					"Failed to Download Buildpack",
+				),
+				models.EmitProgressFor(
+					models.ExecutorAction{
+						models.RunAction{
+							Script: "/tmp/compiler/run" +
+								" -appDir='/app'" +
+								" -buildArtifactsCacheDir='/tmp/cache'" +
+								" -buildpackOrder='zfirst-buildpack,asecond-buildpack'" +
+								" -buildpacksDir='/tmp/buildpacks'" +
+								" -outputDir='/tmp/droplet'" +
+								" -resultDir='/tmp/result'",
+							Env: [][]string{
+								{"VCAP_APPLICATION", "foo"},
+								{"VCAP_SERVICES", "bar"},
+							},
+							Timeout: 15 * time.Minute,
+						},
+					},
+					"Staging...",
+					"Staging Complete",
+					"Staging Failed",
+				),
+				models.EmitProgressFor(
+					models.ExecutorAction{
+						models.UploadAction{
+							From:     "/tmp/droplet/",
+							To:       "http://file-server.com/droplet/bunny",
+							Compress: false,
+						},
+					},
+					"Uploading Droplet",
+					"Droplet Uploaded",
+					"Failed to Upload Droplet",
+				),
+				models.Try(
+					models.EmitProgressFor(
+						models.ExecutorAction{
+							models.UploadAction{
+								From:     "/tmp/cache/",
+								To:       "http://file-server.com/build_artifacts/bunny",
+								Compress: true,
+							},
+						},
+						"Uploading Build Artifacts Cache",
+						"Build Artifacts Cache Uploaded",
+						"Failed to Upload Build Artifacts Cache.  Proceeding...",
+					),
+				),
+				models.EmitProgressFor(
+					models.ExecutorAction{
+						models.FetchResultAction{
+							File: "/tmp/result/result.json",
+						},
+					},
+					"",
+					"",
+					"Failed to Fetch Detected Buildpack",
+				),
+			}
+
+			for i, action := range runOnce.Actions {
+				Ω(action).To(Equal(expectedActions[i]))
+			}
+
+			Ω(runOnce.MemoryMB).To(Equal(256))
+			Ω(runOnce.DiskMB).To(Equal(1024))
+		})
+	})
+
 	Context("when build artifacts download url is not a valid url", func() {
 		It("return a url parsing error", func() {
 			err := stager.Stage(models.StagingRequestFromCC{
