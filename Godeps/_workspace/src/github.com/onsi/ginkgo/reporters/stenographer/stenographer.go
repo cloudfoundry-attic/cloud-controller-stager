@@ -8,9 +8,8 @@ package stenographer
 
 import (
 	"fmt"
-	"strings"
-
 	"github.com/onsi/ginkgo/types"
+	"strings"
 )
 
 const defaultStyle = "\x1b[0m"
@@ -245,7 +244,7 @@ func (s *consoleStenographer) AnnouncePendingSpec(spec *types.SpecSummary, noisy
 			false,
 		)
 	} else {
-		s.print(0, s.colorize(yellowColor, "P"))
+		s.print(0, s.colorize(greenColor, "P"))
 		s.stream()
 	}
 }
