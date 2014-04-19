@@ -185,7 +185,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 					},
 				},
 				"Uploading Build Artifacts Cache",
-				"Build Artifacts Cache Uploaded",
+				"Uploaded Build Artifacts Cache",
 				"Failed to Upload Build Artifacts Cache.  Proceeding...",
 			),
 		),
