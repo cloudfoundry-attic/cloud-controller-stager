@@ -207,7 +207,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 
 	//Go!
 	err = stager.stagerBBS.DesireTask(&models.Task{
-		Guid:            stager.runOnceGuid(request),
+		Guid:            stager.taskGuid(request),
 		Stack:           request.Stack,
 		ReplyTo:         replyTo,
 		FileDescriptors: request.FileDescriptors,
@@ -223,7 +223,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 	return err
 }
 
-func (stager *stager) runOnceGuid(request models.StagingRequestFromCC) string {
+func (stager *stager) taskGuid(request models.StagingRequestFromCC) string {
 	return fmt.Sprintf("%s-%s", request.AppId, request.TaskId)
 }
 

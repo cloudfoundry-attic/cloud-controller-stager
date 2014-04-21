@@ -15,14 +15,14 @@ import (
 var _ = Describe("Outbox", func() {
 	var fakenats *fakeyagnats.FakeYagnats
 	var logger *steno.Logger
-	var runOnce *models.Task
+	var task *models.Task
 	var bbs *fake_bbs.FakeStagerBBS
 	var published chan []byte
 
 	BeforeEach(func() {
 		fakenats = fakeyagnats.New()
 		logger = steno.NewLogger("fakelogger")
-		runOnce = &models.Task{
+		task = &models.Task{
 			Guid:    "some-task-id",
 			ReplyTo: "some-requester",
 			Result:  "{}",
@@ -43,11 +43,11 @@ var _ = Describe("Outbox", func() {
 
 	Context("when a completed Task appears in the outbox", func() {
 		BeforeEach(func() {
-			runOnce.Result = `{"detected_buildpack":"Some Buildpack"}`
+			task.Result = `{"detected_buildpack":"Some Buildpack"}`
 		})
 
 		It("claims the completed runonce, publishes its result to ReplyTo and then marks the Task as completed", func() {
-			bbs.SendCompletedTask(runOnce)
+			bbs.SendCompletedTask(task)
 
 			Eventually(bbs.ResolvingTaskInput).ShouldNot(BeZero())
 
@@ -55,7 +55,7 @@ var _ = Describe("Outbox", func() {
 			Eventually(published).Should(Receive(&receivedPayload))
 			Ω(receivedPayload).Should(MatchJSON(`{"detected_buildpack":"Some Buildpack"}`))
 
-			Eventually(bbs.ResolvedTask).Should(Equal(runOnce))
+			Eventually(bbs.ResolvedTask).Should(Equal(task))
 		})
 
 		Context("when the response fails to go out", func() {
@@ -66,27 +66,27 @@ var _ = Describe("Outbox", func() {
 			})
 
 			It("does not attempt to resolve the Task", func() {
-				bbs.SendCompletedTask(runOnce)
+				bbs.SendCompletedTask(task)
 
-				Consistently(bbs.ResolvedTask).ShouldNot(Equal(runOnce))
+				Consistently(bbs.ResolvedTask).ShouldNot(Equal(task))
 			})
 		})
 	})
 
 	Context("when a failed Task appears in the outbox", func() {
 		BeforeEach(func() {
-			runOnce.Failed = true
-			runOnce.FailureReason = "because i said so"
+			task.Failed = true
+			task.FailureReason = "because i said so"
 		})
 
 		It("publishes its reason as an error to ReplyTo and then marks the Task as completed", func() {
-			bbs.SendCompletedTask(runOnce)
+			bbs.SendCompletedTask(task)
 
 			var receivedPayload []byte
 			Eventually(published).Should(Receive(&receivedPayload))
 			Ω(receivedPayload).Should(MatchJSON(`{"error":"because i said so"}`))
 
-			Eventually(bbs.ResolvedTask).Should(Equal(runOnce))
+			Eventually(bbs.ResolvedTask).Should(Equal(task))
 		})
 	})
 
@@ -98,9 +98,9 @@ var _ = Describe("Outbox", func() {
 		})
 
 		It("does not send a response to the requester, because another stager probably resolved it", func() {
-			bbs.SendCompletedTask(runOnce)
+			bbs.SendCompletedTask(task)
 
-			Consistently(bbs.ResolvedTask).ShouldNot(Equal(runOnce))
+			Consistently(bbs.ResolvedTask).ShouldNot(Equal(task))
 			Consistently(published).ShouldNot(Receive())
 		})
 	})
@@ -111,19 +111,19 @@ var _ = Describe("Outbox", func() {
 
 			Eventually(bbs.WatchingForCompleted()).Should(Receive())
 
-			bbs.SendCompletedTask(runOnce)
+			bbs.SendCompletedTask(task)
 			Eventually(published).Should(Receive())
 
-			Eventually(bbs.ResolvedTask).Should(Equal(runOnce))
+			Eventually(bbs.ResolvedTask).Should(Equal(task))
 		})
 	})
 
 	Describe("asynchronous message processing", func() {
 		It("can accept new Completed Tasks before it's done processing existing Tasks in the queue", func() {
-			runOnce.Result = `{"detected_buildpack":"Some Buildpack"}`
+			task.Result = `{"detected_buildpack":"Some Buildpack"}`
 
-			bbs.SendCompletedTask(runOnce)
-			bbs.SendCompletedTask(runOnce)
+			bbs.SendCompletedTask(task)
+			bbs.SendCompletedTask(task)
 
 			var receivedPayload []byte
 

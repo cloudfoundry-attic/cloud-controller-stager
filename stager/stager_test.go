@@ -53,16 +53,16 @@ var _ = Describe("Stage", func() {
 			}, "me")
 			Ω(err).ShouldNot(HaveOccurred())
 
-			var runOnce *models.Task
-			Eventually(modelChannel).Should(Receive(&runOnce))
+			var task *models.Task
+			Eventually(modelChannel).Should(Receive(&task))
 
-			Ω(runOnce.Guid).To(Equal("bunny-hop"))
-			Ω(runOnce.ReplyTo).To(Equal("me"))
-			Ω(runOnce.Stack).To(Equal("rabbit_hole"))
-			Ω(runOnce.Log.Guid).To(Equal("bunny"))
-			Ω(runOnce.Log.SourceName).To(Equal("STG"))
-			Ω(runOnce.FileDescriptors).To(Equal(17))
-			Ω(runOnce.Log.Index).To(BeNil())
+			Ω(task.Guid).To(Equal("bunny-hop"))
+			Ω(task.ReplyTo).To(Equal("me"))
+			Ω(task.Stack).To(Equal("rabbit_hole"))
+			Ω(task.Log.Guid).To(Equal("bunny"))
+			Ω(task.Log.SourceName).To(Equal("STG"))
+			Ω(task.FileDescriptors).To(Equal(17))
+			Ω(task.Log.Index).To(BeNil())
 
 			expectedActions := []models.ExecutorAction{
 				models.EmitProgressFor(
@@ -186,12 +186,12 @@ var _ = Describe("Stage", func() {
 				),
 			}
 
-			for i, action := range runOnce.Actions {
+			for i, action := range task.Actions {
 				Ω(action).To(Equal(expectedActions[i]))
 			}
 
-			Ω(runOnce.MemoryMB).To(Equal(256))
-			Ω(runOnce.DiskMB).To(Equal(1024))
+			Ω(task.MemoryMB).To(Equal(256))
+			Ω(task.DiskMB).To(Equal(1024))
 		})
 
 	})
@@ -224,16 +224,16 @@ var _ = Describe("Stage", func() {
 			}, "me")
 			Ω(err).ShouldNot(HaveOccurred())
 
-			var runOnce *models.Task
-			Eventually(modelChannel).Should(Receive(&runOnce))
+			var task *models.Task
+			Eventually(modelChannel).Should(Receive(&task))
 
-			Ω(runOnce.Guid).To(Equal("bunny-hop"))
-			Ω(runOnce.ReplyTo).To(Equal("me"))
-			Ω(runOnce.Stack).To(Equal("rabbit_hole"))
-			Ω(runOnce.Log.Guid).To(Equal("bunny"))
-			Ω(runOnce.Log.SourceName).To(Equal("STG"))
-			Ω(runOnce.FileDescriptors).To(Equal(17))
-			Ω(runOnce.Log.Index).To(BeNil())
+			Ω(task.Guid).To(Equal("bunny-hop"))
+			Ω(task.ReplyTo).To(Equal("me"))
+			Ω(task.Stack).To(Equal("rabbit_hole"))
+			Ω(task.Log.Guid).To(Equal("bunny"))
+			Ω(task.Log.SourceName).To(Equal("STG"))
+			Ω(task.FileDescriptors).To(Equal(17))
+			Ω(task.Log.Index).To(BeNil())
 
 			expectedActions := []models.ExecutorAction{
 				models.EmitProgressFor(
@@ -343,12 +343,12 @@ var _ = Describe("Stage", func() {
 				),
 			}
 
-			for i, action := range runOnce.Actions {
+			for i, action := range task.Actions {
 				Ω(action).To(Equal(expectedActions[i]))
 			}
 
-			Ω(runOnce.MemoryMB).To(Equal(256))
-			Ω(runOnce.DiskMB).To(Equal(1024))
+			Ω(task.MemoryMB).To(Equal(256))
+			Ω(task.DiskMB).To(Equal(1024))
 		})
 	})
 

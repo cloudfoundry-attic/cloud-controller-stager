@@ -12,17 +12,17 @@ import (
 func Listen(bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logger) {
 	for {
 		logger.Info("stager.watching-for-completed-runonce")
-		runOnces, _, errs := bbs.WatchForCompletedTask()
+		tasks, _, errs := bbs.WatchForCompletedTask()
 
 	waitForTask:
 		for {
 			select {
-			case runOnce, ok := <-runOnces:
+			case task, ok := <-tasks:
 				if !ok {
 					break waitForTask
 				}
 
-				go handleCompletedTask(runOnce, bbs, natsClient, logger)
+				go handleCompletedTask(task, bbs, natsClient, logger)
 			case err, ok := <-errs:
 				if ok && err != nil {
 					logger.Errord(map[string]interface{}{
@@ -35,55 +35,55 @@ func Listen(bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logg
 	}
 }
 
-func handleCompletedTask(runOnce *models.Task, bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logger) {
+func handleCompletedTask(task *models.Task, bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logger) {
 	var err error
 
-	err = bbs.ResolvingTask(runOnce)
+	err = bbs.ResolvingTask(task)
 	if err != nil {
 		logger.Infod(map[string]interface{}{
-			"guid":  runOnce.Guid,
+			"guid":  task.Guid,
 			"error": err.Error(),
 		}, "stager.resolving.runonce.failed")
 		return
 	}
 
 	logger.Infod(map[string]interface{}{
-		"guid": runOnce.Guid,
+		"guid": task.Guid,
 	}, "stager.resolving.runonce")
 
-	err = publishResponse(natsClient, runOnce)
+	err = publishResponse(natsClient, task)
 	if err != nil {
 		logger.Errord(map[string]interface{}{
-			"guid":     runOnce.Guid,
+			"guid":     task.Guid,
 			"error":    err.Error(),
-			"reply-to": runOnce.ReplyTo,
+			"reply-to": task.ReplyTo,
 		}, "stager.publish.runonce.failed")
 		return
 	}
 
-	err = bbs.ResolveTask(runOnce)
+	err = bbs.ResolveTask(task)
 	if err != nil {
 		logger.Infod(map[string]interface{}{
-			"guid":  runOnce.Guid,
+			"guid":  task.Guid,
 			"error": err.Error(),
 		}, "stager.resolve.runonce.failed")
 		return
 	}
 
 	logger.Infod(map[string]interface{}{
-		"guid":     runOnce.Guid,
-		"reply-to": runOnce.ReplyTo,
+		"guid":     task.Guid,
+		"reply-to": task.ReplyTo,
 	}, "stager.resolve.runonce.success")
 }
 
-func publishResponse(natsClient yagnats.NATSClient, runOnce *models.Task) error {
+func publishResponse(natsClient yagnats.NATSClient, task *models.Task) error {
 	var response models.StagingResponseForCC
 
-	if runOnce.Failed {
-		response.Error = runOnce.FailureReason
+	if task.Failed {
+		response.Error = task.FailureReason
 	} else {
 		var result models.StagingInfo
-		err := json.Unmarshal([]byte(runOnce.Result), &result)
+		err := json.Unmarshal([]byte(task.Result), &result)
 		if err != nil {
 			return err
 		}
@@ -96,5 +96,5 @@ func publishResponse(natsClient yagnats.NATSClient, runOnce *models.Task) error 
 		return err
 	}
 
-	return natsClient.Publish(runOnce.ReplyTo, payload)
+	return natsClient.Publish(task.ReplyTo, payload)
 }
