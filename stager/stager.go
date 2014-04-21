@@ -206,7 +206,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 	)
 
 	//Go!
-	err = stager.stagerBBS.DesireRunOnce(&models.RunOnce{
+	err = stager.stagerBBS.DesireTask(&models.Task{
 		Guid:            stager.runOnceGuid(request),
 		Stack:           request.Stack,
 		ReplyTo:         replyTo,

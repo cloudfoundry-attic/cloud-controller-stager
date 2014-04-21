@@ -30,8 +30,8 @@ var _ = Describe("Stage", func() {
 			Ω(err).ShouldNot(HaveOccurred())
 		})
 
-		It("creates a RunOnce with staging instructions", func() {
-			modelChannel, _, _ := bbs.WatchForDesiredRunOnce()
+		It("creates a Task with staging instructions", func() {
+			modelChannel, _, _ := bbs.WatchForDesiredTask()
 
 			err := stager.Stage(models.StagingRequestFromCC{
 				AppId:                          "bunny",
@@ -53,7 +53,7 @@ var _ = Describe("Stage", func() {
 			}, "me")
 			Ω(err).ShouldNot(HaveOccurred())
 
-			var runOnce *models.RunOnce
+			var runOnce *models.Task
 			Eventually(modelChannel).Should(Receive(&runOnce))
 
 			Ω(runOnce.Guid).To(Equal("bunny-hop"))
@@ -203,7 +203,7 @@ var _ = Describe("Stage", func() {
 		})
 
 		It("does not instruct the executor to download the cache", func() {
-			modelChannel, _, _ := bbs.WatchForDesiredRunOnce()
+			modelChannel, _, _ := bbs.WatchForDesiredTask()
 
 			err := stager.Stage(models.StagingRequestFromCC{
 				AppId:              "bunny",
@@ -224,7 +224,7 @@ var _ = Describe("Stage", func() {
 			}, "me")
 			Ω(err).ShouldNot(HaveOccurred())
 
-			var runOnce *models.RunOnce
+			var runOnce *models.Task
 			Eventually(modelChannel).Should(Receive(&runOnce))
 
 			Ω(runOnce.Guid).To(Equal("bunny-hop"))
@@ -400,7 +400,7 @@ var _ = Describe("Stage", func() {
 		})
 
 		It("should return an error", func() {
-			bbs.WatchForDesiredRunOnce()
+			bbs.WatchForDesiredTask()
 
 			err := stager.Stage(models.StagingRequestFromCC{
 				AppId:                          "bunny",

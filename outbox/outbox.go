@@ -12,33 +12,33 @@ import (
 func Listen(bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logger) {
 	for {
 		logger.Info("stager.watching-for-completed-runonce")
-		runOnces, _, errs := bbs.WatchForCompletedRunOnce()
+		runOnces, _, errs := bbs.WatchForCompletedTask()
 
-	waitForRunOnce:
+	waitForTask:
 		for {
 			select {
 			case runOnce, ok := <-runOnces:
 				if !ok {
-					break waitForRunOnce
+					break waitForTask
 				}
 
-				go handleCompletedRunOnce(runOnce, bbs, natsClient, logger)
+				go handleCompletedTask(runOnce, bbs, natsClient, logger)
 			case err, ok := <-errs:
 				if ok && err != nil {
 					logger.Errord(map[string]interface{}{
 						"error": err.Error(),
 					}, "stager.watch-completed-runonce.failed")
 				}
-				break waitForRunOnce
+				break waitForTask
 			}
 		}
 	}
 }
 
-func handleCompletedRunOnce(runOnce *models.RunOnce, bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logger) {
+func handleCompletedTask(runOnce *models.Task, bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logger) {
 	var err error
 
-	err = bbs.ResolvingRunOnce(runOnce)
+	err = bbs.ResolvingTask(runOnce)
 	if err != nil {
 		logger.Infod(map[string]interface{}{
 			"guid":  runOnce.Guid,
@@ -61,7 +61,7 @@ func handleCompletedRunOnce(runOnce *models.RunOnce, bbs bbs.StagerBBS, natsClie
 		return
 	}
 
-	err = bbs.ResolveRunOnce(runOnce)
+	err = bbs.ResolveTask(runOnce)
 	if err != nil {
 		logger.Infod(map[string]interface{}{
 			"guid":  runOnce.Guid,
@@ -76,7 +76,7 @@ func handleCompletedRunOnce(runOnce *models.RunOnce, bbs bbs.StagerBBS, natsClie
 	}, "stager.resolve.runonce.success")
 }
 
-func publishResponse(natsClient yagnats.NATSClient, runOnce *models.RunOnce) error {
+func publishResponse(natsClient yagnats.NATSClient, runOnce *models.Task) error {
 	var response models.StagingResponseForCC
 
 	if runOnce.Failed {
