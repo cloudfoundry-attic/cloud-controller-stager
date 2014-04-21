@@ -11,7 +11,7 @@ import (
 
 func Listen(bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logger) {
 	for {
-		logger.Info("stager.watching-for-completed-runonce")
+		logger.Info("stager.watching-for-completed-task")
 		tasks, _, errs := bbs.WatchForCompletedTask()
 
 	waitForTask:
@@ -27,7 +27,7 @@ func Listen(bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logg
 				if ok && err != nil {
 					logger.Errord(map[string]interface{}{
 						"error": err.Error(),
-					}, "stager.watch-completed-runonce.failed")
+					}, "stager.watch-completed-task.failed")
 				}
 				break waitForTask
 			}
@@ -43,13 +43,13 @@ func handleCompletedTask(task *models.Task, bbs bbs.StagerBBS, natsClient yagnat
 		logger.Infod(map[string]interface{}{
 			"guid":  task.Guid,
 			"error": err.Error(),
-		}, "stager.resolving.runonce.failed")
+		}, "stager.resolving.task.failed")
 		return
 	}
 
 	logger.Infod(map[string]interface{}{
 		"guid": task.Guid,
-	}, "stager.resolving.runonce")
+	}, "stager.resolving.task")
 
 	err = publishResponse(natsClient, task)
 	if err != nil {
@@ -57,7 +57,7 @@ func handleCompletedTask(task *models.Task, bbs bbs.StagerBBS, natsClient yagnat
 			"guid":     task.Guid,
 			"error":    err.Error(),
 			"reply-to": task.ReplyTo,
-		}, "stager.publish.runonce.failed")
+		}, "stager.publish.task.failed")
 		return
 	}
 
@@ -66,14 +66,14 @@ func handleCompletedTask(task *models.Task, bbs bbs.StagerBBS, natsClient yagnat
 		logger.Infod(map[string]interface{}{
 			"guid":  task.Guid,
 			"error": err.Error(),
-		}, "stager.resolve.runonce.failed")
+		}, "stager.resolve.task.failed")
 		return
 	}
 
 	logger.Infod(map[string]interface{}{
 		"guid":     task.Guid,
 		"reply-to": task.ReplyTo,
-	}, "stager.resolve.runonce.success")
+	}, "stager.resolve.task.success")
 }
 
 func publishResponse(natsClient yagnats.NATSClient, task *models.Task) error {

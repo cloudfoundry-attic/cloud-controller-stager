@@ -46,7 +46,7 @@ var _ = Describe("Outbox", func() {
 			task.Result = `{"detected_buildpack":"Some Buildpack"}`
 		})
 
-		It("claims the completed runonce, publishes its result to ReplyTo and then marks the Task as completed", func() {
+		It("claims the completed task, publishes its result to ReplyTo and then marks the Task as completed", func() {
 			bbs.SendCompletedTask(task)
 
 			Eventually(bbs.ResolvingTaskInput).ShouldNot(BeZero())
