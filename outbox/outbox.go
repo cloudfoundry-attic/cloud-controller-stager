@@ -88,6 +88,7 @@ func publishResponse(natsClient yagnats.NATSClient, task *models.Task) error {
 			return err
 		}
 
+		response.BuildpackKey = result.BuildpackKey
 		response.DetectedBuildpack = result.DetectedBuildpack
 	}
 
