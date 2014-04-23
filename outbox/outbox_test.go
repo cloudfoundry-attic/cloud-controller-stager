@@ -2,6 +2,7 @@ package outbox_test
 
 import (
 	"errors"
+
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/cloudfoundry-incubator/stager/outbox"
@@ -43,7 +44,10 @@ var _ = Describe("Outbox", func() {
 
 	Context("when a completed Task appears in the outbox", func() {
 		BeforeEach(func() {
-			task.Result = `{"detected_buildpack":"Some Buildpack"}`
+			task.Result = `{
+				"buildpack_key":"buildpack-key",
+				"detected_buildpack":"Some Buildpack"
+			}`
 		})
 
 		It("claims the completed task, publishes its result to ReplyTo and then marks the Task as completed", func() {
@@ -53,7 +57,10 @@ var _ = Describe("Outbox", func() {
 
 			var receivedPayload []byte
 			Eventually(published).Should(Receive(&receivedPayload))
-			Ω(receivedPayload).Should(MatchJSON(`{"detected_buildpack":"Some Buildpack"}`))
+			Ω(receivedPayload).Should(MatchJSON(`{
+				"buildpack_key":"buildpack-key",
+				"detected_buildpack":"Some Buildpack"
+			}`))
 
 			Eventually(bbs.ResolvedTask).Should(Equal(task))
 		})
