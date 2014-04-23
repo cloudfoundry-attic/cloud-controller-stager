@@ -12,6 +12,21 @@ export PATH=$FIRST_GOPATH/bin:$PATH
 
 go get -u github.com/coreos/etcd
 
+go get github.com/dustin/goveralls
+
 go install github.com/onsi/ginkgo/ginkgo
 
-ginkgo -r -failOnPending -randomizeAllSpecs -race "$@"
+ginkgo -cover -r -failOnPending -randomizeAllSpecs -race "$@"
+
+# don't leak coveralls token
+set +x
+
+if [ -n "$COVERALLS_TOKEN" ]; then
+  profiles=$(find . -name '*.coverprofile' | grep -v fake | grep -v Godeps)
+
+  echo mode: set > all.coverprofile
+  cat $profiles | grep -v mode: >> all.coverprofile
+
+  goveralls -service drone.io -coverprofile=all.coverprofile $COVERALLS_TOKEN || \
+    echo "Coveralls failed. :("
+fi
