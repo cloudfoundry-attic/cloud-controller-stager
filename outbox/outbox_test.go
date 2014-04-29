@@ -28,10 +28,13 @@ var _ = Describe("Outbox", func() {
 			Result: "{}",
 		}
 		bbs = fake_bbs.NewFakeStagerBBS()
-		published = make(chan []byte)
+
+		publishedCallback := make(chan []byte)
+
+		published = publishedCallback
 
 		fakenats.Subscribe(DiegoStageFinishedSubject, func(msg *yagnats.Message) {
-			published <- msg.Payload
+			publishedCallback <- msg.Payload
 		})
 	})
 
