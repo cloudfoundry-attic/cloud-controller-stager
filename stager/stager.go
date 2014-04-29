@@ -13,7 +13,7 @@ import (
 )
 
 type Stager interface {
-	Stage(models.StagingRequestFromCC, string) error
+	Stage(models.StagingRequestFromCC) error
 }
 
 type stager struct {
@@ -31,7 +31,7 @@ func New(stagerBBS bbs.StagerBBS, compilers map[string]string) Stager {
 var ErrNoFileServerPresent = errors.New("no available file server present")
 var ErrNoCompilerDefined = errors.New("no compiler defined for requested stack")
 
-func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string) error {
+func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 	fileServerURL, err := stager.stagerBBS.GetAvailableFileServer()
 	if err != nil {
 		return ErrNoFileServerPresent
@@ -209,7 +209,6 @@ func (stager *stager) Stage(request models.StagingRequestFromCC, replyTo string)
 	err = stager.stagerBBS.DesireTask(&models.Task{
 		Guid:            stager.taskGuid(request),
 		Stack:           request.Stack,
-		ReplyTo:         replyTo,
 		FileDescriptors: request.FileDescriptors,
 		MemoryMB:        request.MemoryMB,
 		DiskMB:          request.DiskMB,

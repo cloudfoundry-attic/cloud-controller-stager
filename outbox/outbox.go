@@ -9,6 +9,8 @@ import (
 	"github.com/cloudfoundry/yagnats"
 )
 
+const DiegoStageFinishedSubject = "diego.staging.finished"
+
 func Listen(bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logger) {
 	for {
 		logger.Info("stager.watching-for-completed-task")
@@ -54,9 +56,8 @@ func handleCompletedTask(task *models.Task, bbs bbs.StagerBBS, natsClient yagnat
 	err = publishResponse(natsClient, task)
 	if err != nil {
 		logger.Errord(map[string]interface{}{
-			"guid":     task.Guid,
-			"error":    err.Error(),
-			"reply-to": task.ReplyTo,
+			"guid":  task.Guid,
+			"error": err.Error(),
 		}, "stager.publish.task.failed")
 		return
 	}
@@ -71,8 +72,7 @@ func handleCompletedTask(task *models.Task, bbs bbs.StagerBBS, natsClient yagnat
 	}
 
 	logger.Infod(map[string]interface{}{
-		"guid":     task.Guid,
-		"reply-to": task.ReplyTo,
+		"guid": task.Guid,
 	}, "stager.resolve.task.success")
 }
 
@@ -97,5 +97,5 @@ func publishResponse(natsClient yagnats.NATSClient, task *models.Task) error {
 		return err
 	}
 
-	return natsClient.Publish(task.ReplyTo, payload)
+	return natsClient.Publish(DiegoStageFinishedSubject, payload)
 }

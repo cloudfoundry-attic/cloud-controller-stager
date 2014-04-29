@@ -8,8 +8,11 @@ import (
 	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/yagnats"
 
+	"github.com/cloudfoundry-incubator/stager/outbox"
 	"github.com/cloudfoundry-incubator/stager/stager"
 )
+
+const DiegoStageStartSubject = "diego.staging.start"
 
 type Inbox struct {
 	natsClient      yagnats.NATSClient
@@ -35,20 +38,19 @@ func Listen(natsClient yagnats.NATSClient, stager stager.Stager, validator Reque
 
 func (inbox *Inbox) Listen() {
 	for {
-		_, err := inbox.natsClient.SubscribeWithQueue("diego.staging.start", "diego.stagers", func(message *yagnats.Message) {
+		_, err := inbox.natsClient.SubscribeWithQueue(DiegoStageStartSubject, "diego.stagers", func(message *yagnats.Message) {
 			stagingRequest := models.StagingRequestFromCC{}
 
 			err := json.Unmarshal(message.Payload, &stagingRequest)
 			if err != nil {
 				inbox.logError("staging.request.malformed", err, message)
-				inbox.sendErrorResponse(message.ReplyTo, "Staging message contained malformed JSON")
 				return
 			}
 
 			err = inbox.validateRequest(stagingRequest)
 			if err != nil {
 				inbox.logError("staging.request.invalid", err, message)
-				inbox.sendErrorResponse(message.ReplyTo, "Invalid staging request: "+err.Error())
+				inbox.sendErrorResponse("Invalid staging request: "+err.Error(), stagingRequest)
 				return
 			}
 
@@ -59,10 +61,10 @@ func (inbox *Inbox) Listen() {
 				"staging.request.received",
 			)
 
-			err = inbox.stager.Stage(stagingRequest, message.ReplyTo)
+			err = inbox.stager.Stage(stagingRequest)
 			if err != nil {
 				inbox.logError("stager.staging.failed", err, stagingRequest)
-				inbox.sendErrorResponse(message.ReplyTo, "Staging failed: "+err.Error())
+				inbox.sendErrorResponse("Staging failed: "+err.Error(), stagingRequest)
 				return
 			}
 		})
@@ -81,9 +83,14 @@ func (inbox *Inbox) logError(logMessage string, err error, message interface{}) 
 	}, logMessage)
 }
 
-func (inbox *Inbox) sendErrorResponse(replyTo string, errorMessage string) {
-	response := models.StagingResponseForCC{Error: errorMessage}
+func (inbox *Inbox) sendErrorResponse(errorMessage string, request models.StagingRequestFromCC) {
+	response := models.StagingResponseForCC{
+		AppId:  request.AppId,
+		TaskId: request.TaskId,
+		Error:  errorMessage,
+	}
+
 	if responseJson, err := json.Marshal(response); err == nil {
-		inbox.natsClient.Publish(replyTo, responseJson)
+		inbox.natsClient.Publish(outbox.DiegoStageFinishedSubject, responseJson)
 	}
 }

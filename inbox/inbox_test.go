@@ -14,6 +14,7 @@ import (
 	"github.com/cloudfoundry/yagnats/fakeyagnats"
 
 	. "github.com/cloudfoundry-incubator/stager/inbox"
+	"github.com/cloudfoundry-incubator/stager/outbox"
 	"github.com/cloudfoundry-incubator/stager/stager/fake_stager"
 )
 
@@ -44,6 +45,20 @@ var _ = Describe("Inbox", func() {
 			Listen(fakenats, fauxstager, validator, logger)
 		}
 
+		publishedCompletionMessages := func() []yagnats.Message {
+			return fakenats.PublishedMessages("diego.staging.finished")
+		}
+
+		publishStagingMessage := func() {
+			stagingRequest := models.StagingRequestFromCC{
+				AppId:  "myapp",
+				TaskId: "mytask",
+			}
+			msg, _ := json.Marshal(stagingRequest)
+
+			fakenats.Publish(DiegoStageStartSubject, msg)
+		}
+
 		It("kicks off staging", func() {
 			Listen(fakenats, fauxstager, validator, logger)
 
@@ -53,7 +68,7 @@ var _ = Describe("Inbox", func() {
 			}
 			msg, _ := json.Marshal(stagingRequest)
 
-			fakenats.Publish("diego.staging.start", msg)
+			fakenats.Publish(DiegoStageStartSubject, msg)
 			Ω(fauxstager.TimesStageInvoked).To(Equal(1))
 			Ω(fauxstager.StagingRequests[0]).To(Equal(stagingRequest))
 		})
@@ -62,7 +77,7 @@ var _ = Describe("Inbox", func() {
 			var attempts uint32
 
 			BeforeEach(func() {
-				fakenats.WhenSubscribing("diego.staging.start", func() error {
+				fakenats.WhenSubscribing(DiegoStageStartSubject, func() error {
 					atomic.AddUint32(&attempts, 1)
 					return errors.New("oh no!")
 				})
@@ -80,15 +95,15 @@ var _ = Describe("Inbox", func() {
 				}).Should(BeNumerically(">=", 2))
 
 				Consistently(func() []yagnats.Subscription {
-					return fakenats.Subscriptions("diego.staging.start")
+					return fakenats.Subscriptions(DiegoStageStartSubject)
 				}).Should(BeEmpty())
 
-				fakenats.WhenSubscribing("diego.staging.start", func() error {
+				fakenats.WhenSubscribing(DiegoStageStartSubject, func() error {
 					return nil
 				})
 
 				Eventually(func() []yagnats.Subscription {
-					return fakenats.Subscriptions("diego.staging.start")
+					return fakenats.Subscriptions(DiegoStageStartSubject)
 				}).ShouldNot(BeEmpty())
 
 				stagingRequest := models.StagingRequestFromCC{
@@ -97,7 +112,7 @@ var _ = Describe("Inbox", func() {
 				}
 				msg, _ := json.Marshal(stagingRequest)
 
-				fakenats.Publish("diego.staging.start", msg)
+				fakenats.Publish(DiegoStageStartSubject, msg)
 
 				Ω(fauxstager.TimesStageInvoked).Should(Equal(1))
 				Ω(fauxstager.StagingRequests[0]).Should(Equal(stagingRequest))
@@ -108,44 +123,25 @@ var _ = Describe("Inbox", func() {
 			BeforeEach(listen)
 
 			It("logs the failure", func() {
-				Ω(testingSink.Records()).Should(HaveLen(0))
+				Ω(testingSink.Records()).Should(BeEmpty())
 
-				fakenats.PublishWithReplyTo("diego.staging.start", "reply string", []byte("fdsaljkfdsljkfedsews:/sdfa:''''"))
+				fakenats.Publish(DiegoStageStartSubject, []byte("fdsaljkfdsljkfedsews:/sdfa:''''"))
 
-				Ω(testingSink.Records()).ShouldNot(HaveLen(0))
+				Ω(testingSink.Records()).ShouldNot(BeEmpty())
 			})
 
-			It("sends a staging failure response", func() {
-				fakenats.PublishWithReplyTo("diego.staging.start", "reply string", []byte("fdsaljkfdsljkfedsews:/sdfa:''''"))
-				replyTo := fakenats.PublishedMessages("diego.staging.start")[0].ReplyTo
-
-				Ω(fakenats.PublishedMessages(replyTo)).Should(HaveLen(1))
-				response := fakenats.PublishedMessages(replyTo)[0]
-				stagingResponse := models.StagingResponseForCC{}
-				json.Unmarshal(response.Payload, &stagingResponse)
-				Ω(stagingResponse.Error).Should(Equal("Staging message contained malformed JSON"))
+			It("does not send a message in response", func() {
+				fakenats.Publish(DiegoStageStartSubject, []byte("fdsaljkfdsljkfedsews:/sdfa:''''"))
+				Ω(publishedCompletionMessages()).Should(BeEmpty())
 			})
 		})
-
-		publishStagingMessage := func() {
-			stagingRequest := models.StagingRequestFromCC{
-				AppId:  "myapp",
-				TaskId: "mytask",
-			}
-			msg, _ := json.Marshal(stagingRequest)
-
-			fakenats.PublishWithReplyTo("diego.staging.start", "reply to", msg)
-		}
 
 		Context("when staging finishes successfully", func() {
 			BeforeEach(listen)
 
 			It("does not send a nats message", func() {
 				publishStagingMessage()
-
-				replyTo := fakenats.PublishedMessages("diego.staging.start")[0].ReplyTo
-
-				Ω(fakenats.PublishedMessages(replyTo)).Should(HaveLen(0))
+				Ω(fakenats.PublishedMessages(outbox.DiegoStageFinishedSubject)).Should(HaveLen(0))
 			})
 		})
 
@@ -160,20 +156,23 @@ var _ = Describe("Inbox", func() {
 
 			It("logs the failure", func() {
 				publishStagingMessage()
-
 				Ω(testingSink.Records()).ShouldNot(HaveLen(0))
 			})
 
 			It("sends a staging failure response", func() {
 				publishStagingMessage()
 
-				replyTo := fakenats.PublishedMessages("diego.staging.start")[0].ReplyTo
+				Ω(publishedCompletionMessages()).Should(HaveLen(1))
+				response := publishedCompletionMessages()[0]
 
-				Ω(fakenats.PublishedMessages(replyTo)).Should(HaveLen(1))
-				response := fakenats.PublishedMessages(replyTo)[0]
 				stagingResponse := models.StagingResponseForCC{}
 				json.Unmarshal(response.Payload, &stagingResponse)
-				Ω(stagingResponse.Error).Should(Equal("Invalid staging request: NO."))
+
+				Ω(stagingResponse).Should(Equal(models.StagingResponseForCC{
+					AppId:  "myapp",
+					TaskId: "mytask",
+					Error:  "Invalid staging request: NO.",
+				}))
 			})
 		})
 
@@ -195,10 +194,9 @@ var _ = Describe("Inbox", func() {
 			It("sends a staging failure response", func() {
 				publishStagingMessage()
 
-				replyTo := fakenats.PublishedMessages("diego.staging.start")[0].ReplyTo
+				Ω(publishedCompletionMessages()).Should(HaveLen(1))
+				response := publishedCompletionMessages()[0]
 
-				Ω(fakenats.PublishedMessages(replyTo)).Should(HaveLen(1))
-				response := fakenats.PublishedMessages(replyTo)[0]
 				stagingResponse := models.StagingResponseForCC{}
 				json.Unmarshal(response.Payload, &stagingResponse)
 				Ω(stagingResponse.Error).Should(Equal("Staging failed: The thingy broke :("))

@@ -50,14 +50,13 @@ var _ = Describe("Stage", func() {
 					{"VCAP_APPLICATION", "foo"},
 					{"VCAP_SERVICES", "bar"},
 				},
-			}, "me")
+			})
 			Ω(err).ShouldNot(HaveOccurred())
 
 			var task *models.Task
 			Eventually(modelChannel).Should(Receive(&task))
 
 			Ω(task.Guid).To(Equal("bunny-hop"))
-			Ω(task.ReplyTo).To(Equal("me"))
 			Ω(task.Stack).To(Equal("rabbit_hole"))
 			Ω(task.Log.Guid).To(Equal("bunny"))
 			Ω(task.Log.SourceName).To(Equal("STG"))
@@ -221,14 +220,13 @@ var _ = Describe("Stage", func() {
 					{"VCAP_APPLICATION", "foo"},
 					{"VCAP_SERVICES", "bar"},
 				},
-			}, "me")
+			})
 			Ω(err).ShouldNot(HaveOccurred())
 
 			var task *models.Task
 			Eventually(modelChannel).Should(Receive(&task))
 
 			Ω(task.Guid).To(Equal("bunny-hop"))
-			Ω(task.ReplyTo).To(Equal("me"))
 			Ω(task.Stack).To(Equal("rabbit_hole"))
 			Ω(task.Log.Guid).To(Equal("bunny"))
 			Ω(task.Log.SourceName).To(Equal("STG"))
@@ -371,7 +369,7 @@ var _ = Describe("Stage", func() {
 					{"VCAP_APPLICATION", "foo"},
 					{"VCAP_SERVICES", "bar"},
 				},
-			}, "me")
+			})
 			Ω(err).Should(HaveOccurred())
 		})
 	})
@@ -386,7 +384,7 @@ var _ = Describe("Stage", func() {
 				Stack:    "rabbit_hole",
 				MemoryMB: 256,
 				DiskMB:   1024,
-			}, "me")
+			})
 
 			Ω(err).Should(HaveOccurred())
 			Ω(err.Error()).Should(Equal("no available file server present"))
@@ -410,7 +408,7 @@ var _ = Describe("Stage", func() {
 				Stack:    "no_such_stack",
 				MemoryMB: 256,
 				DiskMB:   1024,
-			}, "me")
+			})
 
 			Ω(err).Should(HaveOccurred())
 			Ω(err.Error()).Should(Equal("no compiler defined for requested stack"))

@@ -24,14 +24,13 @@ var _ = Describe("Outbox", func() {
 		fakenats = fakeyagnats.New()
 		logger = steno.NewLogger("fakelogger")
 		task = &models.Task{
-			Guid:    "some-task-id",
-			ReplyTo: "some-requester",
-			Result:  "{}",
+			Guid:   "some-task-id",
+			Result: "{}",
 		}
 		bbs = fake_bbs.NewFakeStagerBBS()
 		published = make(chan []byte)
 
-		fakenats.Subscribe("some-requester", func(msg *yagnats.Message) {
+		fakenats.Subscribe(DiegoStageFinishedSubject, func(msg *yagnats.Message) {
 			published <- msg.Payload
 		})
 	})
@@ -50,7 +49,7 @@ var _ = Describe("Outbox", func() {
 			}`
 		})
 
-		It("claims the completed task, publishes its result to ReplyTo and then marks the Task as completed", func() {
+		It("claims the completed task, publishes its result and then marks the Task as completed", func() {
 			bbs.SendCompletedTask(task)
 
 			Eventually(bbs.ResolvingTaskInput).ShouldNot(BeZero())
@@ -86,7 +85,7 @@ var _ = Describe("Outbox", func() {
 			task.FailureReason = "because i said so"
 		})
 
-		It("publishes its reason as an error to ReplyTo and then marks the Task as completed", func() {
+		It("publishes its reason as an error and then marks the Task as completed", func() {
 			bbs.SendCompletedTask(task)
 
 			var receivedPayload []byte

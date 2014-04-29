@@ -2,6 +2,7 @@ package fake_stager
 
 import (
 	"errors"
+
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 )
 
@@ -11,7 +12,7 @@ type FakeStager struct {
 	AlwaysFail        bool //bringing shame and disgrace to its family and friends
 }
 
-func (stager *FakeStager) Stage(stagingRequest models.StagingRequestFromCC, replyTo string) error {
+func (stager *FakeStager) Stage(stagingRequest models.StagingRequestFromCC) error {
 	stager.TimesStageInvoked++
 	stager.StagingRequests = append(stager.StagingRequests, stagingRequest)
 
