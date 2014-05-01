@@ -67,7 +67,7 @@ var _ = Describe("Stage", func() {
 				models.EmitProgressFor(
 					models.ExecutorAction{
 						models.DownloadAction{
-							From:    "http://file-server.com/static/rabbit-hole-compiler",
+							From:    "http://file-server.com/v1/static/rabbit-hole-compiler",
 							To:      "/tmp/compiler",
 							Extract: true,
 						},
@@ -151,7 +151,7 @@ var _ = Describe("Stage", func() {
 					models.ExecutorAction{
 						models.UploadAction{
 							From:     "/tmp/droplet/",
-							To:       "http://file-server.com/droplet/bunny",
+							To:       "http://file-server.com/v1/droplet/bunny",
 							Compress: false,
 						},
 					},
@@ -164,7 +164,7 @@ var _ = Describe("Stage", func() {
 						models.ExecutorAction{
 							models.UploadAction{
 								From:     "/tmp/cache/",
-								To:       "http://file-server.com/build_artifacts/bunny",
+								To:       "http://file-server.com/v1/build_artifacts/bunny",
 								Compress: true,
 							},
 						},
@@ -237,7 +237,7 @@ var _ = Describe("Stage", func() {
 				models.EmitProgressFor(
 					models.ExecutorAction{
 						models.DownloadAction{
-							From:    "http://file-server.com/static/rabbit-hole-compiler",
+							From:    "http://file-server.com/v1/static/rabbit-hole-compiler",
 							To:      "/tmp/compiler",
 							Extract: true,
 						},
@@ -307,7 +307,7 @@ var _ = Describe("Stage", func() {
 					models.ExecutorAction{
 						models.UploadAction{
 							From:     "/tmp/droplet/",
-							To:       "http://file-server.com/droplet/bunny",
+							To:       "http://file-server.com/v1/droplet/bunny",
 							Compress: false,
 						},
 					},
@@ -320,7 +320,7 @@ var _ = Describe("Stage", func() {
 						models.ExecutorAction{
 							models.UploadAction{
 								From:     "/tmp/cache/",
-								To:       "http://file-server.com/build_artifacts/bunny",
+								To:       "http://file-server.com/v1/build_artifacts/bunny",
 								Compress: true,
 							},
 						},
