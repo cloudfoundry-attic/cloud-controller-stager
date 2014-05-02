@@ -67,9 +67,10 @@ var _ = Describe("Stage", func() {
 				models.EmitProgressFor(
 					models.ExecutorAction{
 						models.DownloadAction{
-							From:    "http://file-server.com/v1/static/rabbit-hole-compiler",
-							To:      "/tmp/compiler",
-							Extract: true,
+							From:     "http://file-server.com/v1/static/rabbit-hole-compiler",
+							To:       "/tmp/compiler",
+							Extract:  true,
+							CacheKey: "smelter_rabbit_hole",
 						},
 					},
 					"",
@@ -91,9 +92,10 @@ var _ = Describe("Stage", func() {
 				models.EmitProgressFor(
 					models.ExecutorAction{
 						models.DownloadAction{
-							From:    "first-buildpack-url",
-							To:      "/tmp/buildpacks/zfirst-buildpack",
-							Extract: true,
+							From:     "first-buildpack-url",
+							To:       "/tmp/buildpacks/zfirst-buildpack",
+							Extract:  true,
+							CacheKey: "first-buildpack-url",
 						},
 					},
 					"Downloading Buildpack",
@@ -103,9 +105,10 @@ var _ = Describe("Stage", func() {
 				models.EmitProgressFor(
 					models.ExecutorAction{
 						models.DownloadAction{
-							From:    "second-buildpack-url",
-							To:      "/tmp/buildpacks/asecond-buildpack",
-							Extract: true,
+							From:     "second-buildpack-url",
+							To:       "/tmp/buildpacks/asecond-buildpack",
+							Extract:  true,
+							CacheKey: "second-buildpack-url",
 						},
 					},
 					"Downloading Buildpack",
@@ -237,9 +240,10 @@ var _ = Describe("Stage", func() {
 				models.EmitProgressFor(
 					models.ExecutorAction{
 						models.DownloadAction{
-							From:    "http://file-server.com/v1/static/rabbit-hole-compiler",
-							To:      "/tmp/compiler",
-							Extract: true,
+							From:     "http://file-server.com/v1/static/rabbit-hole-compiler",
+							To:       "/tmp/compiler",
+							Extract:  true,
+							CacheKey: "smelter_rabbit_hole",
 						},
 					},
 					"",
@@ -261,9 +265,10 @@ var _ = Describe("Stage", func() {
 				models.EmitProgressFor(
 					models.ExecutorAction{
 						models.DownloadAction{
-							From:    "first-buildpack-url",
-							To:      "/tmp/buildpacks/zfirst-buildpack",
-							Extract: true,
+							From:     "first-buildpack-url",
+							To:       "/tmp/buildpacks/zfirst-buildpack",
+							Extract:  true,
+							CacheKey: "first-buildpack-url",
 						},
 					},
 					"Downloading Buildpack",
@@ -273,9 +278,10 @@ var _ = Describe("Stage", func() {
 				models.EmitProgressFor(
 					models.ExecutorAction{
 						models.DownloadAction{
-							From:    "second-buildpack-url",
-							To:      "/tmp/buildpacks/asecond-buildpack",
-							Extract: true,
+							From:     "second-buildpack-url",
+							To:       "/tmp/buildpacks/asecond-buildpack",
+							Extract:  true,
+							CacheKey: "second-buildpack-url",
 						},
 					},
 					"Downloading Buildpack",

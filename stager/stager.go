@@ -57,9 +57,10 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 		models.EmitProgressFor(
 			models.ExecutorAction{
 				models.DownloadAction{
-					From:    compilerURL.String(),
-					To:      smeltingConfig.CompilerPath(),
-					Extract: true,
+					From:     compilerURL.String(),
+					To:       smeltingConfig.CompilerPath(),
+					Extract:  true,
+					CacheKey: "smelter_" + request.Stack,
 				},
 			},
 			"",
@@ -92,9 +93,10 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 			models.EmitProgressFor(
 				models.ExecutorAction{
 					models.DownloadAction{
-						From:    buildpack.Url,
-						To:      smeltingConfig.BuildpackPath(buildpack.Key),
-						Extract: true,
+						From:     buildpack.Url,
+						To:       smeltingConfig.BuildpackPath(buildpack.Key),
+						Extract:  true,
+						CacheKey: buildpack.Url,
 					},
 				},
 				"Downloading Buildpack",
@@ -207,7 +209,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 
 	//Go!
 	err = stager.stagerBBS.DesireTask(&models.Task{
-		Guid:            stager.taskGuid(request),
+		Guid:            taskGuid(request),
 		Stack:           request.Stack,
 		FileDescriptors: request.FileDescriptors,
 		MemoryMB:        request.MemoryMB,
@@ -222,7 +224,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 	return err
 }
 
-func (stager *stager) taskGuid(request models.StagingRequestFromCC) string {
+func taskGuid(request models.StagingRequestFromCC) string {
 	return fmt.Sprintf("%s-%s", request.AppId, request.TaskId)
 }
 
