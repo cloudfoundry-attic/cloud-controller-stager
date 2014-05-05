@@ -57,10 +57,10 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 		models.EmitProgressFor(
 			models.ExecutorAction{
 				models.DownloadAction{
-					From:    compilerURL.String(),
-					To:      smeltingConfig.CompilerPath(),
-					Extract: true,
-					Cache:   true,
+					From:     compilerURL.String(),
+					To:       smeltingConfig.CompilerPath(),
+					Extract:  true,
+					CacheKey: fmt.Sprintf("smelter-%s", request.Stack),
 				},
 			},
 			"",
@@ -93,10 +93,10 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 			models.EmitProgressFor(
 				models.ExecutorAction{
 					models.DownloadAction{
-						From:    buildpack.Url,
-						To:      smeltingConfig.BuildpackPath(buildpack.Key),
-						Extract: true,
-						Cache:   true,
+						From:     buildpack.Url,
+						To:       smeltingConfig.BuildpackPath(buildpack.Key),
+						Extract:  true,
+						CacheKey: buildpack.Key,
 					},
 				},
 				"Downloading Buildpack",

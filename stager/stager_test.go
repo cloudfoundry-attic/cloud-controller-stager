@@ -67,10 +67,10 @@ var _ = Describe("Stage", func() {
 				models.EmitProgressFor(
 					models.ExecutorAction{
 						models.DownloadAction{
-							From:    "http://file-server.com/v1/static/rabbit-hole-compiler",
-							To:      "/tmp/compiler",
-							Extract: true,
-							Cache:   true,
+							From:     "http://file-server.com/v1/static/rabbit-hole-compiler",
+							To:       "/tmp/compiler",
+							Extract:  true,
+							CacheKey: "smelter-rabbit_hole",
 						},
 					},
 					"",
@@ -92,10 +92,10 @@ var _ = Describe("Stage", func() {
 				models.EmitProgressFor(
 					models.ExecutorAction{
 						models.DownloadAction{
-							From:    "first-buildpack-url",
-							To:      "/tmp/buildpacks/zfirst-buildpack",
-							Extract: true,
-							Cache:   true,
+							From:     "first-buildpack-url",
+							To:       "/tmp/buildpacks/0fe7d5fc3f73b0ab8682a664da513fbd",
+							Extract:  true,
+							CacheKey: "zfirst-buildpack",
 						},
 					},
 					"Downloading Buildpack",
@@ -105,10 +105,10 @@ var _ = Describe("Stage", func() {
 				models.EmitProgressFor(
 					models.ExecutorAction{
 						models.DownloadAction{
-							From:    "second-buildpack-url",
-							To:      "/tmp/buildpacks/asecond-buildpack",
-							Extract: true,
-							Cache:   true,
+							From:     "second-buildpack-url",
+							To:       "/tmp/buildpacks/58015c32d26f0ad3418f87dd9bf47797",
+							Extract:  true,
+							CacheKey: "asecond-buildpack",
 						},
 					},
 					"Downloading Buildpack",
@@ -195,7 +195,6 @@ var _ = Describe("Stage", func() {
 			Ω(task.MemoryMB).To(Equal(256))
 			Ω(task.DiskMB).To(Equal(1024))
 		})
-
 	})
 
 	Context("when build artifacts download uris are not provided", func() {
@@ -240,10 +239,10 @@ var _ = Describe("Stage", func() {
 				models.EmitProgressFor(
 					models.ExecutorAction{
 						models.DownloadAction{
-							From:    "http://file-server.com/v1/static/rabbit-hole-compiler",
-							To:      "/tmp/compiler",
-							Extract: true,
-							Cache:   true,
+							From:     "http://file-server.com/v1/static/rabbit-hole-compiler",
+							To:       "/tmp/compiler",
+							Extract:  true,
+							CacheKey: "smelter-rabbit_hole",
 						},
 					},
 					"",
@@ -265,10 +264,10 @@ var _ = Describe("Stage", func() {
 				models.EmitProgressFor(
 					models.ExecutorAction{
 						models.DownloadAction{
-							From:    "first-buildpack-url",
-							To:      "/tmp/buildpacks/zfirst-buildpack",
-							Extract: true,
-							Cache:   true,
+							From:     "first-buildpack-url",
+							To:       "/tmp/buildpacks/0fe7d5fc3f73b0ab8682a664da513fbd",
+							Extract:  true,
+							CacheKey: "zfirst-buildpack",
 						},
 					},
 					"Downloading Buildpack",
@@ -278,10 +277,10 @@ var _ = Describe("Stage", func() {
 				models.EmitProgressFor(
 					models.ExecutorAction{
 						models.DownloadAction{
-							From:    "second-buildpack-url",
-							To:      "/tmp/buildpacks/asecond-buildpack",
-							Extract: true,
-							Cache:   true,
+							From:     "second-buildpack-url",
+							To:       "/tmp/buildpacks/58015c32d26f0ad3418f87dd9bf47797",
+							Extract:  true,
+							CacheKey: "asecond-buildpack",
 						},
 					},
 					"Downloading Buildpack",
