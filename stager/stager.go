@@ -99,9 +99,9 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 						CacheKey: buildpack.Key,
 					},
 				},
-				"Downloading Buildpack",
-				"Downloaded Buildpack",
-				"Failed to Download Buildpack",
+				fmt.Sprintf("Downloading Buildpack: %s", buildpack.Name),
+				fmt.Sprintf("Downloaded Buildpack: %s", buildpack.Name),
+				fmt.Sprintf("Failed to Download Buildpack: %s", buildpack.Name),
 			),
 		)
 	}

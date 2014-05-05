@@ -43,8 +43,8 @@ var _ = Describe("Stage", func() {
 				MemoryMB:        256,
 				DiskMB:          1024,
 				Buildpacks: []models.Buildpack{
-					{Key: "zfirst-buildpack", Url: "first-buildpack-url"},
-					{Key: "asecond-buildpack", Url: "second-buildpack-url"},
+					{Name: "zfirst", Key: "zfirst-buildpack", Url: "first-buildpack-url"},
+					{Name: "asecond", Key: "asecond-buildpack", Url: "second-buildpack-url"},
 				},
 				Environment: []models.EnvironmentVariable{
 					{"VCAP_APPLICATION", "foo"},
@@ -98,9 +98,9 @@ var _ = Describe("Stage", func() {
 							CacheKey: "zfirst-buildpack",
 						},
 					},
-					"Downloading Buildpack",
-					"Downloaded Buildpack",
-					"Failed to Download Buildpack",
+					"Downloading Buildpack: zfirst",
+					"Downloaded Buildpack: zfirst",
+					"Failed to Download Buildpack: zfirst",
 				),
 				models.EmitProgressFor(
 					models.ExecutorAction{
@@ -111,9 +111,9 @@ var _ = Describe("Stage", func() {
 							CacheKey: "asecond-buildpack",
 						},
 					},
-					"Downloading Buildpack",
-					"Downloaded Buildpack",
-					"Failed to Download Buildpack",
+					"Downloading Buildpack: asecond",
+					"Downloaded Buildpack: asecond",
+					"Failed to Download Buildpack: asecond",
 				),
 				models.Try(
 					models.EmitProgressFor(
@@ -215,8 +215,8 @@ var _ = Describe("Stage", func() {
 				MemoryMB:           256,
 				DiskMB:             1024,
 				Buildpacks: []models.Buildpack{
-					{Key: "zfirst-buildpack", Url: "first-buildpack-url"},
-					{Key: "asecond-buildpack", Url: "second-buildpack-url"},
+					{Name: "zfirst", Key: "zfirst-buildpack", Url: "first-buildpack-url"},
+					{Name: "asecond", Key: "asecond-buildpack", Url: "second-buildpack-url"},
 				},
 				Environment: []models.EnvironmentVariable{
 					{"VCAP_APPLICATION", "foo"},
@@ -270,9 +270,9 @@ var _ = Describe("Stage", func() {
 							CacheKey: "zfirst-buildpack",
 						},
 					},
-					"Downloading Buildpack",
-					"Downloaded Buildpack",
-					"Failed to Download Buildpack",
+					"Downloading Buildpack: zfirst",
+					"Downloaded Buildpack: zfirst",
+					"Failed to Download Buildpack: zfirst",
 				),
 				models.EmitProgressFor(
 					models.ExecutorAction{
@@ -283,9 +283,9 @@ var _ = Describe("Stage", func() {
 							CacheKey: "asecond-buildpack",
 						},
 					},
-					"Downloading Buildpack",
-					"Downloaded Buildpack",
-					"Failed to Download Buildpack",
+					"Downloading Buildpack: asecond",
+					"Downloaded Buildpack: asecond",
+					"Failed to Download Buildpack: asecond",
 				),
 				models.EmitProgressFor(
 					models.ExecutorAction{
