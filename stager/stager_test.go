@@ -1,6 +1,7 @@
 package stager_test
 
 import (
+	"encoding/json"
 	"time"
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
@@ -207,6 +208,16 @@ var _ = Describe("Stage", func() {
 			Ω(task.Log.SourceName).To(Equal("STG"))
 			Ω(task.FileDescriptors).To(Equal(17))
 			Ω(task.Log.Index).To(BeNil())
+
+			var annotation models.StagingTaskAnnotation
+
+			err = json.Unmarshal([]byte(task.Annotation), &annotation)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			Ω(annotation).Should(Equal(models.StagingTaskAnnotation{
+				AppId:  "bunny",
+				TaskId: "hop",
+			}))
 
 			expectedActions := []models.ExecutorAction{
 				downloadSmelterAction,

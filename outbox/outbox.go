@@ -79,6 +79,15 @@ func handleCompletedTask(task *models.Task, bbs bbs.StagerBBS, natsClient yagnat
 func publishResponse(natsClient yagnats.NATSClient, task *models.Task) error {
 	var response models.StagingResponseForCC
 
+	var annotation models.StagingTaskAnnotation
+	err := json.Unmarshal([]byte(task.Annotation), &annotation)
+	if err != nil {
+		return err
+	}
+
+	response.AppId = annotation.AppId
+	response.TaskId = annotation.TaskId
+
 	if task.Failed {
 		response.Error = task.FailureReason
 	} else {

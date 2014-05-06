@@ -1,7 +1,9 @@
 package outbox_test
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -14,18 +16,30 @@ import (
 )
 
 var _ = Describe("Outbox", func() {
-	var fakenats *fakeyagnats.FakeYagnats
-	var logger *steno.Logger
-	var task *models.Task
-	var bbs *fake_bbs.FakeStagerBBS
-	var published chan []byte
+	var (
+		fakenats  *fakeyagnats.FakeYagnats
+		logger    *steno.Logger
+		task      *models.Task
+		bbs       *fake_bbs.FakeStagerBBS
+		published chan []byte
+		appId     string
+		taskId    string
+	)
 
 	BeforeEach(func() {
 		fakenats = fakeyagnats.New()
 		logger = steno.NewLogger("fakelogger")
+		appId = "my_app_id"
+		taskId = "do_this"
+		annotationJson, _ := json.Marshal(models.StagingTaskAnnotation{
+			AppId:  appId,
+			TaskId: taskId,
+		})
+
 		task = &models.Task{
-			Guid:   "some-task-id",
-			Result: "{}",
+			Guid:       "some-task-id",
+			Result:     "{}",
+			Annotation: string(annotationJson),
 		}
 		bbs = fake_bbs.NewFakeStagerBBS()
 
@@ -59,10 +73,12 @@ var _ = Describe("Outbox", func() {
 
 			var receivedPayload []byte
 			Eventually(published).Should(Receive(&receivedPayload))
-			Ω(receivedPayload).Should(MatchJSON(`{
+			Ω(receivedPayload).Should(MatchJSON(fmt.Sprintf(`{
 				"buildpack_key":"buildpack-key",
-				"detected_buildpack":"Some Buildpack"
-			}`))
+				"detected_buildpack":"Some Buildpack",
+				"app_id": "%s",
+				"task_id": "%s"
+			}`, appId, taskId)))
 
 			Eventually(bbs.ResolvedTask).Should(Equal(task))
 		})
@@ -93,7 +109,11 @@ var _ = Describe("Outbox", func() {
 
 			var receivedPayload []byte
 			Eventually(published).Should(Receive(&receivedPayload))
-			Ω(receivedPayload).Should(MatchJSON(`{"error":"because i said so"}`))
+			Ω(receivedPayload).Should(MatchJSON(fmt.Sprintf(`{
+				"error":"because i said so",
+				"app_id":"%s",
+				"task_id":"%s"
+			}`, appId, taskId)))
 
 			Eventually(bbs.ResolvedTask).Should(Equal(task))
 		})
@@ -137,10 +157,18 @@ var _ = Describe("Outbox", func() {
 			var receivedPayload []byte
 
 			Eventually(published).Should(Receive(&receivedPayload))
-			Ω(receivedPayload).Should(MatchJSON(`{"detected_buildpack":"Some Buildpack"}`))
+			Ω(receivedPayload).Should(MatchJSON(fmt.Sprintf(`{
+				"detected_buildpack":"Some Buildpack",
+				"app_id": "%s",
+				"task_id": "%s"
+			}`, appId, taskId)))
 
 			Eventually(published).Should(Receive(&receivedPayload))
-			Ω(receivedPayload).Should(MatchJSON(`{"detected_buildpack":"Some Buildpack"}`))
+			Ω(receivedPayload).Should(MatchJSON(fmt.Sprintf(`{
+				"detected_buildpack":"Some Buildpack",
+				"app_id": "%s",
+				"task_id": "%s"
+			}`, appId, taskId)))
 		})
 	})
 })

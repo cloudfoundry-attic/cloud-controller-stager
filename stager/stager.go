@@ -1,6 +1,7 @@
 package stager
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -207,6 +208,11 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 		),
 	)
 
+	annotationJson, _ := json.Marshal(models.StagingTaskAnnotation{
+		AppId:  request.AppId,
+		TaskId: request.TaskId,
+	})
+
 	//Go!
 	err = stager.stagerBBS.DesireTask(&models.Task{
 		Guid:            taskGuid(request),
@@ -219,6 +225,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 			Guid:       request.AppId,
 			SourceName: "STG",
 		},
+		Annotation: string(annotationJson),
 	})
 
 	return err
