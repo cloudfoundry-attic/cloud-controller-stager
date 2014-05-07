@@ -125,6 +125,8 @@ var _ = Describe("Stage", func() {
 			),
 		)
 
+		fileDescriptorLimit := uint64(17)
+
 		runAction = models.EmitProgressFor(
 			models.ExecutorAction{
 				models.RunAction{
@@ -139,7 +141,8 @@ var _ = Describe("Stage", func() {
 						{"VCAP_APPLICATION", "foo"},
 						{"VCAP_SERVICES", "bar"},
 					},
-					Timeout: 15 * time.Minute,
+					Timeout:        15 * time.Minute,
+					ResourceLimits: models.ResourceLimits{Nofile: &fileDescriptorLimit},
 				},
 			},
 			"Staging...",
@@ -206,7 +209,6 @@ var _ = Describe("Stage", func() {
 			Ω(task.Stack).To(Equal("rabbit_hole"))
 			Ω(task.Log.Guid).To(Equal("bunny"))
 			Ω(task.Log.SourceName).To(Equal("STG"))
-			Ω(task.FileDescriptors).To(Equal(17))
 			Ω(task.Log.Index).To(BeNil())
 
 			var annotation models.StagingTaskAnnotation

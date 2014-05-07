@@ -133,6 +133,12 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 		)
 	}
 
+	var fileDescriptorLimit *uint64
+	if request.FileDescriptors != 0 {
+		fd := uint64(request.FileDescriptors)
+		fileDescriptorLimit = &fd
+	}
+
 	//Run Smelter
 	actions = append(
 		actions,
@@ -142,6 +148,9 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 					Script:  smeltingConfig.Script(),
 					Env:     request.Environment,
 					Timeout: 15 * time.Minute,
+					ResourceLimits: models.ResourceLimits{
+						Nofile: fileDescriptorLimit,
+					},
 				},
 			},
 			"Staging...",
@@ -215,12 +224,11 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 
 	//Go!
 	err = stager.stagerBBS.DesireTask(&models.Task{
-		Guid:            taskGuid(request),
-		Stack:           request.Stack,
-		FileDescriptors: request.FileDescriptors,
-		MemoryMB:        request.MemoryMB,
-		DiskMB:          request.DiskMB,
-		Actions:         actions,
+		Guid:     taskGuid(request),
+		Stack:    request.Stack,
+		MemoryMB: request.MemoryMB,
+		DiskMB:   request.DiskMB,
+		Actions:  actions,
 		Log: models.LogConfig{
 			Guid:       request.AppId,
 			SourceName: "STG",
