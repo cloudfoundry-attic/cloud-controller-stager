@@ -223,7 +223,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 	})
 
 	//Go!
-	err = stager.stagerBBS.DesireTask(&models.Task{
+	_, err = stager.stagerBBS.DesireTask(models.Task{
 		Guid:     taskGuid(request),
 		Stack:    request.Stack,
 		MemoryMB: request.MemoryMB,

@@ -202,7 +202,7 @@ var _ = Describe("Stage", func() {
 			err := stager.Stage(stagingRequest)
 			Ω(err).ShouldNot(HaveOccurred())
 
-			var task *models.Task
+			var task models.Task
 			Eventually(modelChannel).Should(Receive(&task))
 
 			Ω(task.Guid).To(Equal("bunny-hop"))
@@ -255,7 +255,7 @@ var _ = Describe("Stage", func() {
 			err := stager.Stage(stagingRequest)
 			Ω(err).ShouldNot(HaveOccurred())
 
-			var task *models.Task
+			var task models.Task
 			Eventually(modelChannel).Should(Receive(&task))
 
 			expectedActions := []models.ExecutorAction{

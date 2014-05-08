@@ -37,10 +37,10 @@ func Listen(bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logg
 	}
 }
 
-func handleCompletedTask(task *models.Task, bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logger) {
+func handleCompletedTask(task models.Task, bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logger) {
 	var err error
 
-	err = bbs.ResolvingTask(task)
+	task, err = bbs.ResolvingTask(task)
 	if err != nil {
 		logger.Infod(map[string]interface{}{
 			"guid":  task.Guid,
@@ -62,7 +62,7 @@ func handleCompletedTask(task *models.Task, bbs bbs.StagerBBS, natsClient yagnat
 		return
 	}
 
-	err = bbs.ResolveTask(task)
+	task, err = bbs.ResolveTask(task)
 	if err != nil {
 		logger.Infod(map[string]interface{}{
 			"guid":  task.Guid,
@@ -76,7 +76,7 @@ func handleCompletedTask(task *models.Task, bbs bbs.StagerBBS, natsClient yagnat
 	}, "stager.resolve.task.success")
 }
 
-func publishResponse(natsClient yagnats.NATSClient, task *models.Task) error {
+func publishResponse(natsClient yagnats.NATSClient, task models.Task) error {
 	var response models.StagingResponseForCC
 
 	var annotation models.StagingTaskAnnotation

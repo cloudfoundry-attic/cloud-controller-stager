@@ -19,7 +19,7 @@ var _ = Describe("Outbox", func() {
 	var (
 		fakenats  *fakeyagnats.FakeYagnats
 		logger    *steno.Logger
-		task      *models.Task
+		task      models.Task
 		bbs       *fake_bbs.FakeStagerBBS
 		published chan []byte
 		appId     string
@@ -36,7 +36,7 @@ var _ = Describe("Outbox", func() {
 			TaskId: taskId,
 		})
 
-		task = &models.Task{
+		task = models.Task{
 			Guid:       "some-task-id",
 			Result:     "{}",
 			Annotation: string(annotationJson),
