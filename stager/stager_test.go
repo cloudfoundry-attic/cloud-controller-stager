@@ -240,62 +240,66 @@ var _ = Describe("Stage", func() {
 			Ω(task.MemoryMB).To(Equal(256))
 			Ω(task.DiskMB).To(Equal(1024))
 		})
-	})
 
-	Context("when build artifacts download uris are not provided", func() {
-		BeforeEach(func() {
-			_, _, err := bbs.MaintainFileServerPresence(10*time.Second, "http://file-server.com/", "abc123")
-			Ω(err).ShouldNot(HaveOccurred())
-		})
-
-		It("does not instruct the executor to download the cache", func() {
-			modelChannel, _, _ := bbs.WatchForDesiredTask()
-
-			stagingRequest.BuildArtifactsCacheDownloadUri = ""
-			err := stager.Stage(stagingRequest)
-			Ω(err).ShouldNot(HaveOccurred())
-
-			var task models.Task
-			Eventually(modelChannel).Should(Receive(&task))
-
-			expectedActions := []models.ExecutorAction{
-				downloadSmelterAction,
-				downloadAppAction,
-				downloadFirstBuildpackAction,
-				downloadSecontBuildpackAction,
-				runAction,
-				uploadDropletAction,
-				uploadBuildArtifactsAction,
-				fetchResultsAction,
-			}
-
-			for i, action := range task.Actions {
-				Ω(action).To(Equal(expectedActions[i]))
-			}
-		})
-	})
-
-	Context("when build artifacts download url is not a valid url", func() {
-		It("return a url parsing error", func() {
-			err := stager.Stage(models.StagingRequestFromCC{
-				AppId:                          "bunny",
-				TaskId:                         "hop",
-				AppBitsDownloadUri:             "http://example-uri.com/bunny",
-				BuildArtifactsCacheDownloadUri: "not-a-url",
-				Stack:           "rabbit_hole",
-				FileDescriptors: 17,
-				MemoryMB:        256,
-				DiskMB:          1024,
-				Buildpacks: []models.Buildpack{
-					{Key: "zfirst-buildpack", Url: "first-buildpack-url"},
-					{Key: "asecond-buildpack", Url: "second-buildpack-url"},
-				},
-				Environment: []models.EnvironmentVariable{
-					{"VCAP_APPLICATION", "foo"},
-					{"VCAP_SERVICES", "bar"},
-				},
+		Context("when build artifacts download uris are not provided", func() {
+			BeforeEach(func() {
+				stagingRequest.BuildArtifactsCacheDownloadUri = ""
 			})
-			Ω(err).Should(HaveOccurred())
+
+			It("does not instruct the executor to download the cache", func() {
+				modelChannel, _, _ := bbs.WatchForDesiredTask()
+
+				err := stager.Stage(stagingRequest)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				var task models.Task
+				Eventually(modelChannel).Should(Receive(&task))
+
+				expectedActions := []models.ExecutorAction{
+					downloadSmelterAction,
+					downloadAppAction,
+					downloadFirstBuildpackAction,
+					downloadSecontBuildpackAction,
+					runAction,
+					uploadDropletAction,
+					uploadBuildArtifactsAction,
+					fetchResultsAction,
+				}
+
+				for i, action := range task.Actions {
+					Ω(action).To(Equal(expectedActions[i]))
+				}
+			})
+		})
+
+		Context("when no compiler is defined for the requested stack in stager configuration", func() {
+			BeforeEach(func() {
+				stagingRequest.Stack = "no_such_stack"
+			})
+
+			It("returns an error", func() {
+				bbs.WatchForDesiredTask()
+
+				err := stager.Stage(stagingRequest)
+
+				Ω(err).Should(HaveOccurred())
+				Ω(err.Error()).Should(Equal("no compiler defined for requested stack"))
+			})
+		})
+
+		Context("when build artifacts download url is not a valid url", func() {
+			BeforeEach(func() {
+				stagingRequest.BuildArtifactsCacheDownloadUri = "not-a-uri"
+			})
+
+			It("return a url parsing error", func() {
+				bbs.WatchForDesiredTask()
+
+				err := stager.Stage(stagingRequest)
+
+				Ω(err).Should(HaveOccurred())
+				Ω(err.Error()).Should(ContainSubstring("invalid URI"))
+			})
 		})
 	})
 
@@ -313,30 +317,6 @@ var _ = Describe("Stage", func() {
 
 			Ω(err).Should(HaveOccurred())
 			Ω(err.Error()).Should(Equal("no available file server present"))
-		})
-	})
-
-	Context("when no compiler is defined for the requested stack in stager configuration", func() {
-		BeforeEach(func() {
-			_, _, err := bbs.MaintainFileServerPresence(10*time.Second, "http://file-server.com/", "abc123")
-			Ω(err).ShouldNot(HaveOccurred())
-		})
-
-		It("should return an error", func() {
-			bbs.WatchForDesiredTask()
-
-			err := stager.Stage(models.StagingRequestFromCC{
-				AppId:                          "bunny",
-				TaskId:                         "hop",
-				AppBitsDownloadUri:             "http://example-uri.com/bunny",
-				BuildArtifactsCacheDownloadUri: "http://example-uri.com/bunny-droppings",
-				Stack:    "no_such_stack",
-				MemoryMB: 256,
-				DiskMB:   1024,
-			})
-
-			Ω(err).Should(HaveOccurred())
-			Ω(err.Error()).Should(Equal("no compiler defined for requested stack"))
 		})
 	})
 })
