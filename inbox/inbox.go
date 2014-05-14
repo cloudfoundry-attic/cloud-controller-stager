@@ -38,7 +38,7 @@ func Listen(natsClient yagnats.NATSClient, stager stager.Stager, validator Reque
 
 func (inbox *Inbox) Listen() {
 	for {
-		_, err := inbox.natsClient.SubscribeWithQueue(DiegoStageStartSubject, "diego.stagers", func(message *yagnats.Message) {
+		_, err := inbox.natsClient.Subscribe(DiegoStageStartSubject, func(message *yagnats.Message) {
 			stagingRequest := models.StagingRequestFromCC{}
 
 			err := json.Unmarshal(message.Payload, &stagingRequest)

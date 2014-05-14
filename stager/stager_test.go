@@ -2,12 +2,13 @@ package stager_test
 
 import (
 	"encoding/json"
+	"errors"
+	"github.com/cloudfoundry/storeadapter"
 	"time"
 
-	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/cloudfoundry-incubator/stager/stager"
-	"github.com/cloudfoundry/gunk/timeprovider"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -15,7 +16,7 @@ import (
 var _ = Describe("Stage", func() {
 	var (
 		stager                        Stager
-		bbs                           *Bbs.BBS
+		bbs                           *fake_bbs.FakeStagerBBS
 		stagingRequest                models.StagingRequestFromCC
 		downloadSmelterAction         models.ExecutorAction
 		downloadAppAction             models.ExecutorAction
@@ -29,7 +30,7 @@ var _ = Describe("Stage", func() {
 	)
 
 	BeforeEach(func() {
-		bbs = Bbs.New(etcdRunner.Adapter(), timeprovider.NewTimeProvider())
+		bbs = fake_bbs.NewFakeStagerBBS()
 		compilers := map[string]string{
 			"penguin":     "penguin-compiler",
 			"rabbit_hole": "rabbit-hole-compiler",
@@ -191,29 +192,32 @@ var _ = Describe("Stage", func() {
 	})
 
 	Context("when file the server is available", func() {
+		var desiredTask models.Task
+
 		BeforeEach(func() {
-			_, _, err := bbs.MaintainFileServerPresence(10*time.Second, "http://file-server.com/", "abc123")
-			Ω(err).ShouldNot(HaveOccurred())
+			bbs.WhenGettingAvailableFileServer = func() (string, error) {
+				return "http://file-server.com/", nil
+			}
+
+			bbs.WhenDesiringTask = func(task models.Task) (models.Task, error) {
+				desiredTask = task
+				return task, nil
+			}
 		})
 
 		It("creates a Task with staging instructions", func() {
-			modelChannel, _, _ := bbs.WatchForDesiredTask()
-
 			err := stager.Stage(stagingRequest)
 			Ω(err).ShouldNot(HaveOccurred())
 
-			var task models.Task
-			Eventually(modelChannel).Should(Receive(&task))
-
-			Ω(task.Guid).To(Equal("bunny-hop"))
-			Ω(task.Stack).To(Equal("rabbit_hole"))
-			Ω(task.Log.Guid).To(Equal("bunny"))
-			Ω(task.Log.SourceName).To(Equal("STG"))
-			Ω(task.Log.Index).To(BeNil())
+			Ω(desiredTask.Guid).To(Equal("bunny-hop"))
+			Ω(desiredTask.Stack).To(Equal("rabbit_hole"))
+			Ω(desiredTask.Log.Guid).To(Equal("bunny"))
+			Ω(desiredTask.Log.SourceName).To(Equal("STG"))
+			Ω(desiredTask.Log.Index).To(BeNil())
 
 			var annotation models.StagingTaskAnnotation
 
-			err = json.Unmarshal([]byte(task.Annotation), &annotation)
+			err = json.Unmarshal([]byte(desiredTask.Annotation), &annotation)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			Ω(annotation).Should(Equal(models.StagingTaskAnnotation{
@@ -221,7 +225,7 @@ var _ = Describe("Stage", func() {
 				TaskId: "hop",
 			}))
 
-			expectedActions := []models.ExecutorAction{
+			Ω(desiredTask.Actions).Should(Equal([]models.ExecutorAction{
 				downloadSmelterAction,
 				downloadAppAction,
 				downloadFirstBuildpackAction,
@@ -231,14 +235,10 @@ var _ = Describe("Stage", func() {
 				uploadDropletAction,
 				uploadBuildArtifactsAction,
 				fetchResultsAction,
-			}
+			}))
 
-			for i, action := range task.Actions {
-				Ω(action).To(Equal(expectedActions[i]))
-			}
-
-			Ω(task.MemoryMB).To(Equal(256))
-			Ω(task.DiskMB).To(Equal(1024))
+			Ω(desiredTask.MemoryMB).To(Equal(256))
+			Ω(desiredTask.DiskMB).To(Equal(1024))
 		})
 
 		Context("when build artifacts download uris are not provided", func() {
@@ -247,15 +247,10 @@ var _ = Describe("Stage", func() {
 			})
 
 			It("does not instruct the executor to download the cache", func() {
-				modelChannel, _, _ := bbs.WatchForDesiredTask()
-
 				err := stager.Stage(stagingRequest)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				var task models.Task
-				Eventually(modelChannel).Should(Receive(&task))
-
-				expectedActions := []models.ExecutorAction{
+				Ω(desiredTask.Actions).Should(Equal([]models.ExecutorAction{
 					downloadSmelterAction,
 					downloadAppAction,
 					downloadFirstBuildpackAction,
@@ -264,11 +259,7 @@ var _ = Describe("Stage", func() {
 					uploadDropletAction,
 					uploadBuildArtifactsAction,
 					fetchResultsAction,
-				}
-
-				for i, action := range task.Actions {
-					Ω(action).To(Equal(expectedActions[i]))
-				}
+				}))
 			})
 		})
 
@@ -278,8 +269,6 @@ var _ = Describe("Stage", func() {
 			})
 
 			It("returns an error", func() {
-				bbs.WatchForDesiredTask()
-
 				err := stager.Stage(stagingRequest)
 
 				Ω(err).Should(HaveOccurred())
@@ -293,17 +282,49 @@ var _ = Describe("Stage", func() {
 			})
 
 			It("return a url parsing error", func() {
-				bbs.WatchForDesiredTask()
-
 				err := stager.Stage(stagingRequest)
 
 				Ω(err).Should(HaveOccurred())
 				Ω(err.Error()).Should(ContainSubstring("invalid URI"))
 			})
 		})
+
+		Context("when the task has already been created", func() {
+			BeforeEach(func() {
+				bbs.WhenDesiringTask = func(task models.Task) (models.Task, error) {
+					return task, storeadapter.ErrorKeyExists
+				}
+			})
+
+			It("does not raise an error", func() {
+				err := stager.Stage(stagingRequest)
+				Ω(err).ShouldNot(HaveOccurred())
+			})
+		})
+
+		Context("when writing the task to the BBS fails", func() {
+			desireErr := errors.New("Could not connect!")
+
+			BeforeEach(func() {
+				bbs.WhenDesiringTask = func(task models.Task) (models.Task, error) {
+					return task, desireErr
+				}
+			})
+
+			It("returns an error", func() {
+				err := stager.Stage(stagingRequest)
+				Ω(err).Should(Equal(desireErr))
+			})
+		})
 	})
 
 	Context("when file server is not available", func() {
+		BeforeEach(func() {
+			bbs.WhenGettingAvailableFileServer = func() (string, error) {
+				return "", storeadapter.ErrorKeyNotFound
+			}
+		})
+
 		It("should return an error", func() {
 			err := stager.Stage(models.StagingRequestFromCC{
 				AppId:                          "bunny",

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/cloudfoundry/storeadapter"
 	"net/url"
 	"time"
 
@@ -235,6 +236,9 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 		},
 		Annotation: string(annotationJson),
 	})
+	if err == storeadapter.ErrorKeyExists {
+		err = nil
+	}
 
 	return err
 }
