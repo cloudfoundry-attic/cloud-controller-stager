@@ -99,6 +99,7 @@ func publishResponse(natsClient yagnats.NATSClient, task models.Task) error {
 
 		response.BuildpackKey = result.BuildpackKey
 		response.DetectedBuildpack = result.DetectedBuildpack
+		response.StartCommand = result.StartCommand
 	}
 
 	payload, err := json.Marshal(response)
