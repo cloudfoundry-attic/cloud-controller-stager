@@ -101,7 +101,7 @@ func main() {
 		log.Fatalf("Error connecting to NATS: %s\n", err)
 	}
 
-	bbs := Bbs.New(etcdAdapter, timeprovider.NewTimeProvider())
+	bbs := Bbs.NewStagerBBS(etcdAdapter, timeprovider.NewTimeProvider())
 
 	compilersMap := make(map[string]string)
 	err = json.Unmarshal([]byte(*compilers), &compilersMap)
