@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/cloudfoundry/storeadapter"
 	"net/url"
 	"time"
+
+	"github.com/cloudfoundry/storeadapter"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -225,6 +226,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 
 	//Go!
 	_, err = stager.stagerBBS.DesireTask(models.Task{
+		Type:     models.TaskTypeStaging,
 		Guid:     taskGuid(request),
 		Stack:    request.Stack,
 		MemoryMB: request.MemoryMB,

@@ -24,7 +24,12 @@ func Listen(bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logg
 					break waitForTask
 				}
 
+				if task.Type != models.TaskTypeStaging {
+					break
+				}
+
 				go handleCompletedTask(task, bbs, natsClient, logger)
+
 			case err, ok := <-errs:
 				if ok && err != nil {
 					logger.Errord(map[string]interface{}{

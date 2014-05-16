@@ -40,6 +40,7 @@ var _ = Describe("Outbox", func() {
 			Guid:       "some-task-id",
 			Result:     "{}",
 			Annotation: string(annotationJson),
+			Type:       models.TaskTypeStaging,
 		}
 		bbs = fake_bbs.NewFakeStagerBBS()
 
@@ -67,7 +68,7 @@ var _ = Describe("Outbox", func() {
 			}`
 		})
 
-		It("claims the completed task, publishes its result and then marks the Task as completed", func() {
+		It("resolves the completed task, publishes its result and then marks the Task as resolved", func() {
 			bbs.SendCompletedTask(task)
 
 			Eventually(bbs.ResolvingTaskInput).ShouldNot(BeZero())
@@ -83,6 +84,14 @@ var _ = Describe("Outbox", func() {
 			}`, appId, taskId)))
 
 			Eventually(bbs.ResolvedTask).Should(Equal(task))
+		})
+
+		Context("when the task is not a staging task", func() {
+			It("Should not resolve the completed task ", func() {
+				task.Type = models.TaskTypeDropletMigration
+				bbs.SendCompletedTask(task)
+				Consistently(bbs.ResolvingTaskInput).Should(BeZero())
+			})
 		})
 
 		Context("when the response fails to go out", func() {
