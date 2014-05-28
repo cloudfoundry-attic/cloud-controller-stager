@@ -59,7 +59,7 @@ var _ = Describe("Inbox", func() {
 		var attempts uint32
 
 		BeforeEach(func() {
-			fakenats.WhenSubscribing(DiegoStageStartSubject, func() error {
+			fakenats.WhenSubscribing(DiegoStageStartSubject, func(callback yagnats.Callback) error {
 				atomic.AddUint32(&attempts, 1)
 				return errors.New("oh no!")
 			})
@@ -80,7 +80,7 @@ var _ = Describe("Inbox", func() {
 				return fakenats.Subscriptions(DiegoStageStartSubject)
 			}).Should(BeEmpty())
 
-			fakenats.WhenSubscribing(DiegoStageStartSubject, func() error {
+			fakenats.WhenSubscribing(DiegoStageStartSubject, func(callback yagnats.Callback) error {
 				return nil
 			})
 

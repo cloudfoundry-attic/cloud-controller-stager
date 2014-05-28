@@ -96,7 +96,7 @@ var _ = Describe("Outbox", func() {
 
 		Context("when the response fails to go out", func() {
 			BeforeEach(func() {
-				fakenats.WhenPublishing("some-requester", func() error {
+				fakenats.WhenPublishing("some-requester", func(message *yagnats.Message) error {
 					return errors.New("kaboom!")
 				})
 			})
