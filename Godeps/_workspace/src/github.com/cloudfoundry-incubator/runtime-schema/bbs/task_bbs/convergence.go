@@ -1,23 +1,23 @@
 package task_bbs
 
 import (
+	"sync"
 	"time"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/shared"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/storeadapter"
 )
 
 // ConvergeTask is run by *one* executor every X seconds (doesn't really matter what X is.. pick something performant)
 // Converge will:
-// 1. Kick (by setting) any run-onces that are still pending
-// 2. Kick (by setting) any run-onces that are completed
+// 1. Kick (by setting) any run-onces that are still pending (and have been for > convergence interval)
+// 2. Kick (by setting) any run-onces that are completed (and have been for > convergence interval)
 // 3. Demote to pending any claimed run-onces that have been claimed for > 30s
 // 4. Demote to completed any resolving run-onces that have been resolving for > 30s
 // 5. Mark as failed any run-onces that have been in the pending state for > timeToClaim
 // 6. Mark as failed any claimed or running run-onces whose executor has stopped maintaining presence
-func (self *TaskBBS) ConvergeTask(timeToClaim time.Duration) {
+func (self *TaskBBS) ConvergeTask(timeToClaim time.Duration, convergenceInterval time.Duration) {
 	taskState, err := self.store.ListRecursively(shared.TaskSchemaRoot)
 	if err != nil {
 		return
@@ -30,15 +30,13 @@ func (self *TaskBBS) ConvergeTask(timeToClaim time.Duration) {
 		return
 	}
 
-	logger := steno.NewLogger("bbs")
 	logError := func(task models.Task, message string) {
-		logger.Errord(map[string]interface{}{
+		self.logger.Errord(map[string]interface{}{
 			"task": task,
 		}, message)
 	}
 
 	keysToDelete := []string{}
-	unclaimedTimeoutBoundary := self.timeProvider.Time().Add(-timeToClaim).UnixNano()
 
 	tasksToCAS := []compareAndSwappableTask{}
 	scheduleForCASByIndex := func(index uint64, newTask models.Task) {
@@ -51,7 +49,7 @@ func (self *TaskBBS) ConvergeTask(timeToClaim time.Duration) {
 	for _, node := range taskState.ChildNodes {
 		task, err := models.NewTaskFromJSON(node.Value)
 		if err != nil {
-			logger.Errord(map[string]interface{}{
+			self.logger.Errord(map[string]interface{}{
 				"key":   node.Key,
 				"value": string(node.Value),
 			}, "task.converge.json-parse-failure")
@@ -59,22 +57,24 @@ func (self *TaskBBS) ConvergeTask(timeToClaim time.Duration) {
 			continue
 		}
 
+		shouldKickTask := self.durationSinceTaskUpdated(task) >= convergenceInterval
+
 		switch task.State {
 		case models.TaskStatePending:
-			if task.CreatedAt <= unclaimedTimeoutBoundary {
+			shouldMarkAsFailed := self.durationSinceTaskCreated(task) >= timeToClaim
+			if shouldMarkAsFailed {
 				logError(task, "task.converge.failed-to-claim")
 				scheduleForCASByIndex(node.Index, markTaskFailed(task, "not claimed within time limit"))
-			} else {
+			} else if shouldKickTask {
 				scheduleForCASByIndex(node.Index, task)
 			}
 		case models.TaskStateClaimed:
-			claimedTooLong := self.timeProvider.Time().Sub(time.Unix(0, task.UpdatedAt)) >= 30*time.Second
 			_, executorIsAlive := executorState.Lookup(task.ExecutorID)
 
 			if !executorIsAlive {
 				logError(task, "task.converge.executor-disappeared")
 				scheduleForCASByIndex(node.Index, markTaskFailed(task, "executor disappeared before completion"))
-			} else if claimedTooLong {
+			} else if shouldKickTask {
 				logError(task, "task.converge.failed-to-start")
 				scheduleForCASByIndex(node.Index, demoteToPending(task))
 			}
@@ -86,19 +86,27 @@ func (self *TaskBBS) ConvergeTask(timeToClaim time.Duration) {
 				scheduleForCASByIndex(node.Index, markTaskFailed(task, "executor disappeared before completion"))
 			}
 		case models.TaskStateCompleted:
-			scheduleForCASByIndex(node.Index, task)
+			if shouldKickTask {
+				scheduleForCASByIndex(node.Index, task)
+			}
 		case models.TaskStateResolving:
-			resolvingTooLong := self.timeProvider.Time().Sub(time.Unix(0, task.UpdatedAt)) >= 30*time.Second
-
-			if resolvingTooLong {
+			if shouldKickTask {
 				logError(task, "task.converge.failed-to-resolve")
 				scheduleForCASByIndex(node.Index, demoteToCompleted(task))
 			}
 		}
 	}
 
-	self.batchCompareAndSwapTasks(tasksToCAS, logger)
+	self.batchCompareAndSwapTasks(tasksToCAS)
 	self.store.Delete(keysToDelete...)
+}
+
+func (self *TaskBBS) durationSinceTaskCreated(task models.Task) time.Duration {
+	return self.timeProvider.Time().Sub(time.Unix(0, task.CreatedAt))
+}
+
+func (self *TaskBBS) durationSinceTaskUpdated(task models.Task) time.Duration {
+	return self.timeProvider.Time().Sub(time.Unix(0, task.UpdatedAt))
 }
 
 func markTaskFailed(task models.Task, reason string) models.Task {
@@ -108,9 +116,9 @@ func markTaskFailed(task models.Task, reason string) models.Task {
 	return task
 }
 
-func (self *TaskBBS) batchCompareAndSwapTasks(tasksToCAS []compareAndSwappableTask, logger *steno.Logger) {
-	done := make(chan struct{}, len(tasksToCAS))
-
+func (self *TaskBBS) batchCompareAndSwapTasks(tasksToCAS []compareAndSwappableTask) {
+	waitGroup := &sync.WaitGroup{}
+	waitGroup.Add(len(tasksToCAS))
 	for _, taskToCAS := range tasksToCAS {
 		task := taskToCAS.NewTask
 		task.UpdatedAt = self.timeProvider.Time().UnixNano()
@@ -119,20 +127,18 @@ func (self *TaskBBS) batchCompareAndSwapTasks(tasksToCAS []compareAndSwappableTa
 			Value: task.ToJSON(),
 		}
 
-		go func() {
+		go func(taskToCAS compareAndSwappableTask, newStoreNode storeadapter.StoreNode) {
 			err := self.store.CompareAndSwapByIndex(taskToCAS.OldIndex, newStoreNode)
 			if err != nil {
-				logger.Errord(map[string]interface{}{
+				self.logger.Errord(map[string]interface{}{
 					"error": err.Error(),
 				}, "task.converge.failed-to-compare-and-swap")
 			}
-			done <- struct{}{}
-		}()
+			waitGroup.Done()
+		}(taskToCAS, newStoreNode)
 	}
 
-	for _ = range tasksToCAS {
-		<-done
-	}
+	waitGroup.Wait()
 }
 
 func demoteToPending(task models.Task) models.Task {

@@ -6,13 +6,14 @@ import (
 	. "github.com/onsi/gomega"
 
 	. "github.com/cloudfoundry-incubator/runtime-schema/bbs/lrp_bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/bbs/shared"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/storeadapter"
 	. "github.com/cloudfoundry/storeadapter/storenodematchers"
 )
 
 var _ = Describe("Start Auction", func() {
-	var bbs *LongRunningProcessBBS
+	var bbs *LRPBBS
 
 	BeforeEach(func() {
 		bbs = New(etcdClient)
@@ -23,8 +24,8 @@ var _ = Describe("Start Auction", func() {
 
 		BeforeEach(func() {
 			auctionLRP = models.LRPStartAuction{
-				Guid:  "some-guid",
-				Index: 1,
+				ProcessGuid: "some-guid",
+				Index:       1,
 				Actions: []models.ExecutorAction{
 					{
 						Action: models.RunAction{
@@ -53,6 +54,16 @@ var _ = Describe("Start Auction", func() {
 			Ω(node.Value).Should(Equal(auctionLRP.ToJSON()))
 		})
 
+		Context("when the key already exists", func() {
+			It("should error", func() {
+				err := bbs.RequestLRPStartAuction(auctionLRP)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				err = bbs.RequestLRPStartAuction(auctionLRP)
+				Ω(err).Should(MatchError(storeadapter.ErrorKeyExists))
+			})
+		})
+
 		Context("when the store is out of commission", func() {
 			itRetriesUntilStoreComesBack(func() error {
 				return bbs.RequestLRPStartAuction(auctionLRP)
@@ -71,8 +82,8 @@ var _ = Describe("Start Auction", func() {
 
 		BeforeEach(func() {
 			auctionLRP = models.LRPStartAuction{
-				Guid:  "some-guid",
-				Index: 1,
+				ProcessGuid: "some-guid",
+				Index:       1,
 				Actions: []models.ExecutorAction{
 					{
 						Action: models.RunAction{
@@ -112,10 +123,28 @@ var _ = Describe("Start Auction", func() {
 			auctionLRP.State = models.LRPStartAuctionStatePending
 			Eventually(events).Should(Receive(Equal(auctionLRP)))
 
-			err = bbs.RequestLRPStartAuction(auctionLRP)
+			err = etcdClient.SetMulti([]storeadapter.StoreNode{
+				{
+					Key:   shared.LRPStartAuctionSchemaPath(auctionLRP),
+					Value: auctionLRP.ToJSON(),
+				},
+			})
 			Ω(err).ShouldNot(HaveOccurred())
 
 			Eventually(events).Should(Receive(Equal(auctionLRP)))
+		})
+
+		It("does not send an event down the pipe for deletes", func() {
+			err := bbs.RequestLRPStartAuction(auctionLRP)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			auctionLRP.State = models.LRPStartAuctionStatePending
+			Eventually(events).Should(Receive(Equal(auctionLRP)))
+
+			err = bbs.ResolveLRPStartAuction(auctionLRP)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			Consistently(events).ShouldNot(Receive())
 		})
 
 		It("closes the events and errors channel when told to stop", func() {
@@ -135,8 +164,8 @@ var _ = Describe("Start Auction", func() {
 
 		BeforeEach(func() {
 			auctionLRP = models.LRPStartAuction{
-				Guid:  "some-guid",
-				Index: 1,
+				ProcessGuid: "some-guid",
+				Index:       1,
 				Actions: []models.ExecutorAction{
 					{
 						Action: models.RunAction{
@@ -200,8 +229,8 @@ var _ = Describe("Start Auction", func() {
 
 		BeforeEach(func() {
 			auctionLRP = models.LRPStartAuction{
-				Guid:  "some-guid",
-				Index: 1,
+				ProcessGuid: "some-guid",
+				Index:       1,
 				Actions: []models.ExecutorAction{
 					{
 						Action: models.RunAction{
