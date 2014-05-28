@@ -58,6 +58,19 @@ var syslogName = flag.String(
 func main() {
 	flag.Parse()
 
+	logger := initializeLogger()
+	natsClient := yagnats.NewClient()
+
+	go outbox.Listen(bbs, natsClient, logger)
+
+	inbox.Listen(natsClient, stager.New(bbs, compilersMap), inbox.ValidateRequest, logger)
+
+	fmt.Println("Listening for staging requests!")
+
+	select {}
+}
+
+func initializeLogger() *steno.Logger {
 	stenoConfig := &steno.Config{
 		Sinks: []steno.Sink{
 			steno.NewIOSink(os.Stdout),
@@ -70,18 +83,18 @@ func main() {
 
 	steno.Init(stenoConfig)
 
-	logger := steno.NewLogger("Stager")
+	return steno.NewLogger("Stager")
+}
 
-	etcdAdapter := etcdstoreadapter.NewETCDStoreAdapter(
-		strings.Split(*etcdCluster, ","),
-		workerpool.NewWorkerPool(10),
-	)
-
-	err := etcdAdapter.Connect()
+func initializeCompilers(logger *steno.Logger) map[string]string {
+	compilersMap := make(map[string]string)
+	err = json.Unmarshal([]byte(*compilers), &compilersMap)
 	if err != nil {
-		logger.Fatalf("Error connecting to etcd: %s\n", err)
+		logger.Fatalf("Error parsing compilers flag: %s\n", err)
 	}
+}
 
+func initializeNatsClient(logger *steno.Logger) *yagnats.Client {
 	natsClient := yagnats.NewClient()
 
 	natsMembers := []yagnats.ConnectionProvider{}
@@ -93,7 +106,7 @@ func main() {
 		)
 	}
 
-	err = natsClient.Connect(&yagnats.ConnectionCluster{
+	err := natsClient.Connect(&yagnats.ConnectionCluster{
 		Members: natsMembers,
 	})
 
@@ -101,19 +114,19 @@ func main() {
 		logger.Fatalf("Error connecting to NATS: %s\n", err)
 	}
 
-	bbs := Bbs.NewStagerBBS(etcdAdapter, timeprovider.NewTimeProvider(), logger)
+	return natsClient
+}
 
-	compilersMap := make(map[string]string)
-	err = json.Unmarshal([]byte(*compilers), &compilersMap)
+func initializeStagerBBS(logger *steno.Logger) bbs.StagerBBS {
+	etcdAdapter := etcdstoreadapter.NewETCDStoreAdapter(
+		strings.Split(*etcdCluster, ","),
+		workerpool.NewWorkerPool(10),
+	)
+
+	err := etcdAdapter.Connect()
 	if err != nil {
-		logger.Fatalf("Error parsing compilers flag: %s\n", err)
+		logger.Fatalf("Error connecting to etcd: %s\n", err)
 	}
 
-	go outbox.Listen(bbs, natsClient, logger)
-
-	inbox.Listen(natsClient, stager.New(bbs, compilersMap), inbox.ValidateRequest, logger)
-
-	fmt.Println("Listening for staging requests!")
-
-	select {}
+	return Bbs.NewStagerBBS(etcdAdapter, timeprovider.NewTimeProvider(), logger)
 }
