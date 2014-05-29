@@ -3,8 +3,9 @@ package stager_test
 import (
 	"encoding/json"
 	"errors"
-	"github.com/cloudfoundry/storeadapter"
 	"time"
+
+	"github.com/cloudfoundry/storeadapter"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -18,7 +19,7 @@ var _ = Describe("Stage", func() {
 		stager                        Stager
 		bbs                           *fake_bbs.FakeStagerBBS
 		stagingRequest                models.StagingRequestFromCC
-		downloadSmelterAction         models.ExecutorAction
+		downloadTailorAction          models.ExecutorAction
 		downloadAppAction             models.ExecutorAction
 		downloadFirstBuildpackAction  models.ExecutorAction
 		downloadSecontBuildpackAction models.ExecutorAction
@@ -56,18 +57,18 @@ var _ = Describe("Stage", func() {
 			},
 		}
 
-		downloadSmelterAction = models.EmitProgressFor(
+		downloadTailorAction = models.EmitProgressFor(
 			models.ExecutorAction{
 				models.DownloadAction{
 					From:     "http://file-server.com/v1/static/rabbit-hole-compiler",
-					To:       "/tmp/compiler",
+					To:       "/tmp/circus",
 					Extract:  true,
-					CacheKey: "smelter-rabbit_hole",
+					CacheKey: "tailor-rabbit_hole",
 				},
 			},
 			"",
 			"",
-			"Failed to Download Smelter",
+			"Failed to Download Tailor",
 		)
 
 		downloadAppAction = models.EmitProgressFor(
@@ -131,13 +132,13 @@ var _ = Describe("Stage", func() {
 		runAction = models.EmitProgressFor(
 			models.ExecutorAction{
 				models.RunAction{
-					Script: "/tmp/compiler/run" +
+					Script: "/tmp/circus/tailor" +
 						" -appDir='/app'" +
 						" -buildArtifactsCacheDir='/tmp/cache'" +
 						" -buildpackOrder='zfirst-buildpack,asecond-buildpack'" +
 						" -buildpacksDir='/tmp/buildpacks'" +
-						" -outputDir='/tmp/droplet'" +
-						" -resultDir='/tmp/result'",
+						" -outputDropletDir='/tmp/droplet'" +
+						" -outputMetadataDir='/tmp/result'",
 					Env: []models.EnvironmentVariable{
 						{"VCAP_APPLICATION", "foo"},
 						{"VCAP_SERVICES", "bar"},
@@ -226,7 +227,7 @@ var _ = Describe("Stage", func() {
 			}))
 
 			Ω(desiredTask.Actions).Should(Equal([]models.ExecutorAction{
-				downloadSmelterAction,
+				downloadTailorAction,
 				downloadAppAction,
 				downloadFirstBuildpackAction,
 				downloadSecontBuildpackAction,
@@ -251,7 +252,7 @@ var _ = Describe("Stage", func() {
 				Ω(err).ShouldNot(HaveOccurred())
 
 				Ω(desiredTask.Actions).Should(Equal([]models.ExecutorAction{
-					downloadSmelterAction,
+					downloadTailorAction,
 					downloadAppAction,
 					downloadFirstBuildpackAction,
 					downloadSecontBuildpackAction,

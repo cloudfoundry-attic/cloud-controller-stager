@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"path"
 	"time"
 
 	"github.com/cloudfoundry/storeadapter"
@@ -50,25 +51,25 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 		buildpacksOrder = append(buildpacksOrder, buildpack.Key)
 	}
 
-	smeltingConfig := models.NewLinuxSmeltingConfig(buildpacksOrder)
+	tailorConfig := models.NewLinuxCircusTailorConfig(buildpacksOrder)
 
 	actions := []models.ExecutorAction{}
 
-	//Download smelter
+	//Download tailor
 	actions = append(
 		actions,
 		models.EmitProgressFor(
 			models.ExecutorAction{
 				models.DownloadAction{
 					From:     compilerURL.String(),
-					To:       smeltingConfig.CompilerPath(),
+					To:       path.Dir(tailorConfig.ExecutablePath),
 					Extract:  true,
-					CacheKey: fmt.Sprintf("smelter-%s", request.Stack),
+					CacheKey: fmt.Sprintf("tailor-%s", request.Stack),
 				},
 			},
 			"",
 			"",
-			"Failed to Download Smelter",
+			"Failed to Download Tailor",
 		),
 	)
 
@@ -79,7 +80,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 			models.ExecutorAction{
 				models.DownloadAction{
 					From:    request.AppBitsDownloadUri,
-					To:      smeltingConfig.AppDir(),
+					To:      tailorConfig.AppDir(),
 					Extract: true,
 				},
 			},
@@ -97,7 +98,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 				models.ExecutorAction{
 					models.DownloadAction{
 						From:     buildpack.Url,
-						To:       smeltingConfig.BuildpackPath(buildpack.Key),
+						To:       tailorConfig.BuildpackPath(buildpack.Key),
 						Extract:  true,
 						CacheKey: buildpack.Key,
 					},
@@ -123,7 +124,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 					models.ExecutorAction{
 						models.DownloadAction{
 							From:    downloadURL.String(),
-							To:      smeltingConfig.BuildArtifactsCacheDir(),
+							To:      tailorConfig.BuildArtifactsCacheDir(),
 							Extract: true,
 						},
 					},
@@ -147,7 +148,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 		models.EmitProgressFor(
 			models.ExecutorAction{
 				models.RunAction{
-					Script:  smeltingConfig.Script(),
+					Script:  tailorConfig.Script(),
 					Env:     request.Environment,
 					Timeout: 15 * time.Minute,
 					ResourceLimits: models.ResourceLimits{
@@ -172,7 +173,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 		models.EmitProgressFor(
 			models.ExecutorAction{
 				models.UploadAction{
-					From: smeltingConfig.OutputDir() + "/", // get the contents, not the directory itself
+					From: tailorConfig.OutputDropletDir() + "/", // get the contents, not the directory itself
 					To:   uploadURL.String(),
 				},
 			},
@@ -193,7 +194,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 			models.EmitProgressFor(
 				models.ExecutorAction{
 					models.UploadAction{
-						From:     smeltingConfig.BuildArtifactsCacheDir() + "/", // get the contents, not the directory itself
+						From:     tailorConfig.BuildArtifactsCacheDir() + "/", // get the contents, not the directory itself
 						To:       uploadURL.String(),
 						Compress: true,
 					},
@@ -210,7 +211,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 		models.EmitProgressFor(
 			models.ExecutorAction{
 				models.FetchResultAction{
-					File: smeltingConfig.ResultJsonPath(),
+					File: tailorConfig.OutputMetadataPath(),
 				},
 			},
 			"",
