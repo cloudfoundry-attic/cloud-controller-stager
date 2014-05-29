@@ -7,7 +7,6 @@ import (
 	"os"
 	"strings"
 
-	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
@@ -17,6 +16,7 @@ import (
 	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/sigmon"
 
+	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/stager/inbox"
 	"github.com/cloudfoundry-incubator/stager/outbox"
 	"github.com/cloudfoundry-incubator/stager/stager"
@@ -67,8 +67,8 @@ func main() {
 	stagerBBS := initializeStagerBBS(logger)
 
 	group := ifrit.Envoke(grouper.RunGroup{
-		"outbox": outbox.New(bbs, natsClient, logger),
-		"inbox":  inbox.New(natsClient, stager.New(bbs, compilersMap), inbox.ValidateRequest, logger),
+		"inbox":  inbox.New(natsClient, stager.New(stagerBBS, compilers), inbox.ValidateRequest, logger),
+		"outbox": outbox.New(stagerBBS, natsClient, logger),
 	})
 
 	monitor := ifrit.Envoke(sigmon.New(group))
@@ -76,7 +76,7 @@ func main() {
 
 	err := <-monitor.Wait()
 	if err != nil {
-		logger.Fatal("Stager exited with error: %s", err)
+		logger.Fatalf("Stager exited with error: %s", err)
 	}
 }
 
@@ -98,10 +98,11 @@ func initializeLogger() *steno.Logger {
 
 func initializeCompilers(logger *steno.Logger) map[string]string {
 	compilersMap := make(map[string]string)
-	err = json.Unmarshal([]byte(*compilers), &compilersMap)
+	err := json.Unmarshal([]byte(*compilers), &compilersMap)
 	if err != nil {
 		logger.Fatalf("Error parsing compilers flag: %s\n", err)
 	}
+	return compilersMap
 }
 
 func initializeNatsClient(logger *steno.Logger) *yagnats.Client {
@@ -138,5 +139,5 @@ func initializeStagerBBS(logger *steno.Logger) bbs.StagerBBS {
 		logger.Fatalf("Error connecting to etcd: %s\n", err)
 	}
 
-	return Bbs.NewStagerBBS(etcdAdapter, timeprovider.NewTimeProvider(), logger)
+	return bbs.NewStagerBBS(etcdAdapter, timeprovider.NewTimeProvider(), logger)
 }
