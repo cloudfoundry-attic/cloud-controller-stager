@@ -2,6 +2,8 @@ package outbox
 
 import (
 	"encoding/json"
+	"os"
+	"sync"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -11,33 +13,57 @@ import (
 
 const DiegoStageFinishedSubject = "diego.staging.finished"
 
-func Listen(bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logger) {
+type Outbox struct {
+	bbs        bbs.StagerBBS
+	natsClient yagnats.NATSClient
+	logger     *steno.Logger
+}
+
+func New(bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logger) *Outbox {
+	return &Outbox{
+		bbs:        bbs,
+		natsClient: natsClient,
+		logger:     logger,
+	}
+}
+
+func (o *Outbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
+	wg := new(sync.WaitGroup)
+	tasks, stopWatching, errs := o.bbs.WatchForCompletedTask()
+
+	o.logger.Info("stager.watching-for-completed-task")
+	close(ready)
+
 	for {
-		logger.Info("stager.watching-for-completed-task")
-		tasks, _, errs := bbs.WatchForCompletedTask()
-
-	waitForTask:
-		for {
-			select {
-			case task, ok := <-tasks:
-				if !ok {
-					break waitForTask
-				}
-
-				if task.Type != models.TaskTypeStaging {
-					break
-				}
-
-				go handleCompletedTask(task, bbs, natsClient, logger)
-
-			case err, ok := <-errs:
-				if ok && err != nil {
-					logger.Errord(map[string]interface{}{
-						"error": err.Error(),
-					}, "stager.watch-completed-task.failed")
-				}
-				break waitForTask
+		select {
+		case task, ok := <-tasks:
+			if !ok {
+				tasks = nil
 			}
+
+			if task.Type != models.TaskTypeStaging {
+				break
+			}
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				handleCompletedTask(task, o.bbs, o.natsClient, o.logger)
+			}()
+
+		case err, ok := <-errs:
+			if ok && err != nil {
+				o.logger.Errord(map[string]interface{}{
+					"error": err.Error(),
+				}, "stager.watch-completed-task.failed")
+			}
+
+			tasks, stopWatching, errs = o.bbs.WatchForCompletedTask()
+
+		case <-signals:
+			close(stopWatching)
+			wg.Wait()
+			return nil
 		}
 	}
 }

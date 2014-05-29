@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"syscall"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -13,6 +14,7 @@ import (
 	"github.com/cloudfoundry/yagnats/fakeyagnats"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/tedsuo/ifrit"
 )
 
 var _ = Describe("Outbox", func() {
@@ -21,9 +23,11 @@ var _ = Describe("Outbox", func() {
 		logger    *steno.Logger
 		task      models.Task
 		bbs       *fake_bbs.FakeStagerBBS
-		published chan []byte
+		published <-chan []byte
 		appId     string
 		taskId    string
+
+		outbox ifrit.Process
 	)
 
 	BeforeEach(func() {
@@ -53,10 +57,18 @@ var _ = Describe("Outbox", func() {
 		})
 	})
 
-	JustBeforeEach(func() {
-		go Listen(bbs, fakenats, logger)
-
+	JustBeforeEach(func(done Done) {
+		go func() {
+			outbox = ifrit.Envoke(New(bbs, fakenats, logger))
+		}()
 		Eventually(bbs.WatchingForCompleted()).Should(Receive())
+		close(done)
+	})
+
+	AfterEach(func(done Done) {
+		outbox.Signal(syscall.SIGTERM)
+		<-outbox.Wait()
+		close(done)
 	})
 
 	Context("when a completed Task appears in the outbox", func() {
@@ -96,7 +108,7 @@ var _ = Describe("Outbox", func() {
 
 		Context("when the response fails to go out", func() {
 			BeforeEach(func() {
-				fakenats.WhenPublishing("some-requester", func(message *yagnats.Message) error {
+				fakenats.WhenPublishing(DiegoStageFinishedSubject, func(msg *yagnats.Message) error {
 					return errors.New("kaboom!")
 				})
 			})

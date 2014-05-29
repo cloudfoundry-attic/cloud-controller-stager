@@ -13,6 +13,9 @@ import (
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
 	"github.com/cloudfoundry/yagnats"
+	"github.com/tedsuo/ifrit"
+	"github.com/tedsuo/ifrit/grouper"
+	"github.com/tedsuo/ifrit/sigmon"
 
 	"github.com/cloudfoundry-incubator/stager/inbox"
 	"github.com/cloudfoundry-incubator/stager/outbox"
@@ -59,15 +62,22 @@ func main() {
 	flag.Parse()
 
 	logger := initializeLogger()
-	natsClient := yagnats.NewClient()
+	compilers := initializeCompilers(logger)
+	natsClient := initializeNatsClient(logger)
+	stagerBBS := initializeStagerBBS(logger)
 
-	go outbox.Listen(bbs, natsClient, logger)
+	group := ifrit.Envoke(grouper.RunGroup{
+		"outbox": outbox.New(bbs, natsClient, logger),
+		"inbox":  inbox.New(natsClient, stager.New(bbs, compilersMap), inbox.ValidateRequest, logger),
+	})
 
-	inbox.Listen(natsClient, stager.New(bbs, compilersMap), inbox.ValidateRequest, logger)
-
+	monitor := ifrit.Envoke(sigmon.New(group))
 	fmt.Println("Listening for staging requests!")
 
-	select {}
+	err := <-monitor.Wait()
+	if err != nil {
+		logger.Fatal("Stager exited with error: %s", err)
+	}
 }
 
 func initializeLogger() *steno.Logger {

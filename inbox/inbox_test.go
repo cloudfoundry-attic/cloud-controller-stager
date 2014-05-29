@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"sync/atomic"
+	"syscall"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/tedsuo/ifrit"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	steno "github.com/cloudfoundry/gosteno"
@@ -25,6 +27,8 @@ var _ = Describe("Inbox", func() {
 	var logger *steno.Logger
 	var validator RequestValidator
 	var stagingRequest models.StagingRequestFromCC
+
+	var inbox ifrit.Process
 
 	BeforeEach(func() {
 		testingSink = steno.NewTestingSink()
@@ -46,10 +50,6 @@ var _ = Describe("Inbox", func() {
 		}
 	})
 
-	listen := func() {
-		Listen(fakenats, fauxstager, validator, logger)
-	}
-
 	publishStagingMessage := func() {
 		msg, _ := json.Marshal(stagingRequest)
 		fakenats.Publish(DiegoStageStartSubject, msg)
@@ -57,14 +57,27 @@ var _ = Describe("Inbox", func() {
 
 	Context("when subscribing fails", func() {
 		var attempts uint32
+		var process chan ifrit.Process
 
 		BeforeEach(func() {
 			fakenats.WhenSubscribing(DiegoStageStartSubject, func(callback yagnats.Callback) error {
 				atomic.AddUint32(&attempts, 1)
 				return errors.New("oh no!")
 			})
+		})
 
-			go listen()
+		JustBeforeEach(func() {
+			process = make(chan ifrit.Process)
+			go func() {
+				process <- ifrit.Envoke(New(fakenats, fauxstager, validator, logger))
+			}()
+		})
+
+		AfterEach(func(done Done) {
+			p := <-process
+			p.Signal(syscall.SIGTERM)
+			<-p.Wait()
+			close(done)
 		})
 
 		It("continues retrying until it succeeds", func() {
@@ -95,101 +108,103 @@ var _ = Describe("Inbox", func() {
 		})
 	})
 
-	Context("when it receives a staging request", func() {
-		publishedCompletionMessages := func() []yagnats.Message {
-			return fakenats.PublishedMessages("diego.staging.finished")
-		}
-
-		It("kicks off staging", func() {
-			listen()
-
-			publishStagingMessage()
-
-			Ω(fauxstager.TimesStageInvoked).To(Equal(1))
-			Ω(fauxstager.StagingRequests[0]).To(Equal(stagingRequest))
+	Context("when subscribing succeeds", func() {
+		JustBeforeEach(func() {
+			inbox = ifrit.Envoke(New(fakenats, fauxstager, validator, logger))
 		})
 
-		Context("when staging finishes successfully", func() {
-			BeforeEach(listen)
-
-			It("does not send a nats message", func() {
-				publishStagingMessage()
-				Ω(fakenats.PublishedMessages(outbox.DiegoStageFinishedSubject)).Should(HaveLen(0))
-			})
+		AfterEach(func(done Done) {
+			inbox.Signal(syscall.SIGTERM)
+			<-inbox.Wait()
+			close(done)
 		})
 
-		Context("when staging finishes unsuccessfully", func() {
-			BeforeEach(func() {
-				fauxstager.AlwaysFail = true
+		Context("and it receives a staging request", func() {
+			publishedCompletionMessages := func() []yagnats.Message {
+				return fakenats.PublishedMessages("diego.staging.finished")
+			}
 
-				listen()
-			})
-
-			It("logs the failure", func() {
-				Ω(testingSink.Records()).Should(HaveLen(0))
-
+			It("kicks off staging", func() {
 				publishStagingMessage()
 
-				Ω(testingSink.Records()).ShouldNot(HaveLen(0))
+				Ω(fauxstager.TimesStageInvoked).To(Equal(1))
+				Ω(fauxstager.StagingRequests[0]).To(Equal(stagingRequest))
 			})
 
-			It("sends a staging failure response", func() {
-				publishStagingMessage()
-
-				Ω(publishedCompletionMessages()).Should(HaveLen(1))
-				response := publishedCompletionMessages()[0]
-
-				stagingResponse := models.StagingResponseForCC{}
-				json.Unmarshal(response.Payload, &stagingResponse)
-				Ω(stagingResponse.Error).Should(Equal("Staging failed: The thingy broke :("))
-			})
-		})
-
-		Context("when the request is invalid", func() {
-			BeforeEach(func() {
-				validator = func(models.StagingRequestFromCC) error {
-					return errors.New("NO.")
-				}
-
-				listen()
+			Context("when staging finishes successfully", func() {
+				It("does not send a nats message", func() {
+					publishStagingMessage()
+					Ω(fakenats.PublishedMessages(outbox.DiegoStageFinishedSubject)).Should(HaveLen(0))
+				})
 			})
 
-			It("logs the failure", func() {
-				publishStagingMessage()
-				Ω(testingSink.Records()).ShouldNot(HaveLen(0))
+			Context("when staging finishes unsuccessfully", func() {
+				BeforeEach(func() {
+					fauxstager.AlwaysFail = true
+				})
+
+				It("logs the failure", func() {
+					Ω(testingSink.Records()).Should(HaveLen(0))
+
+					publishStagingMessage()
+
+					Ω(testingSink.Records()).ShouldNot(HaveLen(0))
+				})
+
+				It("sends a staging failure response", func() {
+					publishStagingMessage()
+
+					Ω(publishedCompletionMessages()).Should(HaveLen(1))
+					response := publishedCompletionMessages()[0]
+
+					stagingResponse := models.StagingResponseForCC{}
+					json.Unmarshal(response.Payload, &stagingResponse)
+					Ω(stagingResponse.Error).Should(Equal("Staging failed: The thingy broke :("))
+				})
 			})
 
-			It("sends a staging failure response", func() {
-				publishStagingMessage()
+			Context("when the request is invalid", func() {
+				BeforeEach(func() {
+					validator = func(models.StagingRequestFromCC) error {
+						return errors.New("NO.")
+					}
+				})
 
-				Ω(publishedCompletionMessages()).Should(HaveLen(1))
-				response := publishedCompletionMessages()[0]
+				It("logs the failure", func() {
+					publishStagingMessage()
+					Ω(testingSink.Records()).ShouldNot(HaveLen(0))
+				})
 
-				stagingResponse := models.StagingResponseForCC{}
-				json.Unmarshal(response.Payload, &stagingResponse)
+				It("sends a staging failure response", func() {
+					publishStagingMessage()
 
-				Ω(stagingResponse).Should(Equal(models.StagingResponseForCC{
-					AppId:  "myapp",
-					TaskId: "mytask",
-					Error:  "Invalid staging request: NO.",
-				}))
+					Ω(publishedCompletionMessages()).Should(HaveLen(1))
+					response := publishedCompletionMessages()[0]
+
+					stagingResponse := models.StagingResponseForCC{}
+					json.Unmarshal(response.Payload, &stagingResponse)
+
+					Ω(stagingResponse).Should(Equal(models.StagingResponseForCC{
+						AppId:  "myapp",
+						TaskId: "mytask",
+						Error:  "Invalid staging request: NO.",
+					}))
+				})
 			})
-		})
 
-		Context("when unmarshaling fails", func() {
-			BeforeEach(listen)
+			Context("when unmarshaling fails", func() {
+				It("logs the failure", func() {
+					Ω(testingSink.Records()).Should(BeEmpty())
 
-			It("logs the failure", func() {
-				Ω(testingSink.Records()).Should(BeEmpty())
+					fakenats.Publish(DiegoStageStartSubject, []byte("fdsaljkfdsljkfedsews:/sdfa:''''"))
 
-				fakenats.Publish(DiegoStageStartSubject, []byte("fdsaljkfdsljkfedsews:/sdfa:''''"))
+					Ω(testingSink.Records()).ShouldNot(BeEmpty())
+				})
 
-				Ω(testingSink.Records()).ShouldNot(BeEmpty())
-			})
-
-			It("does not send a message in response", func() {
-				fakenats.Publish(DiegoStageStartSubject, []byte("fdsaljkfdsljkfedsews:/sdfa:''''"))
-				Ω(publishedCompletionMessages()).Should(BeEmpty())
+				It("does not send a message in response", func() {
+					fakenats.Publish(DiegoStageStartSubject, []byte("fdsaljkfdsljkfedsews:/sdfa:''''"))
+					Ω(publishedCompletionMessages()).Should(BeEmpty())
+				})
 			})
 		})
 	})

@@ -2,6 +2,7 @@ package inbox
 
 import (
 	"encoding/json"
+	"os"
 	"time"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -24,55 +25,66 @@ type Inbox struct {
 
 type RequestValidator func(models.StagingRequestFromCC) error
 
-func Listen(natsClient yagnats.NATSClient, stager stager.Stager, validator RequestValidator, logger *steno.Logger) {
-	inbox := Inbox{
+func New(natsClient yagnats.NATSClient, stager stager.Stager, validator RequestValidator, logger *steno.Logger) *Inbox {
+	return &Inbox{
 		natsClient:      natsClient,
 		stager:          stager,
 		validateRequest: validator,
 
 		logger: logger,
 	}
-
-	inbox.Listen()
 }
 
-func (inbox *Inbox) Listen() {
+func (inbox *Inbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
+	inbox.subscribe()
+
+	close(ready)
+
+	<-signals
+
+	return nil
+}
+
+func (inbox *Inbox) subscribe() {
 	for {
-		_, err := inbox.natsClient.Subscribe(DiegoStageStartSubject, func(message *yagnats.Message) {
-			stagingRequest := models.StagingRequestFromCC{}
-
-			err := json.Unmarshal(message.Payload, &stagingRequest)
-			if err != nil {
-				inbox.logError("staging.request.malformed", err, message)
-				return
-			}
-
-			err = inbox.validateRequest(stagingRequest)
-			if err != nil {
-				inbox.logError("staging.request.invalid", err, message)
-				inbox.sendErrorResponse("Invalid staging request: "+err.Error(), stagingRequest)
-				return
-			}
-
-			inbox.logger.Infod(
-				map[string]interface{}{
-					"message": stagingRequest,
-				},
-				"staging.request.received",
-			)
-
-			err = inbox.stager.Stage(stagingRequest)
-			if err != nil {
-				inbox.logError("stager.staging.failed", err, stagingRequest)
-				inbox.sendErrorResponse("Staging failed: "+err.Error(), stagingRequest)
-				return
-			}
-		})
-
+		_, err := inbox.natsClient.Subscribe(DiegoStageStartSubject, inbox.onStagingRequest)
 		if err == nil {
-			time.Sleep(500 * time.Millisecond)
 			break
 		}
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	return
+}
+
+func (inbox *Inbox) onStagingRequest(message *yagnats.Message) {
+	stagingRequest := models.StagingRequestFromCC{}
+
+	err := json.Unmarshal(message.Payload, &stagingRequest)
+	if err != nil {
+		inbox.logError("staging.request.malformed", err, message)
+		return
+	}
+
+	err = inbox.validateRequest(stagingRequest)
+	if err != nil {
+		inbox.logError("staging.request.invalid", err, message)
+		inbox.sendErrorResponse("Invalid staging request: "+err.Error(), stagingRequest)
+		return
+	}
+
+	inbox.logger.Infod(
+		map[string]interface{}{
+			"message": stagingRequest,
+		},
+		"staging.request.received",
+	)
+
+	err = inbox.stager.Stage(stagingRequest)
+	if err != nil {
+		inbox.logError("stager.staging.failed", err, stagingRequest)
+		inbox.sendErrorResponse("Staging failed: "+err.Error(), stagingRequest)
+		return
 	}
 }
 

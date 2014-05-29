@@ -4,8 +4,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/cloudfoundry/gosteno"
 	"testing"
+
+	"github.com/cloudfoundry/gosteno"
 )
 
 func TestOutbox(t *testing.T) {
