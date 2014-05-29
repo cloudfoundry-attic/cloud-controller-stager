@@ -34,9 +34,11 @@ type RepBBS interface {
 	CompleteTask(task models.Task, failed bool, failureReason string, result string) (models.Task, error)
 
 	///lrp
-	ReportActualLRPAsStarting(lrp models.LRP) error
-	ReportActualLRPAsRunning(lrp models.LRP) error
-	RemoveActualLRP(lrp models.LRP) error
+	ReportActualLRPAsStarting(lrp models.ActualLRP) error
+	ReportActualLRPAsRunning(lrp models.ActualLRP) error
+	RemoveActualLRP(lrp models.ActualLRP) error
+	WatchForStopLRPInstance() (<-chan models.StopLRPInstance, chan<- bool, <-chan error)
+	RemoveStopLRPInstance(stopInstance models.StopLRPInstance) error
 }
 
 type ConvergerBBS interface {
@@ -50,8 +52,9 @@ type ConvergerBBS interface {
 type AppManagerBBS interface {
 	//lrp
 	DesireLRP(models.DesiredLRP) error
+	GetActualLRPsByProcessGuid(string) ([]models.ActualLRP, error)
 	RequestLRPStartAuction(models.LRPStartAuction) error
-	GetActualLRPsByProcessGuid(string) ([]models.LRP, error)
+	RequestStopLRPInstance(stopInstance models.StopLRPInstance) error
 
 	//services
 	GetAvailableFileServer() (string, error)
@@ -103,9 +106,9 @@ type LRPRouterBBS interface {
 	WatchForDesiredLRPChanges() (<-chan models.DesiredLRPChange, chan<- bool, <-chan error)
 	WatchForActualLRPChanges() (<-chan models.ActualLRPChange, chan<- bool, <-chan error)
 	GetAllDesiredLRPs() ([]models.DesiredLRP, error)
-	GetRunningActualLRPs() ([]models.LRP, error)
+	GetRunningActualLRPs() ([]models.ActualLRP, error)
 	GetDesiredLRPByProcessGuid(processGuid string) (models.DesiredLRP, error)
-	GetRunningActualLRPsByProcessGuid(processGuid string) ([]models.LRP, error)
+	GetRunningActualLRPsByProcessGuid(processGuid string) ([]models.ActualLRP, error)
 }
 
 func NewExecutorBBS(store storeadapter.StoreAdapter, timeProvider timeprovider.TimeProvider, logger *steno.Logger) ExecutorBBS {
