@@ -29,6 +29,10 @@ func New(stagerBin string, etcdCluster []string, natsAddresses []string) *Stager
 }
 
 func (r *StagerRunner) Start(args ...string) {
+	if r.session != nil {
+		panic("starting more than one stager runner!!!")
+	}
+
 	stagerSession, err := gexec.Start(
 		exec.Command(
 			r.stagerBin,
@@ -50,6 +54,14 @@ func (r *StagerRunner) Start(args ...string) {
 func (r *StagerRunner) Stop() {
 	if r.session != nil {
 		r.session.Interrupt().Wait(5 * time.Second)
+		r.session = nil
+	}
+}
+
+func (r *StagerRunner) KillWithFire() {
+	if r.session != nil {
+		r.session.Kill().Wait(5 * time.Second)
+		r.session = nil
 	}
 }
 
