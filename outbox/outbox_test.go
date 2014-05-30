@@ -27,7 +27,7 @@ var _ = Describe("Outbox", func() {
 		appId     string
 		taskId    string
 
-		outbox ifrit.Process
+		outboxChan chan ifrit.Process
 	)
 
 	BeforeEach(func() {
@@ -58,14 +58,16 @@ var _ = Describe("Outbox", func() {
 	})
 
 	JustBeforeEach(func(done Done) {
+		outboxChan = make(chan ifrit.Process)
 		go func() {
-			outbox = ifrit.Envoke(New(bbs, fakenats, logger))
+			outboxChan <- ifrit.Envoke(New(bbs, fakenats, logger))
 		}()
 		Eventually(bbs.WatchingForCompleted()).Should(Receive())
 		close(done)
 	})
 
 	AfterEach(func(done Done) {
+		outbox := <-outboxChan
 		outbox.Signal(syscall.SIGTERM)
 		<-outbox.Wait()
 		close(done)
