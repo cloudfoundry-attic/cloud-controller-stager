@@ -81,7 +81,7 @@ var _ = Describe("Main", func() {
 
 	Context("when started", func() {
 		BeforeEach(func() {
-			runner.Start("--compilers", `{"lucid64":"smelter.zip"}`)
+			runner.Start("--circuses", `{"lucid64":"lifecycle.zip"}`)
 		})
 
 		Describe("when a 'diego.staging.start' message is recieved", func() {

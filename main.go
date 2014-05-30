@@ -46,10 +46,10 @@ var natsPassword = flag.String(
 	"Password for nats user",
 )
 
-var compilers = flag.String(
-	"compilers",
+var circuses = flag.String(
+	"circuses",
 	"{}",
-	"Map of compilers for different stacks (name => compiler_name)",
+	"Map of circuses for different stacks (name => compiler_name)",
 )
 
 var syslogName = flag.String(
@@ -62,12 +62,12 @@ func main() {
 	flag.Parse()
 
 	logger := initializeLogger()
-	compilers := initializeCompilers(logger)
+	circuses := initializeCircuses(logger)
 	natsClient := initializeNatsClient(logger)
 	stagerBBS := initializeStagerBBS(logger)
 
 	group := ifrit.Envoke(grouper.RunGroup{
-		"inbox":  inbox.New(natsClient, stager.New(stagerBBS, compilers), inbox.ValidateRequest, logger),
+		"inbox":  inbox.New(natsClient, stager.New(stagerBBS, circuses), inbox.ValidateRequest, logger),
 		"outbox": outbox.New(stagerBBS, natsClient, logger),
 	})
 
@@ -96,13 +96,13 @@ func initializeLogger() *steno.Logger {
 	return steno.NewLogger("Stager")
 }
 
-func initializeCompilers(logger *steno.Logger) map[string]string {
-	compilersMap := make(map[string]string)
-	err := json.Unmarshal([]byte(*compilers), &compilersMap)
+func initializeCircuses(logger *steno.Logger) map[string]string {
+	circusesMap := make(map[string]string)
+	err := json.Unmarshal([]byte(*circuses), &circusesMap)
 	if err != nil {
-		logger.Fatalf("Error parsing compilers flag: %s\n", err)
+		logger.Fatalf("Error parsing circuses flag: %s\n", err)
 	}
-	return compilersMap
+	return circusesMap
 }
 
 func initializeNatsClient(logger *steno.Logger) *yagnats.Client {
