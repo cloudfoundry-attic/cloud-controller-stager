@@ -38,7 +38,7 @@ type RepBBS interface {
 	ReportActualLRPAsRunning(lrp models.ActualLRP) error
 	RemoveActualLRP(lrp models.ActualLRP) error
 	WatchForStopLRPInstance() (<-chan models.StopLRPInstance, chan<- bool, <-chan error)
-	RemoveStopLRPInstance(stopInstance models.StopLRPInstance) error
+	ResolveStopLRPInstance(stopInstance models.StopLRPInstance) error
 }
 
 type ConvergerBBS interface {
@@ -49,9 +49,15 @@ type ConvergerBBS interface {
 	MaintainConvergeLock(interval time.Duration, executorID string) (disappeared <-chan bool, stop chan<- chan bool, err error)
 }
 
+type TPSBBS interface {
+	//lrp
+	GetActualLRPsByProcessGuid(string) ([]models.ActualLRP, error)
+}
+
 type AppManagerBBS interface {
 	//lrp
 	DesireLRP(models.DesiredLRP) error
+	RemoveDesiredLRPByProcessGuid(guid string) error
 	GetActualLRPsByProcessGuid(string) ([]models.ActualLRP, error)
 	RequestLRPStartAuction(models.LRPStartAuction) error
 	RequestStopLRPInstance(stopInstance models.StopLRPInstance) error
@@ -147,10 +153,14 @@ func NewLRPRouterBBS(store storeadapter.StoreAdapter, timeProvider timeprovider.
 	return NewBBS(store, timeProvider, logger)
 }
 
+func NewTPSBBS(store storeadapter.StoreAdapter, timeProvider timeprovider.TimeProvider, logger *steno.Logger) TPSBBS {
+	return NewBBS(store, timeProvider, logger)
+}
+
 func NewBBS(store storeadapter.StoreAdapter, timeProvider timeprovider.TimeProvider, logger *steno.Logger) *BBS {
 	return &BBS{
 		LockBBS:     lock_bbs.New(store),
-		LRPBBS:      lrp_bbs.New(store),
+		LRPBBS:      lrp_bbs.New(store, timeProvider),
 		ServicesBBS: services_bbs.New(store, logger),
 		TaskBBS:     task_bbs.New(store, timeProvider, logger),
 	}
