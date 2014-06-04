@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"syscall"
+	"time"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -161,9 +162,13 @@ var _ = Describe("Outbox", func() {
 
 	Context("when an error is seen while watching", func() {
 		It("starts watching again", func() {
+			sinceStart := time.Now()
+
 			bbs.SendCompletedTaskWatchError(errors.New("oh no!"))
 
-			Eventually(bbs.WatchingForCompleted()).Should(Receive())
+			Eventually(bbs.WatchingForCompleted(), 4).Should(Receive())
+
+			Ω(time.Since(sinceStart)).Should(BeNumerically("~", 3*time.Second, 200*time.Millisecond))
 
 			bbs.SendCompletedTask(task)
 			Eventually(published).Should(Receive())

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -57,6 +58,8 @@ func (o *Outbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 					"error": err.Error(),
 				}, "stager.watch-completed-task.failed")
 			}
+
+			time.Sleep(3 * time.Second)
 
 			tasks, stopWatching, errs = o.bbs.WatchForCompletedTask()
 
