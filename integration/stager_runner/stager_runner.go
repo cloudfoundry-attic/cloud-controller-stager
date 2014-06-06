@@ -41,8 +41,8 @@ func (r *StagerRunner) Start(args ...string) {
 				"-natsAddresses", strings.Join(r.natsAddresses, ","),
 			}, args...)...,
 		),
-		ginkgo.GinkgoWriter,
-		ginkgo.GinkgoWriter,
+		gexec.NewPrefixedWriter("\x1b[32m[o]\x1b[95m[stager]\x1b[0m ", ginkgo.GinkgoWriter),
+		gexec.NewPrefixedWriter("\x1b[91m[e]\x1b[95m[stager]\x1b[0m ", ginkgo.GinkgoWriter),
 	)
 
 	Ω(err).ShouldNot(HaveOccurred())
