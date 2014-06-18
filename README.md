@@ -3,4 +3,6 @@
 stager
 ======
 
-Stager for Cloud Foundry.
+Diego Stager
+
+Learn more about Diego and its components over at [diego-design-notes](https://github.com/cloudfoundry-incubator/diego-design-notes)
