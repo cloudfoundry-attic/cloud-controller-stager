@@ -28,7 +28,11 @@ var _ = Describe("Outbox", func() {
 		appId     string
 		taskId    string
 
-		outboxChan chan ifrit.Process
+		completedTasks chan models.Task
+		watchStopChan  chan bool
+		watchErrChan   chan error
+
+		outbox ifrit.Process
 	)
 
 	BeforeEach(func() {
@@ -47,7 +51,12 @@ var _ = Describe("Outbox", func() {
 			Annotation: string(annotationJson),
 			Type:       models.TaskTypeStaging,
 		}
-		bbs = fake_bbs.NewFakeStagerBBS()
+
+		completedTasks = make(chan models.Task)
+		watchStopChan = make(chan bool)
+		watchErrChan = make(chan error)
+		bbs = &fake_bbs.FakeStagerBBS{}
+		bbs.WatchForCompletedTaskReturns(completedTasks, watchStopChan, watchErrChan)
 
 		publishedCallback := make(chan []byte)
 
@@ -58,20 +67,13 @@ var _ = Describe("Outbox", func() {
 		})
 	})
 
-	JustBeforeEach(func(done Done) {
-		outboxChan = make(chan ifrit.Process)
-		go func() {
-			outboxChan <- ifrit.Envoke(New(bbs, fakenats, logger))
-		}()
-		Eventually(bbs.WatchingForCompleted()).Should(Receive())
-		close(done)
+	JustBeforeEach(func() {
+		outbox = ifrit.Envoke(New(bbs, fakenats, logger))
 	})
 
-	AfterEach(func(done Done) {
-		outbox := <-outboxChan
+	AfterEach(func() {
 		outbox.Signal(syscall.SIGTERM)
-		<-outbox.Wait()
-		close(done)
+		Eventually(outbox.Wait()).Should(Receive())
 	})
 
 	Context("when a completed Task appears in the outbox", func() {
@@ -84,9 +86,9 @@ var _ = Describe("Outbox", func() {
 		})
 
 		It("resolves the completed task, publishes its result and then marks the Task as resolved", func() {
-			bbs.SendCompletedTask(task)
+			completedTasks <- task
 
-			Eventually(bbs.ResolvingTaskInput).ShouldNot(BeZero())
+			Eventually(bbs.ResolvingTaskCallCount).Should(Equal(1))
 
 			var receivedPayload []byte
 			Eventually(published).Should(Receive(&receivedPayload))
@@ -98,14 +100,15 @@ var _ = Describe("Outbox", func() {
 				"task_id": "%s"
 			}`, appId, taskId)))
 
-			Eventually(bbs.ResolvedTask).Should(Equal(task))
+			Eventually(bbs.ResolveTaskCallCount).Should(Equal(1))
+			Ω(bbs.ResolveTaskArgsForCall(0)).Should(Equal(task.Guid))
 		})
 
 		Context("when the task is not a staging task", func() {
 			It("Should not resolve the completed task ", func() {
 				task.Type = models.TaskTypeDropletMigration
-				bbs.SendCompletedTask(task)
-				Consistently(bbs.ResolvingTaskInput).Should(BeZero())
+				completedTasks <- task
+				Consistently(bbs.ResolvingTaskCallCount).Should(BeZero())
 			})
 		})
 
@@ -117,9 +120,9 @@ var _ = Describe("Outbox", func() {
 			})
 
 			It("does not attempt to resolve the Task", func() {
-				bbs.SendCompletedTask(task)
+				completedTasks <- task
 
-				Consistently(bbs.ResolvedTask).ShouldNot(Equal(task))
+				Consistently(bbs.ResolveTaskCallCount).Should(Equal(0))
 			})
 		})
 	})
@@ -131,7 +134,7 @@ var _ = Describe("Outbox", func() {
 		})
 
 		It("publishes its reason as an error and then marks the Task as completed", func() {
-			bbs.SendCompletedTask(task)
+			completedTasks <- task
 
 			var receivedPayload []byte
 			Eventually(published).Should(Receive(&receivedPayload))
@@ -141,22 +144,21 @@ var _ = Describe("Outbox", func() {
 				"task_id":"%s"
 			}`, appId, taskId)))
 
-			Eventually(bbs.ResolvedTask).Should(Equal(task))
+			Eventually(bbs.ResolveTaskCallCount).Should(Equal(1))
+			Ω(bbs.ResolveTaskArgsForCall(0)).Should(Equal(task.Guid))
 		})
 	})
 
 	Context("when ResolvingTask fails", func() {
 		BeforeEach(func() {
-			bbs.WhenSettingResolving(func() error {
-				return errors.New("oops")
-			})
+			bbs.ResolvingTaskReturns(errors.New("oops"))
 		})
 
 		It("does not send a response to the requester, because another stager probably resolved it", func() {
-			bbs.SendCompletedTask(task)
+			completedTasks <- task
 
-			Consistently(bbs.ResolvedTask).ShouldNot(Equal(task))
 			Consistently(published).ShouldNot(Receive())
+			Consistently(bbs.ResolveTaskCallCount).Should(Equal(0))
 		})
 	})
 
@@ -164,16 +166,16 @@ var _ = Describe("Outbox", func() {
 		It("starts watching again", func() {
 			sinceStart := time.Now()
 
-			bbs.SendCompletedTaskWatchError(errors.New("oh no!"))
+			watchErrChan <- errors.New("oh no!")
 
-			Eventually(bbs.WatchingForCompleted(), 4).Should(Receive())
+			Eventually(bbs.WatchForCompletedTaskCallCount, 4).Should(Equal(2))
 
 			Ω(time.Since(sinceStart)).Should(BeNumerically("~", 3*time.Second, 200*time.Millisecond))
 
-			bbs.SendCompletedTask(task)
+			completedTasks <- task
 			Eventually(published).Should(Receive())
-
-			Eventually(bbs.ResolvedTask).Should(Equal(task))
+			Eventually(bbs.ResolveTaskCallCount).Should(Equal(1))
+			Ω(bbs.ResolveTaskArgsForCall(0)).Should(Equal(task.Guid))
 		})
 	})
 
@@ -181,8 +183,8 @@ var _ = Describe("Outbox", func() {
 		It("can accept new Completed Tasks before it's done processing existing Tasks in the queue", func() {
 			task.Result = `{"detected_buildpack":"Some Buildpack"}`
 
-			bbs.SendCompletedTask(task)
-			bbs.SendCompletedTask(task)
+			completedTasks <- task
+			completedTasks <- task
 
 			var receivedPayload []byte
 

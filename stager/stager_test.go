@@ -31,7 +31,7 @@ var _ = Describe("Stage", func() {
 	)
 
 	BeforeEach(func() {
-		bbs = fake_bbs.NewFakeStagerBBS()
+		bbs = &fake_bbs.FakeStagerBBS{}
 		compilers := map[string]string{
 			"penguin":     "penguin-compiler",
 			"rabbit_hole": "rabbit-hole-compiler",
@@ -193,22 +193,15 @@ var _ = Describe("Stage", func() {
 	})
 
 	Context("when file the server is available", func() {
-		var desiredTask models.Task
-
 		BeforeEach(func() {
-			bbs.WhenGettingAvailableFileServer = func() (string, error) {
-				return "http://file-server.com/", nil
-			}
-
-			bbs.WhenDesiringTask = func(task models.Task) (models.Task, error) {
-				desiredTask = task
-				return task, nil
-			}
+			bbs.GetAvailableFileServerReturns("http://file-server.com/", nil)
 		})
 
 		It("creates a Task with staging instructions", func() {
 			err := stager.Stage(stagingRequest)
 			Ω(err).ShouldNot(HaveOccurred())
+
+			desiredTask := bbs.DesireTaskArgsForCall(0)
 
 			Ω(desiredTask.Guid).To(Equal("bunny-hop"))
 			Ω(desiredTask.Stack).To(Equal("rabbit_hole"))
@@ -251,6 +244,8 @@ var _ = Describe("Stage", func() {
 				err := stager.Stage(stagingRequest)
 				Ω(err).ShouldNot(HaveOccurred())
 
+				desiredTask := bbs.DesireTaskArgsForCall(0)
+
 				Ω(desiredTask.Actions).Should(Equal([]models.ExecutorAction{
 					downloadTailorAction,
 					downloadAppAction,
@@ -292,9 +287,7 @@ var _ = Describe("Stage", func() {
 
 		Context("when the task has already been created", func() {
 			BeforeEach(func() {
-				bbs.WhenDesiringTask = func(task models.Task) (models.Task, error) {
-					return task, storeadapter.ErrorKeyExists
-				}
+				bbs.DesireTaskReturns(storeadapter.ErrorKeyExists)
 			})
 
 			It("does not raise an error", func() {
@@ -307,9 +300,7 @@ var _ = Describe("Stage", func() {
 			desireErr := errors.New("Could not connect!")
 
 			BeforeEach(func() {
-				bbs.WhenDesiringTask = func(task models.Task) (models.Task, error) {
-					return task, desireErr
-				}
+				bbs.DesireTaskReturns(desireErr)
 			})
 
 			It("returns an error", func() {
@@ -321,9 +312,7 @@ var _ = Describe("Stage", func() {
 
 	Context("when file server is not available", func() {
 		BeforeEach(func() {
-			bbs.WhenGettingAvailableFileServer = func() (string, error) {
-				return "", storeadapter.ErrorKeyNotFound
-			}
+			bbs.GetAvailableFileServerReturns("http://file-server.com/", storeadapter.ErrorKeyNotFound)
 		})
 
 		It("should return an error", func() {

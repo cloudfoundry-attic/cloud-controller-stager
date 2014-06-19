@@ -74,7 +74,7 @@ func (o *Outbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 func handleCompletedTask(task models.Task, bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logger) {
 	var err error
 
-	task, err = bbs.ResolvingTask(task)
+	err = bbs.ResolvingTask(task.Guid)
 	if err != nil {
 		logger.Infod(map[string]interface{}{
 			"guid":  task.Guid,
@@ -96,7 +96,7 @@ func handleCompletedTask(task models.Task, bbs bbs.StagerBBS, natsClient yagnats
 		return
 	}
 
-	task, err = bbs.ResolveTask(task)
+	err = bbs.ResolveTask(task.Guid)
 	if err != nil {
 		logger.Infod(map[string]interface{}{
 			"guid":  task.Guid,
