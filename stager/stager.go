@@ -51,7 +51,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 		buildpacksOrder = append(buildpacksOrder, buildpack.Key)
 	}
 
-	tailorConfig := models.NewLinuxCircusTailorConfig(buildpacksOrder)
+	tailorConfig := models.NewCircusTailorConfig(buildpacksOrder)
 
 	actions := []models.ExecutorAction{}
 
