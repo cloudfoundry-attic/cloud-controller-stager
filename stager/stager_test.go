@@ -33,8 +33,10 @@ var _ = Describe("Stage", func() {
 	BeforeEach(func() {
 		bbs = &fake_bbs.FakeStagerBBS{}
 		compilers := map[string]string{
-			"penguin":     "penguin-compiler",
-			"rabbit_hole": "rabbit-hole-compiler",
+			"penguin":                "penguin-compiler",
+			"rabbit_hole":            "rabbit-hole-compiler",
+			"compiler_with_full_url": "http://the-full-compiler-url",
+			"compiler_with_bad_url":  "ftp://the-bad-compiler-url",
 		}
 		stager = New(bbs, compilers)
 
@@ -269,6 +271,33 @@ var _ = Describe("Stage", func() {
 
 				Ω(err).Should(HaveOccurred())
 				Ω(err.Error()).Should(Equal("no compiler defined for requested stack"))
+			})
+		})
+
+		Context("when the compiler for the requested stack is specified as a full URL", func() {
+			BeforeEach(func() {
+				stagingRequest.Stack = "compiler_with_full_url"
+			})
+
+			It("uses the full URL in the download tailor action", func() {
+				err := stager.Stage(stagingRequest)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				desiredTask := bbs.DesireTaskArgsForCall(0)
+
+				downloadAction := desiredTask.Actions[0].Action.(models.EmitProgressAction).Action.Action.(models.DownloadAction)
+				Ω(downloadAction.From).Should(Equal("http://the-full-compiler-url"))
+			})
+		})
+
+		Context("when the compiler for the requested stack is specified as a full URL with an unexpected scheme", func() {
+			BeforeEach(func() {
+				stagingRequest.Stack = "compiler_with_bad_url"
+			})
+
+			It("returns an error", func() {
+				err := stager.Stage(stagingRequest)
+				Ω(err).Should(HaveOccurred())
 			})
 		})
 

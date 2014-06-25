@@ -256,6 +256,20 @@ func (stager *stager) compilerDownloadURL(request models.StagingRequestFromCC, f
 		return nil, ErrNoCompilerDefined
 	}
 
+	parsed, err := url.Parse(compilerPath)
+	if err != nil {
+		return nil, errors.New("couldn't parse compiler URL")
+	}
+
+	switch parsed.Scheme {
+	case "http", "https":
+		return parsed, nil
+	case "":
+		break
+	default:
+		return nil, errors.New("wTF")
+	}
+
 	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_STATIC)
 	if !ok {
 		return nil, errors.New("couldn't generate the compiler download path")
