@@ -134,13 +134,15 @@ var _ = Describe("Stage", func() {
 		runAction = models.EmitProgressFor(
 			models.ExecutorAction{
 				models.RunAction{
-					Script: "/tmp/circus/tailor" +
-						" -appDir='/app'" +
-						" -buildArtifactsCacheDir='/tmp/cache'" +
-						" -buildpackOrder='zfirst-buildpack,asecond-buildpack'" +
-						" -buildpacksDir='/tmp/buildpacks'" +
-						" -outputDropletDir='/tmp/droplet'" +
-						" -outputMetadataDir='/tmp/result'",
+					Path: "/tmp/circus/tailor",
+					Args: []string{
+						"-appDir='/app'",
+						"-buildArtifactsCacheDir='/tmp/cache'",
+						"-buildpackOrder='zfirst-buildpack,asecond-buildpack'",
+						"-buildpacksDir='/tmp/buildpacks'",
+						"-outputDropletDir='/tmp/droplet'",
+						"-outputMetadataDir='/tmp/result'",
+					},
 					Env: []models.EnvironmentVariable{
 						{"VCAP_APPLICATION", "foo"},
 						{"VCAP_SERVICES", "bar"},

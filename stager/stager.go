@@ -148,7 +148,8 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 		models.EmitProgressFor(
 			models.ExecutorAction{
 				models.RunAction{
-					Script:  tailorConfig.Script(),
+					Path:    tailorConfig.Path(),
+					Args:    tailorConfig.Args(),
 					Env:     request.Environment,
 					Timeout: 15 * time.Minute,
 					ResourceLimits: models.ResourceLimits{
