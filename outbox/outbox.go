@@ -32,7 +32,7 @@ func (o *Outbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 	wg := new(sync.WaitGroup)
 	tasks, stopWatching, errs := o.bbs.WatchForCompletedTask()
 
-	o.logger.Info("stager.watching-for-completed-task")
+	o.logger.Info("stager.watch-for-completed-task.started")
 	close(ready)
 
 	for {
@@ -56,7 +56,7 @@ func (o *Outbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 			if ok && err != nil {
 				o.logger.Errord(map[string]interface{}{
 					"error": err.Error(),
-				}, "stager.watch-completed-task.failed")
+				}, "stager.watch-for-completed-task.failed")
 			}
 
 			time.Sleep(3 * time.Second)
@@ -66,6 +66,7 @@ func (o *Outbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 		case <-signals:
 			close(stopWatching)
 			wg.Wait()
+			o.logger.Info("stager.watching-for-completed-task.stopped")
 			return nil
 		}
 	}
