@@ -136,12 +136,12 @@ var _ = Describe("Stage", func() {
 				models.RunAction{
 					Path: "/tmp/circus/tailor",
 					Args: []string{
-						"-appDir='/app'",
-						"-buildArtifactsCacheDir='/tmp/cache'",
-						"-buildpackOrder='zfirst-buildpack,asecond-buildpack'",
-						"-buildpacksDir='/tmp/buildpacks'",
-						"-outputDropletDir='/tmp/droplet'",
-						"-outputMetadataDir='/tmp/result'",
+						"-appDir=/app",
+						"-buildArtifactsCacheDir=/tmp/cache",
+						"-buildpackOrder=zfirst-buildpack,asecond-buildpack",
+						"-buildpacksDir=/tmp/buildpacks",
+						"-outputDropletDir=/tmp/droplet",
+						"-outputMetadataDir=/tmp/result",
 					},
 					Env: []models.EnvironmentVariable{
 						{"VCAP_APPLICATION", "foo"},
