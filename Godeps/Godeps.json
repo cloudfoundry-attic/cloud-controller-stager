@@ -6,8 +6,16 @@
 	],
 	"Deps": [
 		{
+			"ImportPath": "github.com/amitkgupta/match_array_or_slice",
+			"Rev": "7753de6150801a9c8154eab4db8cbbeba317e220"
+		},
+		{
 			"ImportPath": "github.com/bmizerany/pat",
 			"Rev": "b8a35001b773c267eb260a691f4e5499a3531600"
+		},
+		{
+			"ImportPath": "github.com/cloudfoundry-incubator/candiedyaml",
+			"Rev": "746fed644c930c0635f84866d433fd7de5f444cf"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/delta_force/delta_force",
@@ -32,6 +40,10 @@
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/natsrunner",
+			"Rev": "64cdd7421c0413dc87e5fca2b254efbb4e7dd9d0"
+		},
+		{
+			"ImportPath": "github.com/cloudfoundry/gunk/test_server",
 			"Rev": "64cdd7421c0413dc87e5fca2b254efbb4e7dd9d0"
 		},
 		{
