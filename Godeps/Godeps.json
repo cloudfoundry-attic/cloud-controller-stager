@@ -15,15 +15,15 @@
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/bbs",
-			"Rev": "5b6fa2cf5b812b2ff26b435bf49a0a555f4c81f4"
+			"Rev": "5fb57f46c2dc59cef1afa8f541be71b475bc554e"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/models",
-			"Rev": "5b6fa2cf5b812b2ff26b435bf49a0a555f4c81f4"
+			"Rev": "5fb57f46c2dc59cef1afa8f541be71b475bc554e"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/router",
-			"Rev": "5b6fa2cf5b812b2ff26b435bf49a0a555f4c81f4"
+			"Rev": "5fb57f46c2dc59cef1afa8f541be71b475bc554e"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gosteno",
@@ -61,8 +61,8 @@
 		},
 		{
 			"ImportPath": "github.com/onsi/ginkgo",
-			"Comment": "v1.0.0-16-g12446bb",
-			"Rev": "12446bbcc74950944c897e32ea99cc8d058f9c92"
+			"Comment": "v1.0.0-17-gd3d2576",
+			"Rev": "d3d25767b7af0efa7b12a900d0f4ac5477ed9fa1"
 		},
 		{
 			"ImportPath": "github.com/onsi/gomega",
