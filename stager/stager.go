@@ -16,19 +16,26 @@ import (
 	"github.com/cloudfoundry/gunk/urljoiner"
 )
 
+type Config struct {
+	Circuses           map[string]string
+	MinMemoryMB        uint
+	MinDiskMB          uint
+	MinFileDescriptors uint64
+}
+
 type Stager interface {
 	Stage(models.StagingRequestFromCC) error
 }
 
 type stager struct {
 	stagerBBS bbs.StagerBBS
-	compilers map[string]string
+	config    Config
 }
 
-func New(stagerBBS bbs.StagerBBS, compilers map[string]string) Stager {
+func New(stagerBBS bbs.StagerBBS, config Config) Stager {
 	return &stager{
 		stagerBBS: stagerBBS,
-		compilers: compilers,
+		config:    config,
 	}
 }
 
@@ -138,7 +145,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 
 	var fileDescriptorLimit *uint64
 	if request.FileDescriptors != 0 {
-		fd := uint64(request.FileDescriptors)
+		fd := max(uint64(request.FileDescriptors), stager.config.MinFileDescriptors)
 		fileDescriptorLimit = &fd
 	}
 
@@ -231,8 +238,8 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 		Type:     models.TaskTypeStaging,
 		Guid:     taskGuid(request),
 		Stack:    request.Stack,
-		MemoryMB: request.MemoryMB,
-		DiskMB:   request.DiskMB,
+		MemoryMB: int(max(uint64(request.MemoryMB), uint64(stager.config.MinMemoryMB))),
+		DiskMB:   int(max(uint64(request.DiskMB), uint64(stager.config.MinDiskMB))),
 		Actions:  actions,
 		Log: models.LogConfig{
 			Guid:       request.AppId,
@@ -247,12 +254,20 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 	return err
 }
 
+func max(x, y uint64) uint64 {
+	if x > y {
+		return x
+	} else {
+		return y
+	}
+}
+
 func taskGuid(request models.StagingRequestFromCC) string {
 	return fmt.Sprintf("%s-%s", request.AppId, request.TaskId)
 }
 
 func (stager *stager) compilerDownloadURL(request models.StagingRequestFromCC, fileServerURL string) (*url.URL, error) {
-	compilerPath, ok := stager.compilers[request.Stack]
+	compilerPath, ok := stager.config.Circuses[request.Stack]
 	if !ok {
 		return nil, ErrNoCompilerDefined
 	}
@@ -335,7 +350,6 @@ func (stager *stager) buildArtifactsUploadURL(request models.StagingRequestFromC
 }
 
 func (stager *stager) buildArtifactsDownloadURL(request models.StagingRequestFromCC, fileServerURL string) (*url.URL, error) {
-
 	urlString := request.BuildArtifactsCacheDownloadUri
 	if urlString == "" {
 		return nil, nil

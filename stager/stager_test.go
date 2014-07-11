@@ -28,17 +28,25 @@ var _ = Describe("Stage", func() {
 		uploadDropletAction           models.ExecutorAction
 		uploadBuildArtifactsAction    models.ExecutorAction
 		fetchResultsAction            models.ExecutorAction
+		config                        Config
 	)
 
 	BeforeEach(func() {
 		bbs = &fake_bbs.FakeStagerBBS{}
-		compilers := map[string]string{
-			"penguin":                "penguin-compiler",
-			"rabbit_hole":            "rabbit-hole-compiler",
-			"compiler_with_full_url": "http://the-full-compiler-url",
-			"compiler_with_bad_url":  "ftp://the-bad-compiler-url",
+
+		config = Config{
+			Circuses: map[string]string{
+				"penguin":                "penguin-compiler",
+				"rabbit_hole":            "rabbit-hole-compiler",
+				"compiler_with_full_url": "http://the-full-compiler-url",
+				"compiler_with_bad_url":  "ftp://the-bad-compiler-url",
+			},
+			MinDiskMB:          2048,
+			MinMemoryMB:        1024,
+			MinFileDescriptors: 256,
 		}
-		stager = New(bbs, compilers)
+
+		stager = New(bbs, config)
 
 		stagingRequest = models.StagingRequestFromCC{
 			AppId:                          "bunny",
@@ -46,9 +54,9 @@ var _ = Describe("Stage", func() {
 			AppBitsDownloadUri:             "http://example-uri.com/bunny",
 			BuildArtifactsCacheDownloadUri: "http://example-uri.com/bunny-droppings",
 			Stack:           "rabbit_hole",
-			FileDescriptors: 17,
-			MemoryMB:        256,
-			DiskMB:          1024,
+			FileDescriptors: 512,
+			MemoryMB:        2048,
+			DiskMB:          3072,
 			Buildpacks: []models.Buildpack{
 				{Name: "zfirst", Key: "zfirst-buildpack", Url: "first-buildpack-url"},
 				{Name: "asecond", Key: "asecond-buildpack", Url: "second-buildpack-url"},
@@ -129,7 +137,7 @@ var _ = Describe("Stage", func() {
 			),
 		)
 
-		fileDescriptorLimit := uint64(17)
+		fileDescriptorLimit := uint64(512)
 
 		runAction = models.EmitProgressFor(
 			models.ExecutorAction{
@@ -235,8 +243,88 @@ var _ = Describe("Stage", func() {
 				fetchResultsAction,
 			}))
 
-			Ω(desiredTask.MemoryMB).To(Equal(256))
-			Ω(desiredTask.DiskMB).To(Equal(1024))
+			Ω(desiredTask.MemoryMB).To(Equal(2048))
+			Ω(desiredTask.DiskMB).To(Equal(3072))
+		})
+
+		Describe("resource limits", func() {
+			Context("when the app's memory limit is less than the minimum memory", func() {
+				BeforeEach(func() {
+					stagingRequest.MemoryMB = 256
+				})
+
+				It("uses the minimum memory", func() {
+					err := stager.Stage(stagingRequest)
+					Ω(err).ShouldNot(HaveOccurred())
+
+					desiredTask := bbs.DesireTaskArgsForCall(0)
+					Ω(desiredTask.MemoryMB).Should(BeNumerically("==", config.MinMemoryMB))
+				})
+			})
+
+			Context("when the app's disk limit is less than the minimum disk", func() {
+				BeforeEach(func() {
+					stagingRequest.DiskMB = 256
+				})
+
+				It("uses the minimum disk", func() {
+					err := stager.Stage(stagingRequest)
+					Ω(err).ShouldNot(HaveOccurred())
+
+					desiredTask := bbs.DesireTaskArgsForCall(0)
+					Ω(desiredTask.DiskMB).Should(BeNumerically("==", config.MinDiskMB))
+				})
+			})
+
+			Context("when the app's memory limit is less than the minimum memory", func() {
+				BeforeEach(func() {
+					stagingRequest.FileDescriptors = 17
+				})
+
+				It("uses the minimum file descriptors", func() {
+					err := stager.Stage(stagingRequest)
+					Ω(err).ShouldNot(HaveOccurred())
+
+					desiredTask := bbs.DesireTaskArgsForCall(0)
+
+					runAction = models.EmitProgressFor(
+						models.ExecutorAction{
+							models.RunAction{
+								Path: "/tmp/circus/tailor",
+								Args: []string{
+									"-appDir=/app",
+									"-buildArtifactsCacheDir=/tmp/cache",
+									"-buildpackOrder=zfirst-buildpack,asecond-buildpack",
+									"-buildpacksDir=/tmp/buildpacks",
+									"-outputDropletDir=/tmp/droplet",
+									"-outputMetadataDir=/tmp/result",
+								},
+								Env: []models.EnvironmentVariable{
+									{"VCAP_APPLICATION", "foo"},
+									{"VCAP_SERVICES", "bar"},
+								},
+								Timeout:        15 * time.Minute,
+								ResourceLimits: models.ResourceLimits{Nofile: &config.MinFileDescriptors},
+							},
+						},
+						"Staging...",
+						"Staging Complete",
+						"Staging Failed",
+					)
+
+					Ω(desiredTask.Actions).Should(Equal([]models.ExecutorAction{
+						downloadTailorAction,
+						downloadAppAction,
+						downloadFirstBuildpackAction,
+						downloadSecontBuildpackAction,
+						downloadBuildArtifactsAction,
+						runAction,
+						uploadDropletAction,
+						uploadBuildArtifactsAction,
+						fetchResultsAction,
+					}))
+				})
+			})
 		})
 
 		Context("when build artifacts download uris are not provided", func() {

@@ -81,7 +81,7 @@ var _ = Describe("Main", func() {
 
 	Context("when started", func() {
 		BeforeEach(func() {
-			runner.Start("--circuses", `{"lucid64":"lifecycle.zip"}`)
+			runner.Start("--circuses", `{"lucid64":"lifecycle.zip"}`, "--diskMB", "2048", "--memoryMB", "256", "--fileDescriptors", "2")
 		})
 
 		Describe("when a 'diego.staging.start' message is recieved", func() {
@@ -103,6 +103,10 @@ var _ = Describe("Main", func() {
 
 			It("desires a staging task via the BBS", func() {
 				Eventually(bbs.GetAllPendingTasks, 1.0).Should(HaveLen(1))
+				tasks, err := bbs.GetAllPendingTasks()
+				Ω(err).ShouldNot(HaveOccurred())
+				Ω(tasks[0].MemoryMB).Should(Equal(1024))
+				Ω(tasks[0].DiskMB).Should(Equal(2048))
 			})
 
 			It("does not exit", func() {

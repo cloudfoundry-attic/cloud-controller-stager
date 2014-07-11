@@ -52,6 +52,24 @@ var circuses = flag.String(
 	"Map of circuses for different stacks (name => compiler_name)",
 )
 
+var minMemoryMB = flag.Uint(
+	"memoryMB",
+	1024,
+	"minimum memory limit for staging tasks",
+)
+
+var minDiskMB = flag.Uint(
+	"diskMB",
+	3072,
+	"minimum disk limit for staging tasks",
+)
+
+var minFileDescriptors = flag.Uint64(
+	"fileDescriptors",
+	0,
+	"minimum file descriptors for staging tasks",
+)
+
 var syslogName = flag.String(
 	"syslogName",
 	"",
@@ -62,12 +80,12 @@ func main() {
 	flag.Parse()
 
 	logger := initializeLogger()
-	circuses := initializeCircuses(logger)
 	natsClient := initializeNatsClient(logger)
 	stagerBBS := initializeStagerBBS(logger)
+	stager := initializeStager(stagerBBS, logger)
 
 	group := ifrit.Envoke(grouper.RunGroup{
-		"inbox":  inbox.New(natsClient, stager.New(stagerBBS, circuses), inbox.ValidateRequest, logger),
+		"inbox":  inbox.New(natsClient, stager, inbox.ValidateRequest, logger),
 		"outbox": outbox.New(stagerBBS, natsClient, logger),
 	})
 
@@ -96,13 +114,21 @@ func initializeLogger() *steno.Logger {
 	return steno.NewLogger("Stager")
 }
 
-func initializeCircuses(logger *steno.Logger) map[string]string {
+func initializeStager(stagerBBS bbs.StagerBBS, logger *steno.Logger) stager.Stager {
 	circusesMap := make(map[string]string)
 	err := json.Unmarshal([]byte(*circuses), &circusesMap)
 	if err != nil {
 		logger.Fatalf("Error parsing circuses flag: %s\n", err)
 	}
-	return circusesMap
+
+	return stager.New(
+		stagerBBS,
+		stager.Config{
+			Circuses:       circusesMap,
+			MinMemoryMB:        *minMemoryMB,
+			MinDiskMB:          *minDiskMB,
+			MinFileDescriptors: *minFileDescriptors,
+		})
 }
 
 func initializeNatsClient(logger *steno.Logger) *yagnats.Client {
