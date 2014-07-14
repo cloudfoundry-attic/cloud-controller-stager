@@ -13,6 +13,7 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
+	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/gunk/urljoiner"
 )
 
@@ -29,12 +30,14 @@ type Stager interface {
 
 type stager struct {
 	stagerBBS bbs.StagerBBS
+	logger    *steno.Logger
 	config    Config
 }
 
-func New(stagerBBS bbs.StagerBBS, config Config) Stager {
+func New(stagerBBS bbs.StagerBBS, logger *steno.Logger, config Config) Stager {
 	return &stager{
 		stagerBBS: stagerBBS,
+		logger:    logger,
 		config:    config,
 	}
 }
@@ -233,8 +236,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 		TaskId: request.TaskId,
 	})
 
-	//Go!
-	err = stager.stagerBBS.DesireTask(models.Task{
+	task := models.Task{
 		Type:     models.TaskTypeStaging,
 		Guid:     taskGuid(request),
 		Stack:    request.Stack,
@@ -246,7 +248,13 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 			SourceName: "STG",
 		},
 		Annotation: string(annotationJson),
-	})
+	}
+
+	stager.logger.Infod(map[string]interface{}{
+		"task": task,
+	}, "stager.desiring-task")
+
+	err = stager.stagerBBS.DesireTask(task)
 	if err == storeadapter.ErrorKeyExists {
 		err = nil
 	}

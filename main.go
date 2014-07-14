@@ -123,6 +123,7 @@ func initializeStager(stagerBBS bbs.StagerBBS, logger *steno.Logger) stager.Stag
 
 	return stager.New(
 		stagerBBS,
+		logger,
 		stager.Config{
 			Circuses:           circusesMap,
 			MinMemoryMB:        *minMemoryMB,
