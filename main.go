@@ -53,19 +53,19 @@ var circuses = flag.String(
 )
 
 var minMemoryMB = flag.Uint(
-	"memoryMB",
+	"minMemoryMB",
 	1024,
 	"minimum memory limit for staging tasks",
 )
 
 var minDiskMB = flag.Uint(
-	"diskMB",
+	"minDiskMB",
 	3072,
 	"minimum disk limit for staging tasks",
 )
 
 var minFileDescriptors = flag.Uint64(
-	"fileDescriptors",
+	"minFileDescriptors",
 	0,
 	"minimum file descriptors for staging tasks",
 )
@@ -124,7 +124,7 @@ func initializeStager(stagerBBS bbs.StagerBBS, logger *steno.Logger) stager.Stag
 	return stager.New(
 		stagerBBS,
 		stager.Config{
-			Circuses:       circusesMap,
+			Circuses:           circusesMap,
 			MinMemoryMB:        *minMemoryMB,
 			MinDiskMB:          *minDiskMB,
 			MinFileDescriptors: *minFileDescriptors,

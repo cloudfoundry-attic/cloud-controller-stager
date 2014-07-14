@@ -81,7 +81,7 @@ var _ = Describe("Main", func() {
 
 	Context("when started", func() {
 		BeforeEach(func() {
-			runner.Start("--circuses", `{"lucid64":"lifecycle.zip"}`, "--diskMB", "2048", "--memoryMB", "256", "--fileDescriptors", "2")
+			runner.Start("--circuses", `{"lucid64":"lifecycle.zip"}`, "--minDiskMB", "2048", "--minMemoryMB", "256", "--minFileDescriptors", "2")
 		})
 
 		Describe("when a 'diego.staging.start' message is recieved", func() {
