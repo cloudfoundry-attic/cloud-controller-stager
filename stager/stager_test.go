@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/storeadapter"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
@@ -33,6 +34,7 @@ var _ = Describe("Stage", func() {
 
 	BeforeEach(func() {
 		bbs = &fake_bbs.FakeStagerBBS{}
+		logger := gosteno.NewLogger("stager-test")
 
 		config = Config{
 			Circuses: map[string]string{
@@ -46,7 +48,7 @@ var _ = Describe("Stage", func() {
 			MinFileDescriptors: 256,
 		}
 
-		stager = New(bbs, config)
+		stager = New(bbs, logger, config)
 
 		stagingRequest = models.StagingRequestFromCC{
 			AppId:                          "bunny",
