@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/storeadapter"
+	"github.com/pivotal-golang/lager"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -34,7 +34,7 @@ var _ = Describe("Stage", func() {
 
 	BeforeEach(func() {
 		bbs = &fake_bbs.FakeStagerBBS{}
-		logger := gosteno.NewLogger("stager-test")
+		logger := lager.NewLogger("fakelogger")
 
 		config = Config{
 			Circuses: map[string]string{

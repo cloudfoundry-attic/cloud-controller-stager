@@ -8,8 +8,8 @@ import (
 
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/yagnats"
+	"github.com/pivotal-golang/lager"
 )
 
 const DiegoStageFinishedSubject = "diego.staging.finished"
@@ -17,14 +17,15 @@ const DiegoStageFinishedSubject = "diego.staging.finished"
 type Outbox struct {
 	bbs        bbs.StagerBBS
 	natsClient yagnats.NATSClient
-	logger     *steno.Logger
+	logger     lager.Logger
 }
 
-func New(bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logger) *Outbox {
+func New(bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger lager.Logger) *Outbox {
+	outboxLogger := logger.Session("outbox")
 	return &Outbox{
 		bbs:        bbs,
 		natsClient: natsClient,
-		logger:     logger,
+		logger:     outboxLogger,
 	}
 }
 
@@ -32,7 +33,10 @@ func (o *Outbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 	wg := new(sync.WaitGroup)
 	tasks, stopWatching, errs := o.bbs.WatchForCompletedTask()
 
-	o.logger.Info("stager.watch-for-completed-task.started")
+	taskLogger := o.logger.Session("task")
+	watchLogger := taskLogger.Session("watching-for-completed-task")
+	watchLogger.Info("started")
+
 	close(ready)
 
 	for {
@@ -49,14 +53,12 @@ func (o *Outbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				handleCompletedTask(task, o.bbs, o.natsClient, o.logger)
+				handleCompletedTask(task, o.bbs, o.natsClient, taskLogger)
 			}()
 
 		case err, ok := <-errs:
 			if ok && err != nil {
-				o.logger.Errord(map[string]interface{}{
-					"error": err.Error(),
-				}, "stager.watch-for-completed-task.failed")
+				watchLogger.Error("failed", err)
 			}
 
 			time.Sleep(3 * time.Second)
@@ -66,49 +68,36 @@ func (o *Outbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 		case <-signals:
 			close(stopWatching)
 			wg.Wait()
-			o.logger.Info("stager.watching-for-completed-task.stopped")
+			watchLogger.Info("stopped")
 			return nil
 		}
 	}
 }
 
-func handleCompletedTask(task models.Task, bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger *steno.Logger) {
+func handleCompletedTask(task models.Task, bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger lager.Logger) {
 	var err error
 
 	err = bbs.ResolvingTask(task.Guid)
 	if err != nil {
-		logger.Infod(map[string]interface{}{
-			"guid":  task.Guid,
-			"error": err.Error(),
-		}, "stager.resolving.task.failed")
+		logger.Error("resolving-failed", err, lager.Data{"guid": task.Guid})
 		return
 	}
 
-	logger.Infod(map[string]interface{}{
-		"guid": task.Guid,
-	}, "stager.resolving.task")
+	logger.Info("resolving-success", lager.Data{"guid": task.Guid})
 
 	err = publishResponse(natsClient, task)
 	if err != nil {
-		logger.Errord(map[string]interface{}{
-			"guid":  task.Guid,
-			"error": err.Error(),
-		}, "stager.publish.task.failed")
+		logger.Error("publishing-failed", err, lager.Data{"guid": task.Guid})
 		return
 	}
 
 	err = bbs.ResolveTask(task.Guid)
 	if err != nil {
-		logger.Infod(map[string]interface{}{
-			"guid":  task.Guid,
-			"error": err.Error(),
-		}, "stager.resolve.task.failed")
+		logger.Error("resolve-failed", err, lager.Data{"guid": task.Guid})
 		return
 	}
 
-	logger.Infod(map[string]interface{}{
-		"guid": task.Guid,
-	}, "stager.resolve.task.success")
+	logger.Info("resolve-success", lager.Data{"guid": task.Guid})
 }
 
 func publishResponse(natsClient yagnats.NATSClient, task models.Task) error {

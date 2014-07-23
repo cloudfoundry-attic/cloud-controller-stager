@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/yagnats"
+	"github.com/pivotal-golang/lager"
 
 	"github.com/cloudfoundry-incubator/stager/outbox"
 	"github.com/cloudfoundry-incubator/stager/stager"
@@ -20,18 +20,19 @@ type Inbox struct {
 	stager          stager.Stager
 	validateRequest RequestValidator
 
-	logger *steno.Logger
+	logger lager.Logger
 }
 
 type RequestValidator func(models.StagingRequestFromCC) error
 
-func New(natsClient yagnats.NATSClient, stager stager.Stager, validator RequestValidator, logger *steno.Logger) *Inbox {
+func New(natsClient yagnats.NATSClient, stager stager.Stager, validator RequestValidator, logger lager.Logger) *Inbox {
+	inboxLogger := logger.Session("inbox")
 	return &Inbox{
 		natsClient:      natsClient,
 		stager:          stager,
 		validateRequest: validator,
 
-		logger: logger,
+		logger: inboxLogger,
 	}
 }
 
@@ -58,41 +59,30 @@ func (inbox *Inbox) subscribe() {
 }
 
 func (inbox *Inbox) onStagingRequest(message *yagnats.Message) {
+	requestLogger := inbox.logger.Session("request")
 	stagingRequest := models.StagingRequestFromCC{}
 
 	err := json.Unmarshal(message.Payload, &stagingRequest)
 	if err != nil {
-		inbox.logError("staging.request.malformed", err, message)
+		requestLogger.Error("malformed", err, lager.Data{"message": message})
 		return
 	}
 
 	err = inbox.validateRequest(stagingRequest)
 	if err != nil {
-		inbox.logError("staging.request.invalid", err, message)
+		requestLogger.Error("invalid", err, lager.Data{"message": message})
 		inbox.sendErrorResponse("Invalid staging request: "+err.Error(), stagingRequest)
 		return
 	}
 
-	inbox.logger.Infod(
-		map[string]interface{}{
-			"message": stagingRequest,
-		},
-		"staging.request.received",
-	)
+	requestLogger.Info("received", lager.Data{"message": stagingRequest})
 
 	err = inbox.stager.Stage(stagingRequest)
 	if err != nil {
-		inbox.logError("stager.staging.failed", err, stagingRequest)
+		requestLogger.Error("staging-failed", err, lager.Data{"message": stagingRequest})
 		inbox.sendErrorResponse("Staging failed: "+err.Error(), stagingRequest)
 		return
 	}
-}
-
-func (inbox *Inbox) logError(logMessage string, err error, message interface{}) {
-	inbox.logger.Errord(map[string]interface{}{
-		"message": message,
-		"error":   err.Error(),
-	}, logMessage)
 }
 
 func (inbox *Inbox) sendErrorResponse(errorMessage string, request models.StagingRequestFromCC) {

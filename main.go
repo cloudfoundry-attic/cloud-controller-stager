@@ -12,10 +12,12 @@ import (
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
 	"github.com/cloudfoundry/yagnats"
+	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/sigmon"
 
+	"github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/stager/inbox"
 	"github.com/cloudfoundry-incubator/stager/outbox"
@@ -79,9 +81,10 @@ var syslogName = flag.String(
 func main() {
 	flag.Parse()
 
-	logger := initializeLogger()
+	logger := cf_lager.New("stager")
+	stenoLogger := initializeStenoLogger()
 	natsClient := initializeNatsClient(logger)
-	stagerBBS := initializeStagerBBS(logger)
+	stagerBBS := initializeStagerBBS(stenoLogger)
 	stager := initializeStager(stagerBBS, logger)
 
 	group := ifrit.Envoke(grouper.RunGroup{
@@ -94,11 +97,11 @@ func main() {
 
 	err := <-monitor.Wait()
 	if err != nil {
-		logger.Fatalf("Stager exited with error: %s", err)
+		logger.Fatal("Stager exited with error: %s", err)
 	}
 }
 
-func initializeLogger() *steno.Logger {
+func initializeStenoLogger() *steno.Logger {
 	stenoConfig := &steno.Config{
 		Sinks: []steno.Sink{
 			steno.NewIOSink(os.Stdout),
@@ -114,11 +117,11 @@ func initializeLogger() *steno.Logger {
 	return steno.NewLogger("Stager")
 }
 
-func initializeStager(stagerBBS bbs.StagerBBS, logger *steno.Logger) stager.Stager {
+func initializeStager(stagerBBS bbs.StagerBBS, logger lager.Logger) stager.Stager {
 	circusesMap := make(map[string]string)
 	err := json.Unmarshal([]byte(*circuses), &circusesMap)
 	if err != nil {
-		logger.Fatalf("Error parsing circuses flag: %s\n", err)
+		logger.Fatal("Error parsing circuses flag: %s\n", err)
 	}
 
 	return stager.New(
@@ -132,7 +135,7 @@ func initializeStager(stagerBBS bbs.StagerBBS, logger *steno.Logger) stager.Stag
 		})
 }
 
-func initializeNatsClient(logger *steno.Logger) *yagnats.Client {
+func initializeNatsClient(logger lager.Logger) *yagnats.Client {
 	natsClient := yagnats.NewClient()
 
 	natsMembers := []yagnats.ConnectionProvider{}
@@ -149,7 +152,7 @@ func initializeNatsClient(logger *steno.Logger) *yagnats.Client {
 	})
 
 	if err != nil {
-		logger.Fatalf("Error connecting to NATS: %s\n", err)
+		logger.Fatal("connecting-to-nats-failed", err)
 	}
 
 	return natsClient

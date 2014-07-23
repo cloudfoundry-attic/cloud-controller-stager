@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/storeadapter"
+	"github.com/pivotal-golang/lager"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
-	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/gunk/urljoiner"
 )
 
@@ -30,11 +30,11 @@ type Stager interface {
 
 type stager struct {
 	stagerBBS bbs.StagerBBS
-	logger    *steno.Logger
+	logger    lager.Logger
 	config    Config
 }
 
-func New(stagerBBS bbs.StagerBBS, logger *steno.Logger, config Config) Stager {
+func New(stagerBBS bbs.StagerBBS, logger lager.Logger, config Config) Stager {
 	return &stager{
 		stagerBBS: stagerBBS,
 		logger:    logger,
@@ -250,9 +250,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 		Annotation: string(annotationJson),
 	}
 
-	stager.logger.Infod(map[string]interface{}{
-		"task": task,
-	}, "stager.desiring-task")
+	stager.logger.Info("desiring-task", lager.Data{"task": task})
 
 	err = stager.stagerBBS.DesireTask(task)
 	if err == storeadapter.ErrorKeyExists {

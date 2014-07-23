@@ -8,10 +8,11 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
+	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/yagnats"
 	"github.com/cloudfoundry/yagnats/fakeyagnats"
 
@@ -23,19 +24,17 @@ import (
 var _ = Describe("Inbox", func() {
 	var fakenats *fakeyagnats.FakeYagnats
 	var fauxstager *fake_stager.FakeStager
-	var testingSink *steno.TestingSink
-	var logger *steno.Logger
+	var logOutput *gbytes.Buffer
+	var logger lager.Logger
 	var validator RequestValidator
 	var stagingRequest models.StagingRequestFromCC
 
 	var inbox ifrit.Process
 
 	BeforeEach(func() {
-		testingSink = steno.NewTestingSink()
-		stenoConfig := &steno.Config{
-			Sinks: []steno.Sink{testingSink},
-		}
-		steno.Init(stenoConfig)
+		logOutput = gbytes.NewBuffer()
+		logger = lager.NewLogger("fakelogger")
+		logger.RegisterSink(lager.NewWriterSink(logOutput, lager.INFO))
 
 		stagingRequest = models.StagingRequestFromCC{
 			AppId:  "myapp",
@@ -44,7 +43,6 @@ var _ = Describe("Inbox", func() {
 
 		fakenats = fakeyagnats.New()
 		fauxstager = &fake_stager.FakeStager{}
-		logger = steno.NewLogger("fakelogger")
 		validator = func(request models.StagingRequestFromCC) error {
 			return nil
 		}
@@ -144,11 +142,11 @@ var _ = Describe("Inbox", func() {
 				})
 
 				It("logs the failure", func() {
-					Ω(testingSink.Records()).Should(HaveLen(0))
+					Ω(logOutput.Contents()).Should(BeEmpty())
 
 					publishStagingMessage()
 
-					Ω(testingSink.Records()).ShouldNot(HaveLen(0))
+					Ω(logOutput).Should(gbytes.Say("failed"))
 				})
 
 				It("sends a staging failure response", func() {
@@ -172,7 +170,7 @@ var _ = Describe("Inbox", func() {
 
 				It("logs the failure", func() {
 					publishStagingMessage()
-					Ω(testingSink.Records()).ShouldNot(HaveLen(0))
+					Ω(logOutput.Contents()).ShouldNot(BeEmpty())
 				})
 
 				It("sends a staging failure response", func() {
@@ -194,11 +192,11 @@ var _ = Describe("Inbox", func() {
 
 			Context("when unmarshaling fails", func() {
 				It("logs the failure", func() {
-					Ω(testingSink.Records()).Should(BeEmpty())
+					Ω(logOutput.Contents()).Should(BeEmpty())
 
 					fakenats.Publish(DiegoStageStartSubject, []byte("fdsaljkfdsljkfedsews:/sdfa:''''"))
 
-					Ω(testingSink.Records()).ShouldNot(BeEmpty())
+					Ω(logOutput.Contents()).ShouldNot(BeEmpty())
 				})
 
 				It("does not send a message in response", func() {

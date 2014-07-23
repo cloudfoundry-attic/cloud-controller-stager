@@ -10,18 +10,18 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/cloudfoundry-incubator/stager/outbox"
-	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/yagnats"
 	"github.com/cloudfoundry/yagnats/fakeyagnats"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 )
 
 var _ = Describe("Outbox", func() {
 	var (
 		fakenats  *fakeyagnats.FakeYagnats
-		logger    *steno.Logger
+		logger    lager.Logger
 		task      models.Task
 		bbs       *fake_bbs.FakeStagerBBS
 		published <-chan []byte
@@ -37,7 +37,7 @@ var _ = Describe("Outbox", func() {
 
 	BeforeEach(func() {
 		fakenats = fakeyagnats.New()
-		logger = steno.NewLogger("fakelogger")
+		logger = lager.NewLogger("fakelogger")
 		appId = "my_app_id"
 		taskId = "do_this"
 		annotationJson, _ := json.Marshal(models.StagingTaskAnnotation{
