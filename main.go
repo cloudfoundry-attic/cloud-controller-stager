@@ -143,7 +143,11 @@ func initializeNatsClient(logger lager.Logger) *yagnats.Client {
 	for _, addr := range strings.Split(*natsAddresses, ",") {
 		natsMembers = append(
 			natsMembers,
-			&yagnats.ConnectionInfo{addr, *natsUsername, *natsPassword},
+			&yagnats.ConnectionInfo{
+				Addr:     addr,
+				Username: *natsUsername,
+				Password: *natsPassword,
+			},
 		)
 	}
 
