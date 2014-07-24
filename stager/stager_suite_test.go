@@ -1,11 +1,11 @@
 package stager_test
 
 import (
-	steno "github.com/cloudfoundry/gosteno"
-	"github.com/onsi/ginkgo/config"
 	"os"
 	"os/signal"
 	"testing"
+
+	"github.com/onsi/ginkgo/config"
 
 	"github.com/cloudfoundry/storeadapter/storerunner/etcdstorerunner"
 	. "github.com/onsi/ginkgo"
@@ -27,8 +27,6 @@ func TestExecutor(t *testing.T) {
 }
 
 var _ = BeforeEach(func() {
-	steno.EnterTestMode(steno.LOG_DEBUG)
-
 	etcdRunner.Stop()
 	etcdRunner.Start()
 })

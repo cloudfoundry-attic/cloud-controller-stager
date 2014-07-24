@@ -4,10 +4,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"os"
 	"strings"
 
-	steno "github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
@@ -72,19 +70,12 @@ var minFileDescriptors = flag.Uint64(
 	"minimum file descriptors for staging tasks",
 )
 
-var syslogName = flag.String(
-	"syslogName",
-	"",
-	"syslog program name",
-)
-
 func main() {
 	flag.Parse()
 
 	logger := cf_lager.New("stager")
-	stenoLogger := initializeStenoLogger()
 	natsClient := initializeNatsClient(logger)
-	stagerBBS := initializeStagerBBS(stenoLogger)
+	stagerBBS := initializeStagerBBS(logger)
 	stager := initializeStager(stagerBBS, logger)
 
 	group := ifrit.Envoke(grouper.RunGroup{
@@ -99,22 +90,6 @@ func main() {
 	if err != nil {
 		logger.Fatal("Stager exited with error: %s", err)
 	}
-}
-
-func initializeStenoLogger() *steno.Logger {
-	stenoConfig := &steno.Config{
-		Sinks: []steno.Sink{
-			steno.NewIOSink(os.Stdout),
-		},
-	}
-
-	if *syslogName != "" {
-		stenoConfig.Sinks = append(stenoConfig.Sinks, steno.NewSyslogSink(*syslogName))
-	}
-
-	steno.Init(stenoConfig)
-
-	return steno.NewLogger("Stager")
 }
 
 func initializeStager(stagerBBS bbs.StagerBBS, logger lager.Logger) stager.Stager {
@@ -162,7 +137,7 @@ func initializeNatsClient(logger lager.Logger) *yagnats.Client {
 	return natsClient
 }
 
-func initializeStagerBBS(logger *steno.Logger) bbs.StagerBBS {
+func initializeStagerBBS(logger lager.Logger) bbs.StagerBBS {
 	etcdAdapter := etcdstoreadapter.NewETCDStoreAdapter(
 		strings.Split(*etcdCluster, ","),
 		workerpool.NewWorkerPool(10),
@@ -170,7 +145,7 @@ func initializeStagerBBS(logger *steno.Logger) bbs.StagerBBS {
 
 	err := etcdAdapter.Connect()
 	if err != nil {
-		logger.Fatalf("Error connecting to etcd: %s\n", err)
+		logger.Fatal("failed-to-connect-to-etcd", err)
 	}
 
 	return bbs.NewStagerBBS(etcdAdapter, timeprovider.NewTimeProvider(), logger)
