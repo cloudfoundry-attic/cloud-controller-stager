@@ -2,6 +2,23 @@ package staging_messages
 
 import "github.com/cloudfoundry-incubator/runtime-schema/models"
 
+type DockerStagingRequestFromCC struct {
+	AppId           string      `json:"app_id"`
+	TaskId          string      `json:"task_id"`
+	Stack           string      `json:"stack"`
+	DockerImageUrl  string      `json:"docker_image_url"`
+	FileDescriptors int         `json:"file_descriptors"`
+	MemoryMB        int         `json:"memory_mb"`
+	DiskMB          int         `json:"disk_mb"`
+	Environment     Environment `json:"environment"`
+}
+
+type DockerStagingResponseForCC struct {
+	AppId  string `json:"app_id,omitempty"`
+	TaskId string `json:"task_id,omitempty"`
+	Error  string `json:"error,omitempty"`
+}
+
 type StagingRequestFromCC struct {
 	AppId                          string      `json:"app_id"`
 	TaskId                         string      `json:"task_id"`

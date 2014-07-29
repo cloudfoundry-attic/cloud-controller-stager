@@ -98,11 +98,6 @@ var _ = Describe("Inbox", func() {
 			Eventually(func() []yagnats.Subscription {
 				return fakenats.Subscriptions(DiegoStageStartSubject)
 			}).ShouldNot(BeEmpty())
-
-			publishStagingMessage()
-
-			Ω(fauxstager.TimesStageInvoked).Should(Equal(1))
-			Ω(fauxstager.StagingRequests[0]).Should(Equal(stagingRequest))
 		})
 	})
 
@@ -196,7 +191,7 @@ var _ = Describe("Inbox", func() {
 
 					fakenats.Publish(DiegoStageStartSubject, []byte("fdsaljkfdsljkfedsews:/sdfa:''''"))
 
-					Ω(logOutput.Contents()).ShouldNot(BeEmpty())
+					Ω(logOutput).Should(gbytes.Say("malformed"))
 				})
 
 				It("does not send a message in response", func() {

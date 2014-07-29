@@ -15,6 +15,7 @@ import (
 
 const DiegoStageStartSubject = "diego.staging.start"
 const DiegoDockerStageStartSubject = "diego.docker.staging.start"
+const DiegoDockerStageFinishedSubject = "diego.docker.staging.finished"
 
 type Inbox struct {
 	natsClient      yagnats.NATSClient
@@ -38,7 +39,8 @@ func New(natsClient yagnats.NATSClient, stager stager.Stager, validator RequestV
 }
 
 func (inbox *Inbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
-	inbox.subscribe()
+	inbox.subscribeStagingStart()
+	inbox.subscribeDockerStagingStart()
 
 	close(ready)
 
@@ -47,7 +49,43 @@ func (inbox *Inbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 	return nil
 }
 
-func (inbox *Inbox) subscribe() {
+func (inbox *Inbox) subscribeDockerStagingStart() {
+	for {
+		_, err := inbox.natsClient.Subscribe(DiegoDockerStageStartSubject, inbox.onDockerStagingRequest)
+		if err == nil {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	return
+}
+
+func (inbox *Inbox) onDockerStagingRequest(message *yagnats.Message) {
+	requestLogger := inbox.logger.Session("docker-request")
+	stagingRequest := staging_messages.DockerStagingRequestFromCC{}
+
+	err := json.Unmarshal(message.Payload, &stagingRequest)
+	if err != nil {
+		requestLogger.Error("malformed docker request", err, lager.Data{"message": message})
+		return
+	}
+
+	var response staging_messages.DockerStagingResponseForCC
+
+	response.AppId = stagingRequest.AppId
+	response.TaskId = stagingRequest.TaskId
+
+	payload, err := json.Marshal(response)
+	if err != nil {
+		requestLogger.Error("malformed docker response", err, lager.Data{"message": message})
+		return
+	}
+
+	inbox.natsClient.Publish(DiegoDockerStageFinishedSubject, payload)
+}
+
+func (inbox *Inbox) subscribeStagingStart() {
 	for {
 		_, err := inbox.natsClient.Subscribe(DiegoStageStartSubject, inbox.onStagingRequest)
 		if err == nil {

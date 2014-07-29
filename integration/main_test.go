@@ -1,6 +1,7 @@
 package integration_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/services_bbs"
 	"github.com/cloudfoundry-incubator/stager/integration/stager_runner"
+	"github.com/cloudfoundry-incubator/stager/staging_messages"
 	"github.com/cloudfoundry/storeadapter/storerunner/etcdstorerunner"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -98,6 +100,46 @@ var _ = Describe("Main", func() {
 				Ω(err).ShouldNot(HaveOccurred())
 				Ω(tasks[0].MemoryMB).Should(Equal(1024))
 				Ω(tasks[0].DiskMB).Should(Equal(2048))
+			})
+
+			It("does not exit", func() {
+				Consistently(runner.Session()).ShouldNot(gexec.Exit())
+			})
+		})
+
+		Describe("when a 'diego.docker.staging.start' message is recieved", func() {
+			var stagingFinished chan staging_messages.DockerStagingResponseForCC
+
+			BeforeEach(func() {
+				stagingFinished = make(chan staging_messages.DockerStagingResponseForCC, 1)
+
+				natsClient.Subscribe("diego.docker.staging.finished", func(msg *yagnats.Message) {
+					stagingMsg := staging_messages.DockerStagingResponseForCC{}
+					err := json.Unmarshal(msg.Payload, &stagingMsg)
+					Ω(err).ShouldNot(HaveOccurred())
+					stagingFinished <- stagingMsg
+				})
+
+				natsClient.Publish("diego.docker.staging.start", []byte(`
+				      {
+				        "app_id":"my-app-guid",
+                "task_id":"my-task-guid",
+                "stack":"lucid64",
+                "docker_image_url":"http://docker.docker/docker",
+                "file_descriptors":3,
+                "memory_mb" : 1024,
+                "disk_mb" : 128,
+                "environment" : []
+				      }
+				    `))
+			})
+
+			It("sends a docker staging finished NATS message", func() {
+				expectedMsg := staging_messages.DockerStagingResponseForCC{
+					AppId:  "my-app-guid",
+					TaskId: "my-task-guid",
+				}
+				Eventually(stagingFinished).Should(Receive(&expectedMsg))
 			})
 
 			It("does not exit", func() {
