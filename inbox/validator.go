@@ -3,14 +3,14 @@ package inbox
 import (
 	"errors"
 
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry-incubator/stager/staging_messages"
 )
 
 var ErrMissingAppId = errors.New("missing app id")
 var ErrMissingTaskId = errors.New("missing task id")
 var ErrMissingAppBitsDownloadUri = errors.New("missing app bits download uri")
 
-func ValidateRequest(stagingRequest models.StagingRequestFromCC) error {
+func ValidateRequest(stagingRequest staging_messages.StagingRequestFromCC) error {
 	if len(stagingRequest.AppId) == 0 {
 		return ErrMissingAppId
 	}

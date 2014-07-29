@@ -3,16 +3,16 @@ package fake_stager
 import (
 	"errors"
 
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry-incubator/stager/staging_messages"
 )
 
 type FakeStager struct {
 	TimesStageInvoked int
-	StagingRequests   []models.StagingRequestFromCC
+	StagingRequests   []staging_messages.StagingRequestFromCC
 	AlwaysFail        bool //bringing shame and disgrace to its family and friends
 }
 
-func (stager *FakeStager) Stage(stagingRequest models.StagingRequestFromCC) error {
+func (stager *FakeStager) Stage(stagingRequest staging_messages.StagingRequestFromCC) error {
 	stager.TimesStageInvoked++
 	stager.StagingRequests = append(stager.StagingRequests, stagingRequest)
 

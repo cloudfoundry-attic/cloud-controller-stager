@@ -5,15 +5,16 @@ import (
 	"os"
 	"time"
 
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry/yagnats"
 	"github.com/pivotal-golang/lager"
 
 	"github.com/cloudfoundry-incubator/stager/outbox"
 	"github.com/cloudfoundry-incubator/stager/stager"
+	"github.com/cloudfoundry-incubator/stager/staging_messages"
 )
 
 const DiegoStageStartSubject = "diego.staging.start"
+const DiegoDockerStageStartSubject = "diego.docker.staging.start"
 
 type Inbox struct {
 	natsClient      yagnats.NATSClient
@@ -23,7 +24,7 @@ type Inbox struct {
 	logger lager.Logger
 }
 
-type RequestValidator func(models.StagingRequestFromCC) error
+type RequestValidator func(staging_messages.StagingRequestFromCC) error
 
 func New(natsClient yagnats.NATSClient, stager stager.Stager, validator RequestValidator, logger lager.Logger) *Inbox {
 	inboxLogger := logger.Session("inbox")
@@ -60,7 +61,7 @@ func (inbox *Inbox) subscribe() {
 
 func (inbox *Inbox) onStagingRequest(message *yagnats.Message) {
 	requestLogger := inbox.logger.Session("request")
-	stagingRequest := models.StagingRequestFromCC{}
+	stagingRequest := staging_messages.StagingRequestFromCC{}
 
 	err := json.Unmarshal(message.Payload, &stagingRequest)
 	if err != nil {
@@ -85,8 +86,8 @@ func (inbox *Inbox) onStagingRequest(message *yagnats.Message) {
 	}
 }
 
-func (inbox *Inbox) sendErrorResponse(errorMessage string, request models.StagingRequestFromCC) {
-	response := models.StagingResponseForCC{
+func (inbox *Inbox) sendErrorResponse(errorMessage string, request staging_messages.StagingRequestFromCC) {
+	response := staging_messages.StagingResponseForCC{
 		AppId:  request.AppId,
 		TaskId: request.TaskId,
 		Error:  errorMessage,

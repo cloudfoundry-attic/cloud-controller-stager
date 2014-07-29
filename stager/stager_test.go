@@ -11,6 +11,7 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/cloudfoundry-incubator/stager/stager"
+	"github.com/cloudfoundry-incubator/stager/staging_messages"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -19,7 +20,7 @@ var _ = Describe("Stage", func() {
 	var (
 		stager                        Stager
 		bbs                           *fake_bbs.FakeStagerBBS
-		stagingRequest                models.StagingRequestFromCC
+		stagingRequest                staging_messages.StagingRequestFromCC
 		downloadTailorAction          models.ExecutorAction
 		downloadAppAction             models.ExecutorAction
 		downloadFirstBuildpackAction  models.ExecutorAction
@@ -50,7 +51,7 @@ var _ = Describe("Stage", func() {
 
 		stager = New(bbs, logger, config)
 
-		stagingRequest = models.StagingRequestFromCC{
+		stagingRequest = staging_messages.StagingRequestFromCC{
 			AppId:                          "bunny",
 			TaskId:                         "hop",
 			AppBitsDownloadUri:             "http://example-uri.com/bunny",
@@ -59,11 +60,11 @@ var _ = Describe("Stage", func() {
 			FileDescriptors: 512,
 			MemoryMB:        2048,
 			DiskMB:          3072,
-			Buildpacks: []models.Buildpack{
+			Buildpacks: []staging_messages.Buildpack{
 				{Name: "zfirst", Key: "zfirst-buildpack", Url: "first-buildpack-url"},
 				{Name: "asecond", Key: "asecond-buildpack", Url: "second-buildpack-url"},
 			},
-			Environment: []models.EnvironmentVariable{
+			Environment: staging_messages.Environment{
 				{"VCAP_APPLICATION", "foo"},
 				{"VCAP_SERVICES", "bar"},
 			},
@@ -221,7 +222,6 @@ var _ = Describe("Stage", func() {
 			Ω(desiredTask.Stack).To(Equal("rabbit_hole"))
 			Ω(desiredTask.Log.Guid).To(Equal("bunny"))
 			Ω(desiredTask.Log.SourceName).To(Equal("STG"))
-			Ω(desiredTask.Log.Index).To(BeNil())
 
 			var annotation models.StagingTaskAnnotation
 
@@ -437,7 +437,7 @@ var _ = Describe("Stage", func() {
 		})
 
 		It("should return an error", func() {
-			err := stager.Stage(models.StagingRequestFromCC{
+			err := stager.Stage(staging_messages.StagingRequestFromCC{
 				AppId:                          "bunny",
 				TaskId:                         "hop",
 				AppBitsDownloadUri:             "http://example-uri.com/bunny",

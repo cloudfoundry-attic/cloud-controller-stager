@@ -14,6 +14,7 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
+	"github.com/cloudfoundry-incubator/stager/staging_messages"
 	"github.com/cloudfoundry/gunk/urljoiner"
 )
 
@@ -25,7 +26,7 @@ type Config struct {
 }
 
 type Stager interface {
-	Stage(models.StagingRequestFromCC) error
+	Stage(staging_messages.StagingRequestFromCC) error
 }
 
 type stager struct {
@@ -45,7 +46,7 @@ func New(stagerBBS bbs.StagerBBS, logger lager.Logger, config Config) Stager {
 var ErrNoFileServerPresent = errors.New("no available file server present")
 var ErrNoCompilerDefined = errors.New("no compiler defined for requested stack")
 
-func (stager *stager) Stage(request models.StagingRequestFromCC) error {
+func (stager *stager) Stage(request staging_messages.StagingRequestFromCC) error {
 	fileServerURL, err := stager.stagerBBS.GetAvailableFileServer()
 	if err != nil {
 		return ErrNoFileServerPresent
@@ -160,7 +161,7 @@ func (stager *stager) Stage(request models.StagingRequestFromCC) error {
 				models.RunAction{
 					Path:    tailorConfig.Path(),
 					Args:    tailorConfig.Args(),
-					Env:     request.Environment,
+					Env:     request.Environment.BBSEnvironment(),
 					Timeout: 15 * time.Minute,
 					ResourceLimits: models.ResourceLimits{
 						Nofile: fileDescriptorLimit,
@@ -268,11 +269,11 @@ func max(x, y uint64) uint64 {
 	}
 }
 
-func taskGuid(request models.StagingRequestFromCC) string {
+func taskGuid(request staging_messages.StagingRequestFromCC) string {
 	return fmt.Sprintf("%s-%s", request.AppId, request.TaskId)
 }
 
-func (stager *stager) compilerDownloadURL(request models.StagingRequestFromCC, fileServerURL string) (*url.URL, error) {
+func (stager *stager) compilerDownloadURL(request staging_messages.StagingRequestFromCC, fileServerURL string) (*url.URL, error) {
 	compilerPath, ok := stager.config.Circuses[request.Stack]
 	if !ok {
 		return nil, ErrNoCompilerDefined
@@ -307,7 +308,7 @@ func (stager *stager) compilerDownloadURL(request models.StagingRequestFromCC, f
 	return url, nil
 }
 
-func (stager *stager) dropletUploadURL(request models.StagingRequestFromCC, fileServerURL string) (*url.URL, error) {
+func (stager *stager) dropletUploadURL(request staging_messages.StagingRequestFromCC, fileServerURL string) (*url.URL, error) {
 	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_UPLOAD_DROPLET)
 	if !ok {
 		return nil, errors.New("couldn't generate the droplet upload path")
@@ -331,7 +332,7 @@ func (stager *stager) dropletUploadURL(request models.StagingRequestFromCC, file
 	return url, nil
 }
 
-func (stager *stager) buildArtifactsUploadURL(request models.StagingRequestFromCC, fileServerURL string) (*url.URL, error) {
+func (stager *stager) buildArtifactsUploadURL(request staging_messages.StagingRequestFromCC, fileServerURL string) (*url.URL, error) {
 	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_UPLOAD_BUILD_ARTIFACTS)
 	if !ok {
 		return nil, errors.New("couldn't generate the build artifacts cache upload path")
@@ -355,7 +356,7 @@ func (stager *stager) buildArtifactsUploadURL(request models.StagingRequestFromC
 	return url, nil
 }
 
-func (stager *stager) buildArtifactsDownloadURL(request models.StagingRequestFromCC, fileServerURL string) (*url.URL, error) {
+func (stager *stager) buildArtifactsDownloadURL(request staging_messages.StagingRequestFromCC, fileServerURL string) (*url.URL, error) {
 	urlString := request.BuildArtifactsCacheDownloadUri
 	if urlString == "" {
 		return nil, nil

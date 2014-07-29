@@ -1,19 +1,19 @@
 package inbox_test
 
 import (
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/cloudfoundry-incubator/stager/inbox"
+	"github.com/cloudfoundry-incubator/stager/staging_messages"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Validator", func() {
-	var request models.StagingRequestFromCC
+	var request staging_messages.StagingRequestFromCC
 	var validator RequestValidator
 
 	BeforeEach(func() {
-		request = models.StagingRequestFromCC{
+		request = staging_messages.StagingRequestFromCC{
 			AppId:              "hip",
 			TaskId:             "hop",
 			AppBitsDownloadUri: "http://example-uri.com/bunny",

@@ -8,6 +8,7 @@ import (
 
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry-incubator/stager/staging_messages"
 	"github.com/cloudfoundry/yagnats"
 	"github.com/pivotal-golang/lager"
 )
@@ -101,7 +102,7 @@ func handleCompletedTask(task models.Task, bbs bbs.StagerBBS, natsClient yagnats
 }
 
 func publishResponse(natsClient yagnats.NATSClient, task models.Task) error {
-	var response models.StagingResponseForCC
+	var response staging_messages.StagingResponseForCC
 
 	var annotation models.StagingTaskAnnotation
 	err := json.Unmarshal([]byte(task.Annotation), &annotation)
