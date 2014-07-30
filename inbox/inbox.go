@@ -8,9 +8,9 @@ import (
 	"github.com/cloudfoundry/yagnats"
 	"github.com/pivotal-golang/lager"
 
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/stager/outbox"
 	"github.com/cloudfoundry-incubator/stager/stager"
-	"github.com/cloudfoundry-incubator/stager/staging_messages"
 )
 
 const DiegoStageStartSubject = "diego.staging.start"
@@ -25,7 +25,7 @@ type Inbox struct {
 	logger lager.Logger
 }
 
-type RequestValidator func(staging_messages.StagingRequestFromCC) error
+type RequestValidator func(cc_messages.StagingRequestFromCC) error
 
 func New(natsClient yagnats.NATSClient, stager stager.Stager, validator RequestValidator, logger lager.Logger) *Inbox {
 	inboxLogger := logger.Session("inbox")
@@ -63,7 +63,7 @@ func (inbox *Inbox) subscribeDockerStagingStart() {
 
 func (inbox *Inbox) onDockerStagingRequest(message *yagnats.Message) {
 	requestLogger := inbox.logger.Session("docker-request")
-	stagingRequest := staging_messages.DockerStagingRequestFromCC{}
+	stagingRequest := cc_messages.DockerStagingRequestFromCC{}
 
 	err := json.Unmarshal(message.Payload, &stagingRequest)
 	if err != nil {
@@ -71,7 +71,7 @@ func (inbox *Inbox) onDockerStagingRequest(message *yagnats.Message) {
 		return
 	}
 
-	var response staging_messages.DockerStagingResponseForCC
+	var response cc_messages.DockerStagingResponseForCC
 
 	response.AppId = stagingRequest.AppId
 	response.TaskId = stagingRequest.TaskId
@@ -99,7 +99,7 @@ func (inbox *Inbox) subscribeStagingStart() {
 
 func (inbox *Inbox) onStagingRequest(message *yagnats.Message) {
 	requestLogger := inbox.logger.Session("request")
-	stagingRequest := staging_messages.StagingRequestFromCC{}
+	stagingRequest := cc_messages.StagingRequestFromCC{}
 
 	err := json.Unmarshal(message.Payload, &stagingRequest)
 	if err != nil {
@@ -124,8 +124,8 @@ func (inbox *Inbox) onStagingRequest(message *yagnats.Message) {
 	}
 }
 
-func (inbox *Inbox) sendErrorResponse(errorMessage string, request staging_messages.StagingRequestFromCC) {
-	response := staging_messages.StagingResponseForCC{
+func (inbox *Inbox) sendErrorResponse(errorMessage string, request cc_messages.StagingRequestFromCC) {
+	response := cc_messages.StagingResponseForCC{
 		AppId:  request.AppId,
 		TaskId: request.TaskId,
 		Error:  errorMessage,

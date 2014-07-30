@@ -13,8 +13,8 @@ import (
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/services_bbs"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/stager/integration/stager_runner"
-	"github.com/cloudfoundry-incubator/stager/staging_messages"
 	"github.com/cloudfoundry/storeadapter/storerunner/etcdstorerunner"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -108,13 +108,13 @@ var _ = Describe("Main", func() {
 		})
 
 		Describe("when a 'diego.docker.staging.start' message is recieved", func() {
-			var stagingFinished chan staging_messages.DockerStagingResponseForCC
+			var stagingFinished chan cc_messages.DockerStagingResponseForCC
 
 			BeforeEach(func() {
-				stagingFinished = make(chan staging_messages.DockerStagingResponseForCC, 1)
+				stagingFinished = make(chan cc_messages.DockerStagingResponseForCC, 1)
 
 				natsClient.Subscribe("diego.docker.staging.finished", func(msg *yagnats.Message) {
-					stagingMsg := staging_messages.DockerStagingResponseForCC{}
+					stagingMsg := cc_messages.DockerStagingResponseForCC{}
 					err := json.Unmarshal(msg.Payload, &stagingMsg)
 					Ω(err).ShouldNot(HaveOccurred())
 					stagingFinished <- stagingMsg
@@ -135,7 +135,7 @@ var _ = Describe("Main", func() {
 			})
 
 			It("sends a docker staging finished NATS message", func() {
-				expectedMsg := staging_messages.DockerStagingResponseForCC{
+				expectedMsg := cc_messages.DockerStagingResponseForCC{
 					AppId:  "my-app-guid",
 					TaskId: "my-task-guid",
 				}

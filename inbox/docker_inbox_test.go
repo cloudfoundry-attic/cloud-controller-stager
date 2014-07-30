@@ -15,9 +15,9 @@ import (
 	"github.com/cloudfoundry/yagnats"
 	"github.com/cloudfoundry/yagnats/fakeyagnats"
 
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	. "github.com/cloudfoundry-incubator/stager/inbox"
 	"github.com/cloudfoundry-incubator/stager/stager/fake_stager"
-	"github.com/cloudfoundry-incubator/stager/staging_messages"
 )
 
 var _ = Describe("Docker Inbox", func() {
@@ -26,7 +26,7 @@ var _ = Describe("Docker Inbox", func() {
 	var logOutput *gbytes.Buffer
 	var logger lager.Logger
 	var validator RequestValidator
-	var stagingRequest staging_messages.DockerStagingRequestFromCC
+	var stagingRequest cc_messages.DockerStagingRequestFromCC
 
 	var inbox ifrit.Process
 
@@ -35,14 +35,14 @@ var _ = Describe("Docker Inbox", func() {
 		logger = lager.NewLogger("fakelogger")
 		logger.RegisterSink(lager.NewWriterSink(logOutput, lager.INFO))
 
-		stagingRequest = staging_messages.DockerStagingRequestFromCC{
+		stagingRequest = cc_messages.DockerStagingRequestFromCC{
 			AppId:  "myapp",
 			TaskId: "mytask",
 		}
 
 		fakenats = fakeyagnats.New()
 		fauxstager = &fake_stager.FakeStager{}
-		validator = func(request staging_messages.StagingRequestFromCC) error {
+		validator = func(request cc_messages.StagingRequestFromCC) error {
 			return nil
 		}
 	})

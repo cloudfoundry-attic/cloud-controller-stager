@@ -15,10 +15,10 @@ import (
 	"github.com/cloudfoundry/yagnats"
 	"github.com/cloudfoundry/yagnats/fakeyagnats"
 
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	. "github.com/cloudfoundry-incubator/stager/inbox"
 	"github.com/cloudfoundry-incubator/stager/outbox"
 	"github.com/cloudfoundry-incubator/stager/stager/fake_stager"
-	"github.com/cloudfoundry-incubator/stager/staging_messages"
 )
 
 var _ = Describe("Inbox", func() {
@@ -27,7 +27,7 @@ var _ = Describe("Inbox", func() {
 	var logOutput *gbytes.Buffer
 	var logger lager.Logger
 	var validator RequestValidator
-	var stagingRequest staging_messages.StagingRequestFromCC
+	var stagingRequest cc_messages.StagingRequestFromCC
 
 	var inbox ifrit.Process
 
@@ -36,14 +36,14 @@ var _ = Describe("Inbox", func() {
 		logger = lager.NewLogger("fakelogger")
 		logger.RegisterSink(lager.NewWriterSink(logOutput, lager.INFO))
 
-		stagingRequest = staging_messages.StagingRequestFromCC{
+		stagingRequest = cc_messages.StagingRequestFromCC{
 			AppId:  "myapp",
 			TaskId: "mytask",
 		}
 
 		fakenats = fakeyagnats.New()
 		fauxstager = &fake_stager.FakeStager{}
-		validator = func(request staging_messages.StagingRequestFromCC) error {
+		validator = func(request cc_messages.StagingRequestFromCC) error {
 			return nil
 		}
 	})
@@ -150,7 +150,7 @@ var _ = Describe("Inbox", func() {
 					Ω(publishedCompletionMessages()).Should(HaveLen(1))
 					response := publishedCompletionMessages()[0]
 
-					stagingResponse := staging_messages.StagingResponseForCC{}
+					stagingResponse := cc_messages.StagingResponseForCC{}
 					json.Unmarshal(response.Payload, &stagingResponse)
 					Ω(stagingResponse.Error).Should(Equal("Staging failed: The thingy broke :("))
 				})
@@ -158,7 +158,7 @@ var _ = Describe("Inbox", func() {
 
 			Context("when the request is invalid", func() {
 				BeforeEach(func() {
-					validator = func(staging_messages.StagingRequestFromCC) error {
+					validator = func(cc_messages.StagingRequestFromCC) error {
 						return errors.New("NO.")
 					}
 				})
@@ -174,10 +174,10 @@ var _ = Describe("Inbox", func() {
 					Ω(publishedCompletionMessages()).Should(HaveLen(1))
 					response := publishedCompletionMessages()[0]
 
-					stagingResponse := staging_messages.StagingResponseForCC{}
+					stagingResponse := cc_messages.StagingResponseForCC{}
 					json.Unmarshal(response.Payload, &stagingResponse)
 
-					Ω(stagingResponse).Should(Equal(staging_messages.StagingResponseForCC{
+					Ω(stagingResponse).Should(Equal(cc_messages.StagingResponseForCC{
 						AppId:  "myapp",
 						TaskId: "mytask",
 						Error:  "Invalid staging request: NO.",
