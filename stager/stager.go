@@ -18,6 +18,8 @@ import (
 	"github.com/cloudfoundry/gunk/urljoiner"
 )
 
+const TaskDomain = "cf-app-staging"
+
 type Config struct {
 	Circuses           map[string]string
 	MinMemoryMB        uint
@@ -238,8 +240,8 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 	})
 
 	task := models.Task{
-		Type:     models.TaskTypeStaging,
 		Guid:     taskGuid(request),
+		Domain:   TaskDomain,
 		Stack:    request.Stack,
 		MemoryMB: int(max(uint64(request.MemoryMB), uint64(stager.config.MinMemoryMB))),
 		DiskMB:   int(max(uint64(request.DiskMB), uint64(stager.config.MinDiskMB))),

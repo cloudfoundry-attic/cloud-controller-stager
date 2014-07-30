@@ -212,12 +212,13 @@ var _ = Describe("Stage", func() {
 			bbs.GetAvailableFileServerReturns("http://file-server.com/", nil)
 		})
 
-		It("creates a Task with staging instructions", func() {
+		It("creates a cf-app-staging Task with staging instructions", func() {
 			err := stager.Stage(stagingRequest)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			desiredTask := bbs.DesireTaskArgsForCall(0)
 
+			Ω(desiredTask.Domain).To(Equal("cf-app-staging"))
 			Ω(desiredTask.Guid).To(Equal("bunny-hop"))
 			Ω(desiredTask.Stack).To(Equal("rabbit_hole"))
 			Ω(desiredTask.Log.Guid).To(Equal("bunny"))

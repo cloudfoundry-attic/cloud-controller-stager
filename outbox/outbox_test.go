@@ -10,6 +10,7 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/cloudfoundry-incubator/stager/outbox"
+	"github.com/cloudfoundry-incubator/stager/stager"
 	"github.com/cloudfoundry/yagnats"
 	"github.com/cloudfoundry/yagnats/fakeyagnats"
 	. "github.com/onsi/ginkgo"
@@ -49,7 +50,7 @@ var _ = Describe("Outbox", func() {
 			Guid:       "some-task-id",
 			Result:     "{}",
 			Annotation: string(annotationJson),
-			Type:       models.TaskTypeStaging,
+			Domain:     stager.TaskDomain,
 		}
 
 		completedTasks = make(chan models.Task)
@@ -105,8 +106,11 @@ var _ = Describe("Outbox", func() {
 		})
 
 		Context("when the task is not a staging task", func() {
+			BeforeEach(func() {
+				task.Domain = "some-random-domain"
+			})
+
 			It("Should not resolve the completed task ", func() {
-				task.Type = models.TaskTypeDropletMigration
 				completedTasks <- task
 				Consistently(bbs.ResolvingTaskCallCount).Should(BeZero())
 			})

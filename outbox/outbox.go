@@ -9,6 +9,7 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry-incubator/stager/stager"
 	"github.com/cloudfoundry/yagnats"
 	"github.com/pivotal-golang/lager"
 )
@@ -47,7 +48,7 @@ func (o *Outbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 				tasks = nil
 			}
 
-			if task.Type != models.TaskTypeStaging {
+			if task.Domain != stager.TaskDomain {
 				break
 			}
 
