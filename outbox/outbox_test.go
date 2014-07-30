@@ -110,7 +110,7 @@ var _ = Describe("Outbox", func() {
 				task.Domain = "some-random-domain"
 			})
 
-			It("Should not resolve the completed task ", func() {
+			It("should not resolve the completed task ", func() {
 				completedTasks <- task
 				Consistently(bbs.ResolvingTaskCallCount).Should(BeZero())
 			})
