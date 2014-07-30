@@ -11,7 +11,7 @@
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/cf-lager",
-			"Rev": "c88fc2b60504c2feb0a40435d505cf21d9cd58d3"
+			"Rev": "e28b8c12c6771eefcfef8654002dc513f42eb673"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/delta_force/delta_force",
@@ -19,15 +19,19 @@
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/bbs",
-			"Rev": "87f475ec1fded85151513b07f4c72798efe1ade4"
+			"Rev": "b9b97f5a6c39b1285326498b93812ee39e275ca3"
+		},
+		{
+			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/cc_messages",
+			"Rev": "b9b97f5a6c39b1285326498b93812ee39e275ca3"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/models",
-			"Rev": "87f475ec1fded85151513b07f4c72798efe1ade4"
+			"Rev": "b9b97f5a6c39b1285326498b93812ee39e275ca3"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/router",
-			"Rev": "87f475ec1fded85151513b07f4c72798efe1ade4"
+			"Rev": "b9b97f5a6c39b1285326498b93812ee39e275ca3"
 		},
 		{
 			"ImportPath": "github.com/cloudfoundry/gunk/natsrunner",
