@@ -111,13 +111,16 @@ var _ = Describe("Main", func() {
 			var stagingFinished chan cc_messages.DockerStagingResponseForCC
 
 			BeforeEach(func() {
-				stagingFinished = make(chan cc_messages.DockerStagingResponseForCC, 1)
+				// local var to prevent data race with callback
+				finished := make(chan cc_messages.DockerStagingResponseForCC, 1)
+
+				stagingFinished = finished
 
 				natsClient.Subscribe("diego.docker.staging.finished", func(msg *yagnats.Message) {
 					stagingMsg := cc_messages.DockerStagingResponseForCC{}
 					err := json.Unmarshal(msg.Payload, &stagingMsg)
 					Ω(err).ShouldNot(HaveOccurred())
-					stagingFinished <- stagingMsg
+					finished <- stagingMsg
 				})
 
 				natsClient.Publish("diego.docker.staging.start", []byte(`
