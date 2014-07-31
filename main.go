@@ -15,6 +15,7 @@ import (
 	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/sigmon"
 
+	"github.com/cloudfoundry-incubator/cf-debug-server"
 	"github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/stager/inbox"
@@ -77,6 +78,8 @@ func main() {
 	natsClient := initializeNatsClient(logger)
 	stagerBBS := initializeStagerBBS(logger)
 	stager := initializeStager(stagerBBS, logger)
+
+	cf_debug_server.Run()
 
 	group := ifrit.Envoke(grouper.RunGroup{
 		"inbox":  inbox.New(natsClient, stager, inbox.ValidateRequest, logger),
