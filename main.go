@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cloudfoundry/gunk/group_runner"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
 	"github.com/cloudfoundry/yagnats"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
-	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/sigmon"
 
 	"github.com/cloudfoundry-incubator/cf-debug-server"
@@ -81,15 +81,14 @@ func main() {
 
 	cf_debug_server.Run()
 
-	group := ifrit.Envoke(grouper.RunGroup{
-		"inbox":  inbox.New(natsClient, stager, inbox.ValidateRequest, logger),
-		"outbox": outbox.New(stagerBBS, natsClient, logger),
-	})
+	process := ifrit.Envoke(sigmon.New(group_runner.New([]group_runner.Member{
+		{"inbox", inbox.New(natsClient, stager, inbox.ValidateRequest, logger)},
+		{"outbox", outbox.New(stagerBBS, natsClient, logger)},
+	})))
 
-	monitor := ifrit.Envoke(sigmon.New(group))
 	fmt.Println("Listening for staging requests!")
 
-	err := <-monitor.Wait()
+	err := <-process.Wait()
 	if err != nil {
 		logger.Fatal("Stager exited with error: %s", err)
 	}
