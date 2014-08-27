@@ -3,6 +3,7 @@ package integration_test
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -10,9 +11,9 @@ import (
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/yagnats"
 	"github.com/pivotal-golang/lager/lagertest"
+	"github.com/tedsuo/ifrit"
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
-	"github.com/cloudfoundry-incubator/runtime-schema/bbs/services_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/stager/integration/stager_runner"
 	"github.com/cloudfoundry/storeadapter/storerunner/etcdstorerunner"
@@ -28,10 +29,9 @@ var runner *stager_runner.StagerRunner
 
 var _ = Describe("Main", func() {
 	var (
-		natsClient         yagnats.NATSClient
-		bbs                *Bbs.BBS
-		fileServerPresence services_bbs.Presence
-		presenceStatus     <-chan bool
+		natsClient        yagnats.NATSClient
+		bbs               *Bbs.BBS
+		fileServerProcess ifrit.Process
 	)
 
 	BeforeEach(func() {
@@ -48,11 +48,7 @@ var _ = Describe("Main", func() {
 
 		bbs = Bbs.NewBBS(etcdRunner.Adapter(), timeprovider.NewTimeProvider(), lagertest.NewTestLogger("test"))
 
-		var err error
-
-		fileServerPresence, presenceStatus, err = bbs.MaintainFileServerPresence(time.Second, "http://example.com", "file-server-id")
-		Ω(err).ShouldNot(HaveOccurred())
-		Eventually(presenceStatus).Should(Receive(BeTrue()))
+		fileServerProcess = ifrit.Envoke(bbs.NewFileServerHeartbeat("http://example.com", "file-server-id", time.Second))
 
 		runner = stager_runner.New(
 			stagerPath,
@@ -63,10 +59,7 @@ var _ = Describe("Main", func() {
 
 	AfterEach(func(done Done) {
 		runner.Stop()
-		go func() {
-			<-presenceStatus
-		}()
-		fileServerPresence.Remove()
+		fileServerProcess.Signal(os.Kill)
 		etcdRunner.Stop()
 		natsRunner.Stop()
 		close(done)
