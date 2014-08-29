@@ -150,14 +150,15 @@ func TestStagerMain(t *testing.T) {
 	RunSpecs(t, "Integration Suite")
 }
 
-var _ = BeforeSuite(func() {
-	var err error
-	stagerPath, err = gexec.Build("github.com/cloudfoundry-incubator/stager", "-race")
+var _ = SynchronizedBeforeSuite(func() []byte {
+	stager, err := gexec.Build("github.com/cloudfoundry-incubator/stager", "-race")
 	Ω(err).ShouldNot(HaveOccurred())
+	return []byte(stager)
+}, func(stager []byte) {
+	stagerPath = string(stager)
 })
 
-var _ = AfterSuite(func() {
-	gexec.CleanupBuildArtifacts()
+var _ = SynchronizedAfterSuite(func() {
 	if etcdRunner != nil {
 		etcdRunner.Stop()
 	}
@@ -167,4 +168,6 @@ var _ = AfterSuite(func() {
 	if runner != nil {
 		runner.Stop()
 	}
+}, func() {
+	gexec.CleanupBuildArtifacts()
 })
