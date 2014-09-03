@@ -21,6 +21,7 @@ import (
 	"github.com/cloudfoundry-incubator/stager/inbox"
 	"github.com/cloudfoundry-incubator/stager/outbox"
 	"github.com/cloudfoundry-incubator/stager/stager"
+	_ "github.com/cloudfoundry/dropsonde/autowire"
 )
 
 var etcdCluster = flag.String(
