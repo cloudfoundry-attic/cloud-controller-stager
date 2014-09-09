@@ -26,6 +26,10 @@
 			"Rev": "8300c5546d32d8533295f666c1cd0941113fd7bb"
 		},
 		{
+			"ImportPath": "github.com/cloudfoundry-incubator/linux-circus/protocol",
+			"Rev": "65013c71151ea5715b1585783de61799ebb66458"
+		},
+		{
 			"ImportPath": "github.com/cloudfoundry-incubator/runtime-schema/bbs",
 			"Rev": "c08b36cbd586a7ef869c45bb669fd82b159f8504"
 		},

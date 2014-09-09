@@ -47,8 +47,12 @@ var _ = Describe("Outbox", func() {
 		})
 
 		task = models.Task{
-			Guid:       "some-task-id",
-			Result:     "{}",
+			Guid: "some-task-id",
+			Result: `{
+				"buildpack_key":"buildpack-key",
+				"detected_buildpack":"Some Buildpack",
+				"execution_metadata":"{\"start_command\":\"./some-start-command\"}"
+			}`,
 			Annotation: string(annotationJson),
 			Domain:     stager.TaskDomain,
 		}
@@ -78,14 +82,6 @@ var _ = Describe("Outbox", func() {
 	})
 
 	Context("when a completed Task appears in the outbox", func() {
-		BeforeEach(func() {
-			task.Result = `{
-				"buildpack_key":"buildpack-key",
-				"detected_buildpack":"Some Buildpack",
-				"detected_start_command":"./some-start-command"
-			}`
-		})
-
 		It("resolves the completed task, publishes its result and then marks the Task as resolved", func() {
 			completedTasks <- task
 
@@ -185,8 +181,6 @@ var _ = Describe("Outbox", func() {
 
 	Describe("asynchronous message processing", func() {
 		It("can accept new Completed Tasks before it's done processing existing Tasks in the queue", func() {
-			task.Result = `{"detected_buildpack":"Some Buildpack"}`
-
 			completedTasks <- task
 			completedTasks <- task
 
@@ -194,14 +188,18 @@ var _ = Describe("Outbox", func() {
 
 			Eventually(published).Should(Receive(&receivedPayload))
 			Ω(receivedPayload).Should(MatchJSON(fmt.Sprintf(`{
+				"buildpack_key":"buildpack-key",
 				"detected_buildpack":"Some Buildpack",
+				"detected_start_command":"./some-start-command",
 				"app_id": "%s",
 				"task_id": "%s"
 			}`, appId, taskId)))
 
 			Eventually(published).Should(Receive(&receivedPayload))
 			Ω(receivedPayload).Should(MatchJSON(fmt.Sprintf(`{
+				"buildpack_key":"buildpack-key",
 				"detected_buildpack":"Some Buildpack",
+				"detected_start_command":"./some-start-command",
 				"app_id": "%s",
 				"task_id": "%s"
 			}`, appId, taskId)))
