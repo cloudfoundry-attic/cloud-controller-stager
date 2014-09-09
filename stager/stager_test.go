@@ -24,7 +24,7 @@ var _ = Describe("Stage", func() {
 		downloadTailorAction          models.ExecutorAction
 		downloadAppAction             models.ExecutorAction
 		downloadFirstBuildpackAction  models.ExecutorAction
-		downloadSecontBuildpackAction models.ExecutorAction
+		downloadSecondBuildpackAction models.ExecutorAction
 		downloadBuildArtifactsAction  models.ExecutorAction
 		runAction                     models.ExecutorAction
 		uploadDropletAction           models.ExecutorAction
@@ -92,7 +92,7 @@ var _ = Describe("Stage", func() {
 					Extract: true,
 				},
 			},
-			"Downloading App Package",
+			"",
 			"Downloaded App Package",
 			"Failed to Download App Package",
 		)
@@ -106,12 +106,12 @@ var _ = Describe("Stage", func() {
 					CacheKey: "zfirst-buildpack",
 				},
 			},
-			"Downloading Buildpack: zfirst",
+			"",
 			"Downloaded Buildpack: zfirst",
 			"Failed to Download Buildpack: zfirst",
 		)
 
-		downloadSecontBuildpackAction = models.EmitProgressFor(
+		downloadSecondBuildpackAction = models.EmitProgressFor(
 			models.ExecutorAction{
 				models.DownloadAction{
 					From:     "second-buildpack-url",
@@ -120,7 +120,7 @@ var _ = Describe("Stage", func() {
 					CacheKey: "asecond-buildpack",
 				},
 			},
-			"Downloading Buildpack: asecond",
+			"",
 			"Downloaded Buildpack: asecond",
 			"Failed to Download Buildpack: asecond",
 		)
@@ -134,7 +134,7 @@ var _ = Describe("Stage", func() {
 						Extract: true,
 					},
 				},
-				"Downloading Build Artifacts Cache",
+				"",
 				"Downloaded Build Artifacts Cache",
 				"No Build Artifacts Cache Found.  Proceeding...",
 			),
@@ -175,7 +175,7 @@ var _ = Describe("Stage", func() {
 					Compress: false,
 				},
 			},
-			"Uploading Droplet",
+			"",
 			"Droplet Uploaded",
 			"Failed to Upload Droplet",
 		)
@@ -189,7 +189,7 @@ var _ = Describe("Stage", func() {
 						Compress: true,
 					},
 				},
-				"Uploading Build Artifacts Cache",
+				"",
 				"Uploaded Build Artifacts Cache",
 				"Failed to Upload Build Artifacts Cache.  Proceeding...",
 			),
@@ -235,14 +235,28 @@ var _ = Describe("Stage", func() {
 			}))
 
 			Ω(desiredTask.Actions).Should(Equal([]models.ExecutorAction{
-				downloadTailorAction,
-				downloadAppAction,
-				downloadFirstBuildpackAction,
-				downloadSecontBuildpackAction,
-				downloadBuildArtifactsAction,
+				models.EmitProgressFor(
+					models.Parallel(
+						downloadTailorAction,
+						downloadAppAction,
+						downloadFirstBuildpackAction,
+						downloadSecondBuildpackAction,
+						downloadBuildArtifactsAction,
+					),
+					"Fetching app, buildpacks (zfirst, asecond), artifacts cache...",
+					"Fetching complete",
+					"Fetching failed",
+				),
 				runAction,
-				uploadDropletAction,
-				uploadBuildArtifactsAction,
+				models.EmitProgressFor(
+					models.Parallel(
+						uploadDropletAction,
+						uploadBuildArtifactsAction,
+					),
+					"Uploading droplet, artifacts cache...",
+					"Uploading complete",
+					"Uploading failed",
+				),
 				fetchResultsAction,
 			}))
 
@@ -316,14 +330,28 @@ var _ = Describe("Stage", func() {
 					)
 
 					Ω(desiredTask.Actions).Should(Equal([]models.ExecutorAction{
-						downloadTailorAction,
-						downloadAppAction,
-						downloadFirstBuildpackAction,
-						downloadSecontBuildpackAction,
-						downloadBuildArtifactsAction,
+						models.EmitProgressFor(
+							models.Parallel(
+								downloadTailorAction,
+								downloadAppAction,
+								downloadFirstBuildpackAction,
+								downloadSecondBuildpackAction,
+								downloadBuildArtifactsAction,
+							),
+							"Fetching app, buildpacks (zfirst, asecond), artifacts cache...",
+							"Fetching complete",
+							"Fetching failed",
+						),
 						runAction,
-						uploadDropletAction,
-						uploadBuildArtifactsAction,
+						models.EmitProgressFor(
+							models.Parallel(
+								uploadDropletAction,
+								uploadBuildArtifactsAction,
+							),
+							"Uploading droplet, artifacts cache...",
+							"Uploading complete",
+							"Uploading failed",
+						),
 						fetchResultsAction,
 					}))
 				})
@@ -342,13 +370,27 @@ var _ = Describe("Stage", func() {
 				desiredTask := bbs.DesireTaskArgsForCall(0)
 
 				Ω(desiredTask.Actions).Should(Equal([]models.ExecutorAction{
-					downloadTailorAction,
-					downloadAppAction,
-					downloadFirstBuildpackAction,
-					downloadSecontBuildpackAction,
+					models.EmitProgressFor(
+						models.Parallel(
+							downloadTailorAction,
+							downloadAppAction,
+							downloadFirstBuildpackAction,
+							downloadSecondBuildpackAction,
+						),
+						"Fetching app, buildpacks (zfirst, asecond)...",
+						"Fetching complete",
+						"Fetching failed",
+					),
 					runAction,
-					uploadDropletAction,
-					uploadBuildArtifactsAction,
+					models.EmitProgressFor(
+						models.Parallel(
+							uploadDropletAction,
+							uploadBuildArtifactsAction,
+						),
+						"Uploading droplet, artifacts cache...",
+						"Uploading complete",
+						"Uploading failed",
+					),
 					fetchResultsAction,
 				}))
 			})
@@ -378,7 +420,7 @@ var _ = Describe("Stage", func() {
 
 				desiredTask := bbs.DesireTaskArgsForCall(0)
 
-				downloadAction := desiredTask.Actions[0].Action.(models.EmitProgressAction).Action.Action.(models.DownloadAction)
+				downloadAction := desiredTask.Actions[0].Action.(models.EmitProgressAction).Action.Action.(models.ParallelAction).Actions[0].Action.(models.EmitProgressAction).Action.Action.(models.DownloadAction)
 				Ω(downloadAction.From).Should(Equal("http://the-full-compiler-url"))
 			})
 		})

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/cloudfoundry/storeadapter"
@@ -68,9 +69,12 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 
 	actions := []models.ExecutorAction{}
 
+	downloadActions := []models.ExecutorAction{}
+	downloadNames := []string{}
+
 	//Download tailor
-	actions = append(
-		actions,
+	downloadActions = append(
+		downloadActions,
 		models.EmitProgressFor(
 			models.ExecutorAction{
 				models.DownloadAction{
@@ -87,8 +91,8 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 	)
 
 	//Download App Package
-	actions = append(
-		actions,
+	downloadActions = append(
+		downloadActions,
 		models.EmitProgressFor(
 			models.ExecutorAction{
 				models.DownloadAction{
@@ -97,16 +101,18 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 					Extract: true,
 				},
 			},
-			"Downloading App Package",
+			"",
 			"Downloaded App Package",
 			"Failed to Download App Package",
 		),
 	)
+	downloadNames = append(downloadNames, "app")
 
 	//Download Buildpacks
+	buildpackNames := []string{}
 	for _, buildpack := range request.Buildpacks {
-		actions = append(
-			actions,
+		downloadActions = append(
+			downloadActions,
 			models.EmitProgressFor(
 				models.ExecutorAction{
 					models.DownloadAction{
@@ -116,12 +122,15 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 						CacheKey: buildpack.Key,
 					},
 				},
-				fmt.Sprintf("Downloading Buildpack: %s", buildpack.Name),
+				"",
 				fmt.Sprintf("Downloaded Buildpack: %s", buildpack.Name),
 				fmt.Sprintf("Failed to Download Buildpack: %s", buildpack.Name),
 			),
 		)
+		buildpackNames = append(buildpackNames, buildpack.Name)
 	}
+
+	downloadNames = append(downloadNames, fmt.Sprintf("buildpacks (%s)", strings.Join(buildpackNames, ", ")))
 
 	//Download Buildpack Artifacts Cache
 	downloadURL, err := stager.buildArtifactsDownloadURL(request, fileServerURL)
@@ -130,8 +139,8 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 	}
 
 	if downloadURL != nil {
-		actions = append(
-			actions,
+		downloadActions = append(
+			downloadActions,
 			models.Try(
 				models.EmitProgressFor(
 					models.ExecutorAction{
@@ -141,13 +150,17 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 							Extract: true,
 						},
 					},
-					"Downloading Build Artifacts Cache",
+					"",
 					"Downloaded Build Artifacts Cache",
 					"No Build Artifacts Cache Found.  Proceeding...",
 				),
 			),
 		)
+		downloadNames = append(downloadNames, "artifacts cache")
 	}
+
+	downloadMsg := fmt.Sprintf("Fetching %s...", strings.Join(downloadNames, ", "))
+	actions = append(actions, models.EmitProgressFor(models.Parallel(downloadActions...), downloadMsg, "Fetching complete", "Fetching failed"))
 
 	var fileDescriptorLimit *uint64
 	if request.FileDescriptors != 0 {
@@ -176,14 +189,16 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 		),
 	)
 
+	uploadActions := []models.ExecutorAction{}
+	uploadNames := []string{}
 	//Upload Droplet
 	uploadURL, err := stager.dropletUploadURL(request, fileServerURL)
 	if err != nil {
 		return err
 	}
 
-	actions = append(
-		actions,
+	uploadActions = append(
+		uploadActions,
 		models.EmitProgressFor(
 			models.ExecutorAction{
 				models.UploadAction{
@@ -191,11 +206,12 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 					To:   uploadURL.String(),
 				},
 			},
-			"Uploading Droplet",
+			"",
 			"Droplet Uploaded",
 			"Failed to Upload Droplet",
 		),
 	)
+	uploadNames = append(uploadNames, "droplet")
 
 	//Upload Buildpack Artifacts Cache
 	uploadURL, err = stager.buildArtifactsUploadURL(request, fileServerURL)
@@ -203,7 +219,7 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 		return err
 	}
 
-	actions = append(actions,
+	uploadActions = append(uploadActions,
 		models.Try(
 			models.EmitProgressFor(
 				models.ExecutorAction{
@@ -213,12 +229,16 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 						Compress: true,
 					},
 				},
-				"Uploading Build Artifacts Cache",
+				"",
 				"Uploaded Build Artifacts Cache",
 				"Failed to Upload Build Artifacts Cache.  Proceeding...",
 			),
 		),
 	)
+	uploadNames = append(uploadNames, "artifacts cache")
+
+	uploadMsg := fmt.Sprintf("Uploading %s...", strings.Join(uploadNames, ", "))
+	actions = append(actions, models.EmitProgressFor(models.Parallel(uploadActions...), uploadMsg, "Uploading complete", "Uploading failed"))
 
 	//Fetch Result
 	actions = append(actions,
