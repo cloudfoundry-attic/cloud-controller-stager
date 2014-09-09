@@ -92,7 +92,7 @@ var _ = Describe("Outbox", func() {
 			Ω(receivedPayload).Should(MatchJSON(fmt.Sprintf(`{
 				"buildpack_key":"buildpack-key",
 				"detected_buildpack":"Some Buildpack",
-				"detected_start_command":"./some-start-command",
+				"execution_metadata":"{\"start_command\":\"./some-start-command\"}",
 				"app_id": "%s",
 				"task_id": "%s"
 			}`, appId, taskId)))
@@ -190,7 +190,7 @@ var _ = Describe("Outbox", func() {
 			Ω(receivedPayload).Should(MatchJSON(fmt.Sprintf(`{
 				"buildpack_key":"buildpack-key",
 				"detected_buildpack":"Some Buildpack",
-				"detected_start_command":"./some-start-command",
+				"execution_metadata":"{\"start_command\":\"./some-start-command\"}",
 				"app_id": "%s",
 				"task_id": "%s"
 			}`, appId, taskId)))
@@ -199,7 +199,7 @@ var _ = Describe("Outbox", func() {
 			Ω(receivedPayload).Should(MatchJSON(fmt.Sprintf(`{
 				"buildpack_key":"buildpack-key",
 				"detected_buildpack":"Some Buildpack",
-				"detected_start_command":"./some-start-command",
+				"execution_metadata":"{\"start_command\":\"./some-start-command\"}",
 				"app_id": "%s",
 				"task_id": "%s"
 			}`, appId, taskId)))

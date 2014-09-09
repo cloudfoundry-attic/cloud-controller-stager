@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	linux_circus_protocol "github.com/cloudfoundry-incubator/linux-circus/protocol"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -124,16 +123,9 @@ func publishResponse(natsClient yagnats.NATSClient, task models.Task) error {
 			return err
 		}
 
-		// Temporarily parse metadata until we change CC protocol
-		executionMetadata := linux_circus_protocol.ExecutionMetadata{}
-		err = json.Unmarshal([]byte(result.ExecutionMetadata), &executionMetadata)
-		if err != nil {
-			return err
-		}
-
 		response.BuildpackKey = result.BuildpackKey
 		response.DetectedBuildpack = result.DetectedBuildpack
-		response.DetectedStartCommand = executionMetadata.StartCommand
+		response.ExecutionMetadata = result.ExecutionMetadata
 	}
 
 	payload, err := json.Marshal(response)
