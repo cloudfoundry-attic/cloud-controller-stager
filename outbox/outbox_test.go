@@ -139,8 +139,11 @@ var _ = Describe("Outbox", func() {
 			var receivedPayload []byte
 			Eventually(published).Should(Receive(&receivedPayload))
 			Ω(receivedPayload).Should(MatchJSON(fmt.Sprintf(`{
-				"error":"because i said so",
 				"app_id":"%s",
+				"buildpack_key": "",
+				"detected_buildpack": "",
+				"execution_metadata": "",
+				"error":"because i said so",
 				"task_id":"%s"
 			}`, appId, taskId)))
 
