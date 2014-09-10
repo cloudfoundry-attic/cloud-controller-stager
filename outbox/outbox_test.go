@@ -136,7 +136,7 @@ var _ = Describe("Outbox", func() {
 		BeforeEach(func() {
 			task.Domain = stager_docker.TaskDomain
 			task.Result = `{
-				"execution_metadata":"./some-start-command"
+				"execution_metadata":"{\"cmd\":\"./some-start-command\"}"
 			}`
 		})
 
@@ -148,7 +148,7 @@ var _ = Describe("Outbox", func() {
 			var receivedPayload []byte
 			Eventually(published).Should(Receive(&receivedPayload))
 			Ω(receivedPayload).Should(MatchJSON(fmt.Sprintf(`{
-				"detected_start_command":"./some-start-command",
+				"execution_metadata":"{\"cmd\":\"./some-start-command\"}",
 				"app_id": "%s",
 				"task_id": "%s"
 			}`, appId, taskId)))

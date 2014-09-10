@@ -163,7 +163,7 @@ func publishDockerResponse(natsClient yagnats.NATSClient, task models.Task, logg
 		if err != nil {
 			return err
 		}
-		response.DetectedStartCommand = result.ExecutionMetadata
+		response.ExecutionMetadata = result.ExecutionMetadata
 	}
 
 	payload, err := json.Marshal(response)
