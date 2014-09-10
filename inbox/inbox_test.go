@@ -67,7 +67,7 @@ var _ = Describe("Inbox", func() {
 		JustBeforeEach(func() {
 			process = make(chan ifrit.Process)
 			go func() {
-				process <- ifrit.Envoke(New(fakenats, fauxstager, validator, logger))
+				process <- ifrit.Envoke(New(fakenats, fauxstager, nil, validator, logger))
 			}()
 		})
 
@@ -103,7 +103,7 @@ var _ = Describe("Inbox", func() {
 
 	Context("when subscribing succeeds", func() {
 		JustBeforeEach(func() {
-			inbox = ifrit.Envoke(New(fakenats, fauxstager, validator, logger))
+			inbox = ifrit.Envoke(New(fakenats, fauxstager, nil, validator, logger))
 		})
 
 		AfterEach(func(done Done) {

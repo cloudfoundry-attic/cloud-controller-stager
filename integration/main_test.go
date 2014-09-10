@@ -1,7 +1,6 @@
 package integration_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -14,7 +13,6 @@ import (
 	"github.com/tedsuo/ifrit"
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/stager/integration/stager_runner"
 	"github.com/cloudfoundry/storeadapter/storerunner/etcdstorerunner"
 	. "github.com/onsi/ginkgo"
@@ -101,20 +99,7 @@ var _ = Describe("Main", func() {
 		})
 
 		Describe("when a 'diego.docker.staging.start' message is recieved", func() {
-			var stagingFinished chan cc_messages.DockerStagingResponseForCC
-
 			BeforeEach(func() {
-				// local var to prevent data race with callback
-				finished := make(chan cc_messages.DockerStagingResponseForCC, 1)
-
-				stagingFinished = finished
-
-				natsClient.Subscribe("diego.docker.staging.finished", func(msg *yagnats.Message) {
-					stagingMsg := cc_messages.DockerStagingResponseForCC{}
-					err := json.Unmarshal(msg.Payload, &stagingMsg)
-					Ω(err).ShouldNot(HaveOccurred())
-					finished <- stagingMsg
-				})
 
 				natsClient.Publish("diego.docker.staging.start", []byte(`
 				      {
@@ -130,12 +115,12 @@ var _ = Describe("Main", func() {
 				    `))
 			})
 
-			It("sends a docker staging finished NATS message", func() {
-				expectedMsg := cc_messages.DockerStagingResponseForCC{
-					AppId:  "my-app-guid",
-					TaskId: "my-task-guid",
-				}
-				Eventually(stagingFinished).Should(Receive(&expectedMsg))
+			It("desires a staging task via the BBS", func() {
+				Eventually(bbs.GetAllPendingTasks, 1.0).Should(HaveLen(1))
+				tasks, err := bbs.GetAllPendingTasks()
+				Ω(err).ShouldNot(HaveOccurred())
+				Ω(tasks[0].MemoryMB).Should(Equal(1024))
+				Ω(tasks[0].DiskMB).Should(Equal(2048))
 			})
 
 			It("does not exit", func() {

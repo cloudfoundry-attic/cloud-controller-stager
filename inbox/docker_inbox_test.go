@@ -17,12 +17,15 @@ import (
 
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	. "github.com/cloudfoundry-incubator/stager/inbox"
+	"github.com/cloudfoundry-incubator/stager/outbox"
 	"github.com/cloudfoundry-incubator/stager/stager/fake_stager"
+	"github.com/cloudfoundry-incubator/stager/stager_docker/fake_stager_docker"
 )
 
 var _ = Describe("Docker Inbox", func() {
 	var fakenats *fakeyagnats.FakeYagnats
 	var fauxstager *fake_stager.FakeStager
+	var fauxstagerdocker *fake_stager_docker.FakeStagerDocker
 	var logOutput *gbytes.Buffer
 	var logger lager.Logger
 	var validator RequestValidator
@@ -42,6 +45,7 @@ var _ = Describe("Docker Inbox", func() {
 
 		fakenats = fakeyagnats.New()
 		fauxstager = &fake_stager.FakeStager{}
+		fauxstagerdocker = &fake_stager_docker.FakeStagerDocker{}
 		validator = func(request cc_messages.StagingRequestFromCC) error {
 			return nil
 		}
@@ -66,7 +70,7 @@ var _ = Describe("Docker Inbox", func() {
 		JustBeforeEach(func() {
 			process = make(chan ifrit.Process)
 			go func() {
-				process <- ifrit.Envoke(New(fakenats, fauxstager, validator, logger))
+				process <- ifrit.Envoke(New(fakenats, fauxstager, fauxstagerdocker, validator, logger))
 			}()
 		})
 
@@ -102,7 +106,7 @@ var _ = Describe("Docker Inbox", func() {
 
 	Context("when subscribing succeeds", func() {
 		JustBeforeEach(func() {
-			inbox = ifrit.Envoke(New(fakenats, fauxstager, validator, logger))
+			inbox = ifrit.Envoke(New(fakenats, fauxstager, fauxstagerdocker, validator, logger))
 		})
 
 		AfterEach(func(done Done) {
@@ -113,12 +117,18 @@ var _ = Describe("Docker Inbox", func() {
 
 		Context("and it receives a staging request", func() {
 
-			It("sends a staging complete response", func() {
+			It("kicks off staging", func() {
 				publishStagingMessage()
-				stagingCompleteMessages := fakenats.PublishedMessages(DiegoDockerStageFinishedSubject)
-				Ω(stagingCompleteMessages).Should(HaveLen(1))
-			})
 
+				Ω(fauxstagerdocker.TimesStageInvoked).To(Equal(1))
+				Ω(fauxstagerdocker.StagingRequests[0]).To(Equal(stagingRequest))
+			})
+			Context("when staging finishes successfully", func() {
+				It("does not send a nats message", func() {
+					publishStagingMessage()
+					Ω(fakenats.PublishedMessages(outbox.DiegoDockerStageFinishedSubject)).Should(HaveLen(0))
+				})
+			})
 			Context("when unmarshaling fails", func() {
 				It("logs the failure", func() {
 					Ω(logOutput.Contents()).Should(BeEmpty())
@@ -130,7 +140,7 @@ var _ = Describe("Docker Inbox", func() {
 
 				It("does not send a message in response", func() {
 					fakenats.Publish(DiegoStageStartSubject, []byte("fdsaljkfdsljkfedsews:/sdfa:''''"))
-					stagingCompleteMessages := fakenats.PublishedMessages(DiegoDockerStageFinishedSubject)
+					stagingCompleteMessages := fakenats.PublishedMessages(outbox.DiegoDockerStageFinishedSubject)
 					Ω(stagingCompleteMessages).Should(BeEmpty())
 				})
 			})

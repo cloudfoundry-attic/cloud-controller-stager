@@ -11,30 +11,30 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/stager/outbox"
 	"github.com/cloudfoundry-incubator/stager/stager"
+	"github.com/cloudfoundry-incubator/stager/stager_docker"
 )
 
 const DiegoStageStartSubject = "diego.staging.start"
 const DiegoDockerStageStartSubject = "diego.docker.staging.start"
-const DiegoDockerStageFinishedSubject = "diego.docker.staging.finished"
 
 type Inbox struct {
 	natsClient      yagnats.NATSClient
 	stager          stager.Stager
 	validateRequest RequestValidator
-
-	logger lager.Logger
+	dockerStager    stager_docker.DockerStager
+	logger          lager.Logger
 }
 
 type RequestValidator func(cc_messages.StagingRequestFromCC) error
 
-func New(natsClient yagnats.NATSClient, stager stager.Stager, validator RequestValidator, logger lager.Logger) *Inbox {
+func New(natsClient yagnats.NATSClient, stager stager.Stager, dockerStager stager_docker.DockerStager, validator RequestValidator, logger lager.Logger) *Inbox {
 	inboxLogger := logger.Session("inbox")
 	return &Inbox{
 		natsClient:      natsClient,
 		stager:          stager,
 		validateRequest: validator,
-
-		logger: inboxLogger,
+		dockerStager:    dockerStager,
+		logger:          inboxLogger,
 	}
 }
 
@@ -71,18 +71,21 @@ func (inbox *Inbox) onDockerStagingRequest(message *yagnats.Message) {
 		return
 	}
 
-	var response cc_messages.DockerStagingResponseForCC
+	requestLogger.Info("received", lager.Data{"message": stagingRequest})
 
-	response.AppId = stagingRequest.AppId
-	response.TaskId = stagingRequest.TaskId
+	err = inbox.dockerStager.Stage(stagingRequest)
 
-	payload, err := json.Marshal(response)
 	if err != nil {
-		requestLogger.Error("malformed docker response", err, lager.Data{"message": message})
-		return
-	}
+		response := cc_messages.DockerStagingResponseForCC{
+			AppId:  stagingRequest.AppId,
+			TaskId: stagingRequest.TaskId,
+			Error:  "Staging failed: " + err.Error(),
+		}
 
-	inbox.natsClient.Publish(DiegoDockerStageFinishedSubject, payload)
+		if responseJson, err := json.Marshal(response); err == nil {
+			inbox.natsClient.Publish(outbox.DiegoDockerStageFinishedSubject, responseJson)
+		}
+	}
 }
 
 func (inbox *Inbox) subscribeStagingStart() {

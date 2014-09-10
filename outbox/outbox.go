@@ -10,11 +10,13 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/stager/stager"
+	"github.com/cloudfoundry-incubator/stager/stager_docker"
 	"github.com/cloudfoundry/yagnats"
 	"github.com/pivotal-golang/lager"
 )
 
 const DiegoStageFinishedSubject = "diego.staging.finished"
+const DiegoDockerStageFinishedSubject = "diego.docker.staging.finished"
 
 type Outbox struct {
 	bbs        bbs.StagerBBS
@@ -47,8 +49,7 @@ func (o *Outbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 			if !ok {
 				tasks = nil
 			}
-
-			if task.Domain != stager.TaskDomain {
+			if task.Domain != stager.TaskDomain && task.Domain != stager_docker.TaskDomain {
 				break
 			}
 
@@ -87,7 +88,12 @@ func handleCompletedTask(task models.Task, bbs bbs.StagerBBS, natsClient yagnats
 
 	logger.Info("resolving-success", lager.Data{"guid": task.Guid})
 
-	err = publishResponse(natsClient, task)
+	if task.Domain == stager.TaskDomain {
+		err = publishResponse(natsClient, task, logger)
+	} else {
+		err = publishDockerResponse(natsClient, task, logger)
+	}
+
 	if err != nil {
 		logger.Error("publishing-failed", err, lager.Data{"guid": task.Guid})
 		return
@@ -98,11 +104,10 @@ func handleCompletedTask(task models.Task, bbs bbs.StagerBBS, natsClient yagnats
 		logger.Error("resolve-failed", err, lager.Data{"guid": task.Guid})
 		return
 	}
-
 	logger.Info("resolve-success", lager.Data{"guid": task.Guid})
 }
 
-func publishResponse(natsClient yagnats.NATSClient, task models.Task) error {
+func publishResponse(natsClient yagnats.NATSClient, task models.Task, logger lager.Logger) error {
 	var response cc_messages.StagingResponseForCC
 
 	var annotation models.StagingTaskAnnotation
@@ -133,5 +138,40 @@ func publishResponse(natsClient yagnats.NATSClient, task models.Task) error {
 		return err
 	}
 
+	logger.Info("publish-success", lager.Data{"payload": payload})
+
 	return natsClient.Publish(DiegoStageFinishedSubject, payload)
+}
+
+func publishDockerResponse(natsClient yagnats.NATSClient, task models.Task, logger lager.Logger) error {
+	var response cc_messages.DockerStagingResponseForCC
+
+	var annotation models.StagingTaskAnnotation
+	err := json.Unmarshal([]byte(task.Annotation), &annotation)
+	if err != nil {
+		return err
+	}
+
+	response.AppId = annotation.AppId
+	response.TaskId = annotation.TaskId
+
+	if task.Failed {
+		response.Error = task.FailureReason
+	} else {
+		var result models.StagingDockerResult
+		err := json.Unmarshal([]byte(task.Result), &result)
+		if err != nil {
+			return err
+		}
+		response.DetectedStartCommand = result.ExecutionMetadata
+	}
+
+	payload, err := json.Marshal(response)
+	if err != nil {
+		return err
+	}
+	logger.Info("publish-docker-success", lager.Data{"payload": payload})
+
+	return natsClient.Publish(DiegoDockerStageFinishedSubject, payload)
+
 }

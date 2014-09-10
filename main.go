@@ -21,6 +21,7 @@ import (
 	"github.com/cloudfoundry-incubator/stager/inbox"
 	"github.com/cloudfoundry-incubator/stager/outbox"
 	"github.com/cloudfoundry-incubator/stager/stager"
+	"github.com/cloudfoundry-incubator/stager/stager_docker"
 	_ "github.com/cloudfoundry/dropsonde/autowire"
 )
 
@@ -78,12 +79,12 @@ func main() {
 	logger := cf_lager.New("stager")
 	natsClient := initializeNatsClient(logger)
 	stagerBBS := initializeStagerBBS(logger)
-	stager := initializeStager(stagerBBS, logger)
+	stager, dockerStager := initializeStagers(stagerBBS, logger)
 
 	cf_debug_server.Run()
 
 	process := ifrit.Envoke(sigmon.New(group_runner.New([]group_runner.Member{
-		{"inbox", inbox.New(natsClient, stager, inbox.ValidateRequest, logger)},
+		{"inbox", inbox.New(natsClient, stager, dockerStager, inbox.ValidateRequest, logger)},
 		{"outbox", outbox.New(stagerBBS, natsClient, logger)},
 	})))
 
@@ -95,22 +96,22 @@ func main() {
 	}
 }
 
-func initializeStager(stagerBBS bbs.StagerBBS, logger lager.Logger) stager.Stager {
+func initializeStagers(stagerBBS bbs.StagerBBS, logger lager.Logger) (stager.Stager, stager_docker.DockerStager) {
 	circusesMap := make(map[string]string)
 	err := json.Unmarshal([]byte(*circuses), &circusesMap)
 	if err != nil {
 		logger.Fatal("Error parsing circuses flag: %s\n", err)
 	}
+	config := stager.Config{
+		Circuses:           circusesMap,
+		MinMemoryMB:        *minMemoryMB,
+		MinDiskMB:          *minDiskMB,
+		MinFileDescriptors: *minFileDescriptors,
+	}
+	bpStager := stager.New(stagerBBS, logger, config)
+	dockerStager := stager_docker.New(stagerBBS, logger, config)
 
-	return stager.New(
-		stagerBBS,
-		logger,
-		stager.Config{
-			Circuses:           circusesMap,
-			MinMemoryMB:        *minMemoryMB,
-			MinDiskMB:          *minDiskMB,
-			MinFileDescriptors: *minFileDescriptors,
-		})
+	return bpStager, dockerStager
 }
 
 func initializeNatsClient(logger lager.Logger) *yagnats.Client {

@@ -11,6 +11,7 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/cloudfoundry-incubator/stager/outbox"
 	"github.com/cloudfoundry-incubator/stager/stager"
+	"github.com/cloudfoundry-incubator/stager/stager_docker"
 	"github.com/cloudfoundry/yagnats"
 	"github.com/cloudfoundry/yagnats/fakeyagnats"
 	. "github.com/onsi/ginkgo"
@@ -70,6 +71,10 @@ var _ = Describe("Outbox", func() {
 		fakenats.Subscribe(DiegoStageFinishedSubject, func(msg *yagnats.Message) {
 			publishedCallback <- msg.Payload
 		})
+
+		fakenats.Subscribe(DiegoDockerStageFinishedSubject, func(msg *yagnats.Message) {
+			publishedCallback <- msg.Payload
+		})
 	})
 
 	JustBeforeEach(func() {
@@ -115,6 +120,45 @@ var _ = Describe("Outbox", func() {
 		Context("when the response fails to go out", func() {
 			BeforeEach(func() {
 				fakenats.WhenPublishing(DiegoStageFinishedSubject, func(msg *yagnats.Message) error {
+					return errors.New("kaboom!")
+				})
+			})
+
+			It("does not attempt to resolve the Task", func() {
+				completedTasks <- task
+
+				Consistently(bbs.ResolveTaskCallCount).Should(Equal(0))
+			})
+		})
+	})
+
+	Context("when a completed docker staging Task appears in the outbox", func() {
+		BeforeEach(func() {
+			task.Domain = stager_docker.TaskDomain
+			task.Result = `{
+				"execution_metadata":"./some-start-command"
+			}`
+		})
+
+		It("resolves the completed task, publishes its result and then marks the Task as resolved", func() {
+			completedTasks <- task
+
+			Eventually(bbs.ResolvingTaskCallCount).Should(Equal(1))
+
+			var receivedPayload []byte
+			Eventually(published).Should(Receive(&receivedPayload))
+			Ω(receivedPayload).Should(MatchJSON(fmt.Sprintf(`{
+				"detected_start_command":"./some-start-command",
+				"app_id": "%s",
+				"task_id": "%s"
+			}`, appId, taskId)))
+
+			Eventually(bbs.ResolveTaskCallCount).Should(Equal(1))
+			Ω(bbs.ResolveTaskArgsForCall(0)).Should(Equal(task.Guid))
+		})
+		Context("when the response fails to go out", func() {
+			BeforeEach(func() {
+				fakenats.WhenPublishing(DiegoDockerStageFinishedSubject, func(msg *yagnats.Message) error {
 					return errors.New("kaboom!")
 				})
 			})
