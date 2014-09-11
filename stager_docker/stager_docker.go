@@ -89,7 +89,7 @@ func (stager *stager_docker) Stage(request cc_messages.DockerStagingRequestFromC
 			models.ExecutorAction{
 				models.RunAction{
 					Path:    TailorExecutablePath,
-					Args:    []string{"-outputMetadataJSONFilename", TailorOutputPath, "-dockerImageUrl", request.DockerImageUrl},
+					Args:    []string{"-outputMetadataJSONFilename", TailorOutputPath, "-dockerRef", request.DockerImageUrl},
 					Env:     request.Environment.BBSEnvironment(),
 					Timeout: 15 * time.Minute,
 					ResourceLimits: models.ResourceLimits{
@@ -174,7 +174,7 @@ func (stager *stager_docker) compilerDownloadURL(request cc_messages.DockerStagi
 		return nil, errors.New("couldn't generate the compiler download path")
 	}
 
-	urlString := urljoiner.Join(fileServerURL, staticRoute.Path, DockerCircusFilename)
+	urlString := urljoiner.Join(fileServerURL, staticRoute.Path, circusFilename)
 
 	url, err := url.ParseRequestURI(urlString)
 	if err != nil {
