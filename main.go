@@ -55,6 +55,12 @@ var circuses = flag.String(
 	"Map of circuses for different stacks (name => compiler_name)",
 )
 
+var dockerCircusPath = flag.String(
+	"dockerCircusPath",
+	"",
+	"path for downloading docker circus from file server",
+)
+
 var minMemoryMB = flag.Uint(
 	"minMemoryMB",
 	1024,
@@ -104,6 +110,7 @@ func initializeStagers(stagerBBS bbs.StagerBBS, logger lager.Logger) (stager.Sta
 	}
 	config := stager.Config{
 		Circuses:           circusesMap,
+		DockerCircusPath:   *dockerCircusPath,
 		MinMemoryMB:        *minMemoryMB,
 		MinDiskMB:          *minDiskMB,
 		MinFileDescriptors: *minFileDescriptors,

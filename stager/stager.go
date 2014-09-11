@@ -23,6 +23,7 @@ const TaskDomain = "cf-app-staging"
 
 type Config struct {
 	Circuses           map[string]string
+	DockerCircusPath   string
 	MinMemoryMB        uint
 	MinDiskMB          uint
 	MinFileDescriptors uint64

@@ -149,7 +149,13 @@ func (stager *stager_docker) Stage(request cc_messages.DockerStagingRequestFromC
 
 func (stager *stager_docker) compilerDownloadURL(request cc_messages.DockerStagingRequestFromCC, fileServerURL string) (*url.URL, error) {
 
-	parsed, err := url.Parse(DockerCircusFilename)
+	var circusFilename string
+	if len(stager.config.DockerCircusPath) > 0 {
+		circusFilename = stager.config.DockerCircusPath
+	} else {
+		circusFilename = DockerCircusFilename
+	}
+	parsed, err := url.Parse(circusFilename)
 	if err != nil {
 		return nil, errors.New("couldn't parse compiler URL")
 	}
