@@ -12,9 +12,10 @@ type DockerStagingRequestFromCC struct {
 }
 
 type DockerStagingResponseForCC struct {
-	AppId  string `json:"app_id,omitempty"`
-	TaskId string `json:"task_id,omitempty"`
-	Error  string `json:"error,omitempty"`
+	AppId             string `json:"app_id"`
+	TaskId            string `json:"task_id"`
+	ExecutionMetadata string `json:"execution_metadata"`
+	Error             string `json:"error,omitempty"`
 }
 
 type StagingRequestFromCC struct {
