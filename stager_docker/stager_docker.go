@@ -31,8 +31,8 @@ type stager_docker struct {
 	config    stager.Config
 }
 
-var TailorExecutablePath = "/tmp/circus/tailor"
-var TailorOutputPath = "/tmp/result/result.json"
+var TailorExecutablePath = "/tmp/docker-circus/tailor"
+var TailorOutputPath = "/tmp/docker-result/result.json"
 
 var ErrNoFileServerPresent = errors.New("no available file server present")
 var ErrNoCompilerDefined = errors.New("no compiler defined for requested stack")
@@ -67,7 +67,7 @@ func (stager *stager_docker) Stage(request cc_messages.DockerStagingRequestFromC
 					From:     compilerURL.String(),
 					To:       path.Dir(TailorExecutablePath),
 					Extract:  true,
-					CacheKey: fmt.Sprintf("tailor-%s", request.Stack),
+					CacheKey: "tailor-docker",
 				},
 			},
 			"",
