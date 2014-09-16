@@ -14,12 +14,21 @@ import (
 
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
+	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	"github.com/cloudfoundry/gunk/urljoiner"
 )
 
-const TaskDomain = "cf-app-staging"
+const (
+	TaskDomain = "cf-app-staging"
+
+	stagingMsgArrivedCounter  = metric.Counter("staging-message-arrived")
+	stagingMsgSuccessCounter  = metric.Counter("staging-message-success")
+	stagingMsgFailureCounter  = metric.Counter("staging-message-failure")
+	stagingMsgSuccessDuration = metric.Duration("staging-message-success-duration")
+	stagingMsgFailureDuration = metric.Duration("staging-message-failure-duration")
+)
 
 type Config struct {
 	Circuses           map[string]string
@@ -51,6 +60,21 @@ var ErrNoFileServerPresent = errors.New("no available file server present")
 var ErrNoCompilerDefined = errors.New("no compiler defined for requested stack")
 
 func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
+	stagingMsgArrivedCounter.Increment()
+
+	success := false
+	start := time.Now()
+	defer func() {
+		duration := time.Now().Sub(start)
+		if success {
+			stagingMsgSuccessCounter.Increment()
+			stagingMsgSuccessDuration.Send(duration)
+		} else {
+			stagingMsgFailureCounter.Increment()
+			stagingMsgFailureDuration.Send(duration)
+		}
+	}()
+
 	fileServerURL, err := stager.stagerBBS.GetAvailableFileServer()
 	if err != nil {
 		return ErrNoFileServerPresent
@@ -281,6 +305,7 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 		err = nil
 	}
 
+	success = err == nil
 	return err
 }
 
