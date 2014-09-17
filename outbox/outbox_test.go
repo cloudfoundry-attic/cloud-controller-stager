@@ -58,9 +58,9 @@ var _ = Describe("Outbox", func() {
 			Domain:     stager.TaskDomain,
 		}
 
-		completedTasks = make(chan models.Task)
+		completedTasks = make(chan models.Task, 1)
 		watchStopChan = make(chan bool)
-		watchErrChan = make(chan error)
+		watchErrChan = make(chan error, 1)
 		bbs = &fake_bbs.FakeStagerBBS{}
 		bbs.WatchForCompletedTaskReturns(completedTasks, watchStopChan, watchErrChan)
 
@@ -86,15 +86,18 @@ var _ = Describe("Outbox", func() {
 		Eventually(outbox.Wait()).Should(Receive())
 	})
 
-	Context("when a completed Task appears in the outbox", func() {
-		It("resolves the completed task, publishes its result and then marks the Task as resolved", func() {
+	Context("when a completed staging task appears in the outbox", func() {
+		BeforeEach(func() {
 			completedTasks <- task
+		})
 
-			Eventually(bbs.ResolvingTaskCallCount).Should(Equal(1))
+		Context("when everything suceeds", func() {
+			It("resolves the completed task, publishes its result and then marks the Task as resolved", func() {
+				Eventually(bbs.ResolvingTaskCallCount).Should(Equal(1))
 
-			var receivedPayload []byte
-			Eventually(published).Should(Receive(&receivedPayload))
-			Ω(receivedPayload).Should(MatchJSON(fmt.Sprintf(`{
+				var receivedPayload []byte
+				Eventually(published).Should(Receive(&receivedPayload))
+				Ω(receivedPayload).Should(MatchJSON(fmt.Sprintf(`{
 				"buildpack_key":"buildpack-key",
 				"detected_buildpack":"Some Buildpack",
 				"execution_metadata":"{\"start_command\":\"./some-start-command\"}",
@@ -102,18 +105,8 @@ var _ = Describe("Outbox", func() {
 				"task_id": "%s"
 			}`, appId, taskId)))
 
-			Eventually(bbs.ResolveTaskCallCount).Should(Equal(1))
-			Ω(bbs.ResolveTaskArgsForCall(0)).Should(Equal(task.Guid))
-		})
-
-		Context("when the task is not a staging task", func() {
-			BeforeEach(func() {
-				task.Domain = "some-random-domain"
-			})
-
-			It("should not resolve the completed task ", func() {
-				completedTasks <- task
-				Consistently(bbs.ResolvingTaskCallCount).Should(BeZero())
+				Eventually(bbs.ResolveTaskCallCount).Should(Equal(1))
+				Ω(bbs.ResolveTaskArgsForCall(0)).Should(Equal(task.Guid))
 			})
 		})
 
@@ -125,37 +118,59 @@ var _ = Describe("Outbox", func() {
 			})
 
 			It("does not attempt to resolve the Task", func() {
-				completedTasks <- task
+				Consistently(bbs.ResolveTaskCallCount).Should(Equal(0))
+			})
+		})
 
+		Context("when resolving the task fails", func() {
+			BeforeEach(func() {
+				bbs.ResolvingTaskReturns(errors.New("oops"))
+			})
+
+			It("does not send a response to the requester, because another stager probably resolved it", func() {
+				Consistently(published).ShouldNot(Receive())
 				Consistently(bbs.ResolveTaskCallCount).Should(Equal(0))
 			})
 		})
 	})
 
-	Context("when a completed docker staging Task appears in the outbox", func() {
+	Context("when the task is not a staging task", func() {
+		BeforeEach(func() {
+			task.Domain = "some-random-domain"
+			completedTasks <- task
+		})
+
+		It("should not resolve the completed task ", func() {
+			Consistently(bbs.ResolvingTaskCallCount).Should(BeZero())
+		})
+	})
+
+	Context("when a completed docker staging task appears in the outbox", func() {
 		BeforeEach(func() {
 			task.Domain = stager_docker.TaskDomain
 			task.Result = `{
 				"execution_metadata":"{\"cmd\":\"./some-start-command\"}"
 			}`
+			completedTasks <- task
 		})
 
-		It("resolves the completed task, publishes its result and then marks the Task as resolved", func() {
-			completedTasks <- task
+		Context("when everything suceeds", func() {
+			It("resolves the completed task, publishes its result and then marks the Task as resolved", func() {
+				Eventually(bbs.ResolvingTaskCallCount).Should(Equal(1))
 
-			Eventually(bbs.ResolvingTaskCallCount).Should(Equal(1))
-
-			var receivedPayload []byte
-			Eventually(published).Should(Receive(&receivedPayload))
-			Ω(receivedPayload).Should(MatchJSON(fmt.Sprintf(`{
+				var receivedPayload []byte
+				Eventually(published).Should(Receive(&receivedPayload))
+				Ω(receivedPayload).Should(MatchJSON(fmt.Sprintf(`{
 				"execution_metadata":"{\"cmd\":\"./some-start-command\"}",
 				"app_id": "%s",
 				"task_id": "%s"
 			}`, appId, taskId)))
 
-			Eventually(bbs.ResolveTaskCallCount).Should(Equal(1))
-			Ω(bbs.ResolveTaskArgsForCall(0)).Should(Equal(task.Guid))
+				Eventually(bbs.ResolveTaskCallCount).Should(Equal(1))
+				Ω(bbs.ResolveTaskArgsForCall(0)).Should(Equal(task.Guid))
+			})
 		})
+
 		Context("when the response fails to go out", func() {
 			BeforeEach(func() {
 				fakenats.WhenPublishing(DiegoDockerStageFinishedSubject, func(msg *yagnats.Message) error {
@@ -163,23 +178,35 @@ var _ = Describe("Outbox", func() {
 				})
 			})
 
-			It("does not attempt to resolve the Task", func() {
-				completedTasks <- task
-
+			It("does not attempt to resolve the task", func() {
 				Consistently(bbs.ResolveTaskCallCount).Should(Equal(0))
 			})
 		})
 	})
 
-	Context("when a failed Task appears in the outbox", func() {
+	Context("when an error is seen while watching", func() {
+		BeforeEach(func() {
+			watchErrChan <- errors.New("oh no!")
+		})
+
+		It("starts watching again", func() {
+			sinceStart := time.Now()
+			Eventually(bbs.WatchForCompletedTaskCallCount, 4).Should(Equal(2))
+			Ω(time.Since(sinceStart)).Should(BeNumerically("~", 3*time.Second, 200*time.Millisecond))
+
+			completedTasks <- task
+			Eventually(published).Should(Receive())
+		})
+	})
+
+	Context("when a failed task appears in the outbox", func() {
 		BeforeEach(func() {
 			task.Failed = true
 			task.FailureReason = "because i said so"
+			completedTasks <- task
 		})
 
-		It("publishes its reason as an error and then marks the Task as completed", func() {
-			completedTasks <- task
-
+		It("publishes its reason as an error and then marks the task as completed", func() {
 			var receivedPayload []byte
 			Eventually(published).Should(Receive(&receivedPayload))
 			Ω(receivedPayload).Should(MatchJSON(fmt.Sprintf(`{
@@ -196,60 +223,15 @@ var _ = Describe("Outbox", func() {
 		})
 	})
 
-	Context("when ResolvingTask fails", func() {
-		BeforeEach(func() {
-			bbs.ResolvingTaskReturns(errors.New("oops"))
-		})
-
-		It("does not send a response to the requester, because another stager probably resolved it", func() {
-			completedTasks <- task
-
-			Consistently(published).ShouldNot(Receive())
-			Consistently(bbs.ResolveTaskCallCount).Should(Equal(0))
-		})
-	})
-
-	Context("when an error is seen while watching", func() {
-		It("starts watching again", func() {
-			sinceStart := time.Now()
-
-			watchErrChan <- errors.New("oh no!")
-
-			Eventually(bbs.WatchForCompletedTaskCallCount, 4).Should(Equal(2))
-
-			Ω(time.Since(sinceStart)).Should(BeNumerically("~", 3*time.Second, 200*time.Millisecond))
-
-			completedTasks <- task
-			Eventually(published).Should(Receive())
-			Eventually(bbs.ResolveTaskCallCount).Should(Equal(1))
-			Ω(bbs.ResolveTaskArgsForCall(0)).Should(Equal(task.Guid))
-		})
-	})
-
 	Describe("asynchronous message processing", func() {
-		It("can accept new Completed Tasks before it's done processing existing Tasks in the queue", func() {
-			completedTasks <- task
-			completedTasks <- task
+		It("can accept new Completed Tasks before it's done processing existing tasks in the queue", func() {
+			Eventually(completedTasks).Should(BeSent(task))
+			Eventually(completedTasks).Should(BeSent(task))
+			Eventually(completedTasks).Should(BeSent(task))
 
-			var receivedPayload []byte
-
-			Eventually(published).Should(Receive(&receivedPayload))
-			Ω(receivedPayload).Should(MatchJSON(fmt.Sprintf(`{
-				"buildpack_key":"buildpack-key",
-				"detected_buildpack":"Some Buildpack",
-				"execution_metadata":"{\"start_command\":\"./some-start-command\"}",
-				"app_id": "%s",
-				"task_id": "%s"
-			}`, appId, taskId)))
-
-			Eventually(published).Should(Receive(&receivedPayload))
-			Ω(receivedPayload).Should(MatchJSON(fmt.Sprintf(`{
-				"buildpack_key":"buildpack-key",
-				"detected_buildpack":"Some Buildpack",
-				"execution_metadata":"{\"start_command\":\"./some-start-command\"}",
-				"app_id": "%s",
-				"task_id": "%s"
-			}`, appId, taskId)))
+			Eventually(published).Should(Receive())
+			Eventually(published).Should(Receive())
+			Eventually(published).Should(Receive())
 		})
 	})
 })
