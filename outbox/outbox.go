@@ -49,14 +49,11 @@ func (o *Outbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 			if !ok {
 				tasks = nil
 			}
-			if task.Domain != stager.TaskDomain && task.Domain != stager_docker.TaskDomain {
-				break
-			}
 
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				handleCompletedTask(task, o.bbs, o.natsClient, taskLogger)
+				handleCompletedStagingTask(task, o.bbs, o.natsClient, taskLogger)
 			}()
 
 		case err, ok := <-errs:
@@ -77,8 +74,12 @@ func (o *Outbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 	}
 }
 
-func handleCompletedTask(task models.Task, bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger lager.Logger) {
+func handleCompletedStagingTask(task models.Task, bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger lager.Logger) {
 	var err error
+
+	if task.Domain != stager.TaskDomain && task.Domain != stager_docker.TaskDomain {
+		return
+	}
 
 	err = bbs.ResolvingTask(task.Guid)
 	if err != nil {
