@@ -12,7 +12,7 @@ import (
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 
-	"github.com/cloudfoundry/yagnats"
+	"github.com/apcera/nats"
 	"github.com/cloudfoundry/yagnats/fakeyagnats"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
@@ -23,7 +23,7 @@ import (
 )
 
 var _ = Describe("Docker Inbox", func() {
-	var fakenats *fakeyagnats.FakeYagnats
+	var fakenats *fakeyagnats.FakeApceraWrapper
 	var fauxstager *fake_stager.FakeStager
 	var fauxstagerdocker *fake_stager_docker.FakeStagerDocker
 	var logOutput *gbytes.Buffer
@@ -43,7 +43,7 @@ var _ = Describe("Docker Inbox", func() {
 			TaskId: "mytask",
 		}
 
-		fakenats = fakeyagnats.New()
+		fakenats = fakeyagnats.NewApceraClientWrapper()
 		fauxstager = &fake_stager.FakeStager{}
 		fauxstagerdocker = &fake_stager_docker.FakeStagerDocker{}
 		validator = func(request cc_messages.StagingRequestFromCC) error {
@@ -61,7 +61,7 @@ var _ = Describe("Docker Inbox", func() {
 		var process chan ifrit.Process
 
 		BeforeEach(func() {
-			fakenats.WhenSubscribing(DiegoDockerStageStartSubject, func(callback yagnats.Callback) error {
+			fakenats.WhenSubscribing(DiegoDockerStageStartSubject, func(callback nats.MsgHandler) error {
 				atomic.AddUint32(&attempts, 1)
 				return errors.New("oh no!")
 			})
@@ -90,15 +90,15 @@ var _ = Describe("Docker Inbox", func() {
 				return atomic.LoadUint32(&attempts)
 			}).Should(BeNumerically(">=", 2))
 
-			Consistently(func() []yagnats.Subscription {
+			Consistently(func() []*nats.Subscription {
 				return fakenats.Subscriptions(DiegoDockerStageStartSubject)
 			}).Should(BeEmpty())
 
-			fakenats.WhenSubscribing(DiegoDockerStageStartSubject, func(callback yagnats.Callback) error {
+			fakenats.WhenSubscribing(DiegoDockerStageStartSubject, func(callback nats.MsgHandler) error {
 				return nil
 			})
 
-			Eventually(func() []yagnats.Subscription {
+			Eventually(func() []*nats.Subscription {
 				return fakenats.Subscriptions(DiegoDockerStageStartSubject)
 			}).ShouldNot(BeEmpty())
 		})

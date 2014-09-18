@@ -7,6 +7,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/apcera/nats"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/cloudfoundry-incubator/stager/outbox"
@@ -15,7 +16,6 @@ import (
 	"github.com/cloudfoundry/dropsonde/autowire/metrics"
 	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
 	"github.com/cloudfoundry/gunk/timeprovider/faketimeprovider"
-	"github.com/cloudfoundry/yagnats"
 	"github.com/cloudfoundry/yagnats/fakeyagnats"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -25,7 +25,7 @@ import (
 
 var _ = Describe("Outbox", func() {
 	var (
-		fakenats  *fakeyagnats.FakeYagnats
+		fakenats  *fakeyagnats.FakeApceraWrapper
 		logger    lager.Logger
 		task      models.Task
 		bbs       *fake_bbs.FakeStagerBBS
@@ -45,7 +45,7 @@ var _ = Describe("Outbox", func() {
 	)
 
 	BeforeEach(func() {
-		fakenats = fakeyagnats.New()
+		fakenats = fakeyagnats.NewApceraClientWrapper()
 		logger = lager.NewLogger("fakelogger")
 		appId = "my_app_id"
 		taskId = "do_this"
@@ -75,12 +75,12 @@ var _ = Describe("Outbox", func() {
 
 		published = publishedCallback
 
-		fakenats.Subscribe(DiegoStageFinishedSubject, func(msg *yagnats.Message) {
-			publishedCallback <- msg.Payload
+		fakenats.Subscribe(DiegoStageFinishedSubject, func(msg *nats.Msg) {
+			publishedCallback <- msg.Data
 		})
 
-		fakenats.Subscribe(DiegoDockerStageFinishedSubject, func(msg *yagnats.Message) {
-			publishedCallback <- msg.Payload
+		fakenats.Subscribe(DiegoDockerStageFinishedSubject, func(msg *nats.Msg) {
+			publishedCallback <- msg.Data
 		})
 
 		fakeTimeProvider = faketimeprovider.New(time.Now())
@@ -143,7 +143,7 @@ var _ = Describe("Outbox", func() {
 
 		Context("when the response fails to go out", func() {
 			BeforeEach(func() {
-				fakenats.WhenPublishing(DiegoStageFinishedSubject, func(msg *yagnats.Message) error {
+				fakenats.WhenPublishing(DiegoStageFinishedSubject, func(msg *nats.Msg) error {
 					return errors.New("kaboom!")
 				})
 			})
@@ -204,7 +204,7 @@ var _ = Describe("Outbox", func() {
 
 		Context("when the response fails to go out", func() {
 			BeforeEach(func() {
-				fakenats.WhenPublishing(DiegoDockerStageFinishedSubject, func(msg *yagnats.Message) error {
+				fakenats.WhenPublishing(DiegoDockerStageFinishedSubject, func(msg *nats.Msg) error {
 					return errors.New("kaboom!")
 				})
 			})

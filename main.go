@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/cloudfoundry/gunk/group_runner"
@@ -121,28 +122,22 @@ func initializeStagers(stagerBBS bbs.StagerBBS, logger lager.Logger) (stager.Sta
 	return bpStager, dockerStager
 }
 
-func initializeNatsClient(logger lager.Logger) *yagnats.Client {
-	natsClient := yagnats.NewClient()
-
-	natsMembers := []yagnats.ConnectionProvider{}
-
+func initializeNatsClient(logger lager.Logger) yagnats.ApceraWrapperNATSClient {
+	natsMembers := []string{}
 	for _, addr := range strings.Split(*natsAddresses, ",") {
-		natsMembers = append(
-			natsMembers,
-			&yagnats.ConnectionInfo{
-				Addr:     addr,
-				Username: *natsUsername,
-				Password: *natsPassword,
-			},
-		)
+		uri := url.URL{
+			Scheme: "nats",
+			User:   url.UserPassword(*natsUsername, *natsPassword),
+			Host:   addr,
+		}
+		natsMembers = append(natsMembers, uri.String())
 	}
 
-	err := natsClient.Connect(&yagnats.ConnectionCluster{
-		Members: natsMembers,
-	})
+	natsClient := yagnats.NewApceraClientWrapper(natsMembers)
 
+	err := natsClient.Connect()
 	if err != nil {
-		logger.Fatal("connecting-to-nats-failed", err)
+		logger.Fatal("failed-to-connect-to-nats", err)
 	}
 
 	return natsClient

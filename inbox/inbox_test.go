@@ -12,7 +12,7 @@ import (
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 
-	"github.com/cloudfoundry/yagnats"
+	"github.com/apcera/nats"
 	"github.com/cloudfoundry/yagnats/fakeyagnats"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
@@ -22,7 +22,7 @@ import (
 )
 
 var _ = Describe("Inbox", func() {
-	var fakenats *fakeyagnats.FakeYagnats
+	var fakenats *fakeyagnats.FakeApceraWrapper
 	var fauxstager *fake_stager.FakeStager
 	var logOutput *gbytes.Buffer
 	var logger lager.Logger
@@ -41,7 +41,7 @@ var _ = Describe("Inbox", func() {
 			TaskId: "mytask",
 		}
 
-		fakenats = fakeyagnats.New()
+		fakenats = fakeyagnats.NewApceraClientWrapper()
 		fauxstager = &fake_stager.FakeStager{}
 		validator = func(request cc_messages.StagingRequestFromCC) error {
 			return nil
@@ -58,7 +58,7 @@ var _ = Describe("Inbox", func() {
 		var process chan ifrit.Process
 
 		BeforeEach(func() {
-			fakenats.WhenSubscribing(DiegoStageStartSubject, func(callback yagnats.Callback) error {
+			fakenats.WhenSubscribing(DiegoStageStartSubject, func(callback nats.MsgHandler) error {
 				atomic.AddUint32(&attempts, 1)
 				return errors.New("oh no!")
 			})
@@ -87,15 +87,15 @@ var _ = Describe("Inbox", func() {
 				return atomic.LoadUint32(&attempts)
 			}).Should(BeNumerically(">=", 2))
 
-			Consistently(func() []yagnats.Subscription {
+			Consistently(func() []*nats.Subscription {
 				return fakenats.Subscriptions(DiegoStageStartSubject)
 			}).Should(BeEmpty())
 
-			fakenats.WhenSubscribing(DiegoStageStartSubject, func(callback yagnats.Callback) error {
+			fakenats.WhenSubscribing(DiegoStageStartSubject, func(callback nats.MsgHandler) error {
 				return nil
 			})
 
-			Eventually(func() []yagnats.Subscription {
+			Eventually(func() []*nats.Subscription {
 				return fakenats.Subscriptions(DiegoStageStartSubject)
 			}).ShouldNot(BeEmpty())
 		})
@@ -113,7 +113,7 @@ var _ = Describe("Inbox", func() {
 		})
 
 		Context("and it receives a staging request", func() {
-			publishedCompletionMessages := func() []yagnats.Message {
+			publishedCompletionMessages := func() []*nats.Msg {
 				return fakenats.PublishedMessages("diego.staging.finished")
 			}
 
@@ -151,7 +151,7 @@ var _ = Describe("Inbox", func() {
 					response := publishedCompletionMessages()[0]
 
 					stagingResponse := cc_messages.StagingResponseForCC{}
-					json.Unmarshal(response.Payload, &stagingResponse)
+					json.Unmarshal(response.Data, &stagingResponse)
 					Ω(stagingResponse.Error).Should(Equal("Staging failed: The thingy broke :("))
 				})
 			})
@@ -175,7 +175,7 @@ var _ = Describe("Inbox", func() {
 					response := publishedCompletionMessages()[0]
 
 					stagingResponse := cc_messages.StagingResponseForCC{}
-					json.Unmarshal(response.Payload, &stagingResponse)
+					json.Unmarshal(response.Data, &stagingResponse)
 
 					Ω(stagingResponse).Should(Equal(cc_messages.StagingResponseForCC{
 						AppId:  "myapp",

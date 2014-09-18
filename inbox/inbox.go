@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/apcera/nats"
 	"github.com/cloudfoundry/yagnats"
 	"github.com/pivotal-golang/lager"
 
@@ -18,7 +19,7 @@ const DiegoStageStartSubject = "diego.staging.start"
 const DiegoDockerStageStartSubject = "diego.docker.staging.start"
 
 type Inbox struct {
-	natsClient      yagnats.NATSClient
+	natsClient      yagnats.ApceraWrapperNATSClient
 	stager          stager.Stager
 	validateRequest RequestValidator
 	dockerStager    stager_docker.DockerStager
@@ -27,7 +28,7 @@ type Inbox struct {
 
 type RequestValidator func(cc_messages.StagingRequestFromCC) error
 
-func New(natsClient yagnats.NATSClient, stager stager.Stager, dockerStager stager_docker.DockerStager, validator RequestValidator, logger lager.Logger) *Inbox {
+func New(natsClient yagnats.ApceraWrapperNATSClient, stager stager.Stager, dockerStager stager_docker.DockerStager, validator RequestValidator, logger lager.Logger) *Inbox {
 	inboxLogger := logger.Session("inbox")
 	return &Inbox{
 		natsClient:      natsClient,
@@ -61,11 +62,11 @@ func (inbox *Inbox) subscribeDockerStagingStart() {
 	return
 }
 
-func (inbox *Inbox) onDockerStagingRequest(message *yagnats.Message) {
+func (inbox *Inbox) onDockerStagingRequest(message *nats.Msg) {
 	requestLogger := inbox.logger.Session("docker-request")
 	stagingRequest := cc_messages.DockerStagingRequestFromCC{}
 
-	err := json.Unmarshal(message.Payload, &stagingRequest)
+	err := json.Unmarshal(message.Data, &stagingRequest)
 	if err != nil {
 		requestLogger.Error("malformed docker request", err, lager.Data{"message": message})
 		return
@@ -100,11 +101,11 @@ func (inbox *Inbox) subscribeStagingStart() {
 	return
 }
 
-func (inbox *Inbox) onStagingRequest(message *yagnats.Message) {
+func (inbox *Inbox) onStagingRequest(message *nats.Msg) {
 	requestLogger := inbox.logger.Session("request")
 	stagingRequest := cc_messages.StagingRequestFromCC{}
 
-	err := json.Unmarshal(message.Payload, &stagingRequest)
+	err := json.Unmarshal(message.Data, &stagingRequest)
 	if err != nil {
 		requestLogger.Error("malformed", err, lager.Data{"message": message})
 		return

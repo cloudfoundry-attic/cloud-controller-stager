@@ -27,7 +27,7 @@ var runner *stager_runner.StagerRunner
 
 var _ = Describe("Main", func() {
 	var (
-		natsClient        yagnats.NATSClient
+		natsClient        yagnats.ApceraWrapperNATSClient
 		bbs               *Bbs.BBS
 		fileServerProcess ifrit.Process
 	)
