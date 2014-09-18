@@ -91,7 +91,7 @@ func main() {
 
 	process := ifrit.Envoke(sigmon.New(group_runner.New([]group_runner.Member{
 		{"inbox", inbox.New(natsClient, stager, dockerStager, inbox.ValidateRequest, logger)},
-		{"outbox", outbox.New(stagerBBS, natsClient, logger)},
+		{"outbox", outbox.New(stagerBBS, natsClient, logger, timeprovider.NewTimeProvider())},
 	})))
 
 	fmt.Println("Listening for staging requests!")

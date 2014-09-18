@@ -23,11 +23,7 @@ import (
 const (
 	TaskDomain = "cf-app-staging"
 
-	stagingMsgArrivedCounter  = metric.Counter("staging-message-arrived")
-	stagingMsgSuccessCounter  = metric.Counter("staging-message-success")
-	stagingMsgFailureCounter  = metric.Counter("staging-message-failure")
-	stagingMsgSuccessDuration = metric.Duration("staging-message-success-duration")
-	stagingMsgFailureDuration = metric.Duration("staging-message-failure-duration")
+	stagingMsgArrivedCounter = metric.Counter("staging-message-arrived")
 )
 
 type Config struct {
@@ -61,19 +57,6 @@ var ErrNoCompilerDefined = errors.New("no compiler defined for requested stack")
 
 func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 	stagingMsgArrivedCounter.Increment()
-
-	success := false
-	start := time.Now()
-	defer func() {
-		duration := time.Now().Sub(start)
-		if success {
-			stagingMsgSuccessCounter.Increment()
-			stagingMsgSuccessDuration.Send(duration)
-		} else {
-			stagingMsgFailureCounter.Increment()
-			stagingMsgFailureDuration.Send(duration)
-		}
-	}()
 
 	fileServerURL, err := stager.stagerBBS.GetAvailableFileServer()
 	if err != nil {
@@ -305,7 +288,6 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 		err = nil
 	}
 
-	success = err == nil
 	return err
 }
 

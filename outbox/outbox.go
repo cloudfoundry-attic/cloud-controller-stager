@@ -8,28 +8,41 @@ import (
 
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
+	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/stager/stager"
 	"github.com/cloudfoundry-incubator/stager/stager_docker"
+	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/yagnats"
 	"github.com/pivotal-golang/lager"
 )
 
-const DiegoStageFinishedSubject = "diego.staging.finished"
-const DiegoDockerStageFinishedSubject = "diego.docker.staging.finished"
+const (
+	// Metrics
+	stagingMsgSuccessCounter  = metric.Counter("staging-message-success")
+	stagingMsgSuccessDuration = metric.Duration("staging-message-success-duration")
+	stagingMsgFailureCounter  = metric.Counter("staging-message-failure")
+	stagingMsgFailureDuration = metric.Duration("staging-message-failure-duration")
+
+	// NATS subjects
+	DiegoStageFinishedSubject       = "diego.staging.finished"
+	DiegoDockerStageFinishedSubject = "diego.docker.staging.finished"
+)
 
 type Outbox struct {
-	bbs        bbs.StagerBBS
-	natsClient yagnats.NATSClient
-	logger     lager.Logger
+	bbs          bbs.StagerBBS
+	natsClient   yagnats.NATSClient
+	logger       lager.Logger
+	timeProvider timeprovider.TimeProvider
 }
 
-func New(bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger lager.Logger) *Outbox {
+func New(bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger lager.Logger, timeProvider timeprovider.TimeProvider) *Outbox {
 	outboxLogger := logger.Session("outbox")
 	return &Outbox{
-		bbs:        bbs,
-		natsClient: natsClient,
-		logger:     outboxLogger,
+		bbs:          bbs,
+		natsClient:   natsClient,
+		logger:       outboxLogger,
+		timeProvider: timeProvider,
 	}
 }
 
@@ -53,7 +66,7 @@ func (o *Outbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				handleCompletedStagingTask(task, o.bbs, o.natsClient, taskLogger)
+				handleCompletedStagingTask(task, o.bbs, o.natsClient, taskLogger, o.timeProvider)
 			}()
 
 		case err, ok := <-errs:
@@ -74,13 +87,28 @@ func (o *Outbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 	}
 }
 
-func handleCompletedStagingTask(task models.Task, bbs bbs.StagerBBS, natsClient yagnats.NATSClient, logger lager.Logger) {
+func handleCompletedStagingTask(
+	task models.Task,
+	bbs bbs.StagerBBS,
+	natsClient yagnats.NATSClient,
+	logger lager.Logger,
+	timeProvider timeprovider.TimeProvider,
+) {
 	var err error
 
 	if task.Domain != stager.TaskDomain && task.Domain != stager_docker.TaskDomain {
 		return
 	}
 
+	duration := timeProvider.Time().Sub(time.Unix(0, task.CreatedAt))
+
+	if task.Failed {
+		stagingMsgFailureCounter.Increment()
+		stagingMsgFailureDuration.Send(duration)
+	} else {
+		stagingMsgSuccessDuration.Send(duration)
+		stagingMsgSuccessCounter.Increment()
+	}
 	err = bbs.ResolvingTask(task.Guid)
 	if err != nil {
 		logger.Error("resolving-failed", err, lager.Data{"guid": task.Guid})

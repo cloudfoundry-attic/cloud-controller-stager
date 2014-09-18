@@ -12,6 +12,9 @@ import (
 	. "github.com/cloudfoundry-incubator/stager/outbox"
 	"github.com/cloudfoundry-incubator/stager/stager"
 	"github.com/cloudfoundry-incubator/stager/stager_docker"
+	"github.com/cloudfoundry/dropsonde/autowire/metrics"
+	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
+	"github.com/cloudfoundry/gunk/timeprovider/faketimeprovider"
 	"github.com/cloudfoundry/yagnats"
 	"github.com/cloudfoundry/yagnats/fakeyagnats"
 	. "github.com/onsi/ginkgo"
@@ -35,6 +38,10 @@ var _ = Describe("Outbox", func() {
 		watchErrChan   chan error
 
 		outbox ifrit.Process
+
+		fakeTimeProvider    *faketimeprovider.FakeTimeProvider
+		metricSender        *fake.FakeMetricSender
+		stagingDurationNano time.Duration
 	)
 
 	BeforeEach(func() {
@@ -64,7 +71,7 @@ var _ = Describe("Outbox", func() {
 		bbs = &fake_bbs.FakeStagerBBS{}
 		bbs.WatchForCompletedTaskReturns(completedTasks, watchStopChan, watchErrChan)
 
-		publishedCallback := make(chan []byte)
+		publishedCallback := make(chan []byte, 10)
 
 		published = publishedCallback
 
@@ -75,10 +82,18 @@ var _ = Describe("Outbox", func() {
 		fakenats.Subscribe(DiegoDockerStageFinishedSubject, func(msg *yagnats.Message) {
 			publishedCallback <- msg.Payload
 		})
+
+		fakeTimeProvider = faketimeprovider.New(time.Now())
+
+		stagingDurationNano = 900900
+		metricSender = fake.NewFakeMetricSender()
+		metrics.Initialize(metricSender)
+		task.CreatedAt = fakeTimeProvider.Time().UnixNano()
+		fakeTimeProvider.Increment(stagingDurationNano)
 	})
 
 	JustBeforeEach(func() {
-		outbox = ifrit.Envoke(New(bbs, fakenats, logger))
+		outbox = ifrit.Envoke(New(bbs, fakenats, logger, fakeTimeProvider))
 	})
 
 	AfterEach(func() {
@@ -87,6 +102,7 @@ var _ = Describe("Outbox", func() {
 	})
 
 	Context("when a completed staging task appears in the outbox", func() {
+
 		BeforeEach(func() {
 			completedTasks <- task
 		})
@@ -107,6 +123,21 @@ var _ = Describe("Outbox", func() {
 
 				Eventually(bbs.ResolveTaskCallCount).Should(Equal(1))
 				Ω(bbs.ResolveTaskArgsForCall(0)).Should(Equal(task.Guid))
+			})
+
+			It("emits the time it took to stage succesfully", func() {
+				Eventually(func() fake.Metric {
+					return metricSender.GetValue("staging-message-success-duration")
+				}).Should(Equal(fake.Metric{
+					Value: float64(stagingDurationNano),
+					Unit:  "nanos",
+				}))
+			})
+
+			It("increments the staging success counter", func() {
+				Eventually(published).Should(Receive())
+
+				Ω(metricSender.GetCounter("staging-message-success")).Should(Equal(uint64(1)))
 			})
 		})
 
@@ -220,6 +251,22 @@ var _ = Describe("Outbox", func() {
 
 			Eventually(bbs.ResolveTaskCallCount).Should(Equal(1))
 			Ω(bbs.ResolveTaskArgsForCall(0)).Should(Equal(task.Guid))
+		})
+
+		It("emits the time it took to stage unsuccesfully", func() {
+			Eventually(func() fake.Metric {
+				return metricSender.GetValue("staging-message-failure-duration")
+			}).Should(Equal(fake.Metric{
+				Value: 900900,
+				Unit:  "nanos",
+			}))
+
+		})
+
+		It("increments the staging success counter", func() {
+			Eventually(published).Should(Receive())
+
+			Ω(metricSender.GetCounter("staging-message-failure")).Should(Equal(uint64(1)))
 		})
 	})
 
