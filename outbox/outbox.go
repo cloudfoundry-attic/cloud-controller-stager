@@ -19,10 +19,10 @@ import (
 
 const (
 	// Metrics
-	stagingMsgSuccessCounter  = metric.Counter("staging-message-success")
-	stagingMsgSuccessDuration = metric.Duration("staging-message-success-duration")
-	stagingMsgFailureCounter  = metric.Counter("staging-message-failure")
-	stagingMsgFailureDuration = metric.Duration("staging-message-failure-duration")
+	stagingSuccessCounter  = metric.Counter("staging-success")
+	stagingSuccessDuration = metric.Duration("staging-success-duration")
+	stagingFailureCounter  = metric.Counter("staging-failure")
+	stagingFailureDuration = metric.Duration("staging-failure-duration")
 
 	// NATS subjects
 	DiegoStageFinishedSubject       = "diego.staging.finished"
@@ -103,11 +103,11 @@ func handleCompletedStagingTask(
 	duration := timeProvider.Time().Sub(time.Unix(0, task.CreatedAt))
 
 	if task.Failed {
-		stagingMsgFailureCounter.Increment()
-		stagingMsgFailureDuration.Send(duration)
+		stagingFailureCounter.Increment()
+		stagingFailureDuration.Send(duration)
 	} else {
-		stagingMsgSuccessDuration.Send(duration)
-		stagingMsgSuccessCounter.Increment()
+		stagingSuccessDuration.Send(duration)
+		stagingSuccessCounter.Increment()
 	}
 	err = bbs.ResolvingTask(task.Guid)
 	if err != nil {

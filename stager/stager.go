@@ -23,7 +23,7 @@ import (
 const (
 	TaskDomain = "cf-app-staging"
 
-	stagingMsgArrivedCounter = metric.Counter("staging-message-arrived")
+	stagingRequestArrivedCounter = metric.Counter("staging-request-arrived")
 )
 
 type Config struct {
@@ -56,7 +56,7 @@ var ErrNoFileServerPresent = errors.New("no available file server present")
 var ErrNoCompilerDefined = errors.New("no compiler defined for requested stack")
 
 func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
-	stagingMsgArrivedCounter.Increment()
+	stagingRequestArrivedCounter.Increment()
 
 	fileServerURL, err := stager.stagerBBS.GetAvailableFileServer()
 	if err != nil {

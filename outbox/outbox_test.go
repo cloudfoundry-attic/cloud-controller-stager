@@ -127,7 +127,7 @@ var _ = Describe("Outbox", func() {
 
 			It("emits the time it took to stage succesfully", func() {
 				Eventually(func() fake.Metric {
-					return metricSender.GetValue("staging-message-success-duration")
+					return metricSender.GetValue("staging-success-duration")
 				}).Should(Equal(fake.Metric{
 					Value: float64(stagingDurationNano),
 					Unit:  "nanos",
@@ -137,7 +137,7 @@ var _ = Describe("Outbox", func() {
 			It("increments the staging success counter", func() {
 				Eventually(published).Should(Receive())
 
-				Ω(metricSender.GetCounter("staging-message-success")).Should(Equal(uint64(1)))
+				Ω(metricSender.GetCounter("staging-success")).Should(Equal(uint64(1)))
 			})
 		})
 
@@ -255,7 +255,7 @@ var _ = Describe("Outbox", func() {
 
 		It("emits the time it took to stage unsuccesfully", func() {
 			Eventually(func() fake.Metric {
-				return metricSender.GetValue("staging-message-failure-duration")
+				return metricSender.GetValue("staging-failure-duration")
 			}).Should(Equal(fake.Metric{
 				Value: 900900,
 				Unit:  "nanos",
@@ -266,7 +266,7 @@ var _ = Describe("Outbox", func() {
 		It("increments the staging success counter", func() {
 			Eventually(published).Should(Receive())
 
-			Ω(metricSender.GetCounter("staging-message-failure")).Should(Equal(uint64(1)))
+			Ω(metricSender.GetCounter("staging-failure")).Should(Equal(uint64(1)))
 		})
 	})
 

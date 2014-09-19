@@ -5,6 +5,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/cloudfoundry/dropsonde/autowire/metrics"
+	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
 	"github.com/cloudfoundry/storeadapter"
 	"github.com/pivotal-golang/lager"
 
@@ -205,6 +207,14 @@ var _ = Describe("Stage", func() {
 			"",
 			"Failed to Fetch Detected Buildpack",
 		)
+	})
+
+	It("increments the counter to track arriving staging messages", func() {
+		metricSender := fake.NewFakeMetricSender()
+		metrics.Initialize(metricSender)
+		err := stager.Stage(stagingRequest)
+		Ω(err).ShouldNot(HaveOccurred())
+		Ω(metricSender.GetCounter("staging-request-arrived")).Should(Equal(uint64(1)))
 	})
 
 	Context("when file the server is available", func() {
