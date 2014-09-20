@@ -4,14 +4,13 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"net/url"
 	"strings"
 
 	"github.com/cloudfoundry/gunk/group_runner"
+	"github.com/cloudfoundry/gunk/natsclientrunner"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
-	"github.com/cloudfoundry/yagnats"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/sigmon"
@@ -84,13 +83,14 @@ func main() {
 	flag.Parse()
 
 	logger := cf_lager.New("stager")
-	natsClient := initializeNatsClient(logger)
+	natsClient := natsclientrunner.NewClient(*natsAddresses, *natsUsername, *natsPassword)
 	stagerBBS := initializeStagerBBS(logger)
 	stager, dockerStager := initializeStagers(stagerBBS, logger)
 
 	cf_debug_server.Run()
 
 	process := ifrit.Envoke(sigmon.New(group_runner.New([]group_runner.Member{
+		{"nats", natsclientrunner.New(natsClient, logger)},
 		{"inbox", inbox.New(natsClient, stager, dockerStager, inbox.ValidateRequest, logger)},
 		{"outbox", outbox.New(stagerBBS, natsClient, logger, timeprovider.NewTimeProvider())},
 	})))
@@ -120,27 +120,6 @@ func initializeStagers(stagerBBS bbs.StagerBBS, logger lager.Logger) (stager.Sta
 	dockerStager := stager_docker.New(stagerBBS, logger, config)
 
 	return bpStager, dockerStager
-}
-
-func initializeNatsClient(logger lager.Logger) yagnats.ApceraWrapperNATSClient {
-	natsMembers := []string{}
-	for _, addr := range strings.Split(*natsAddresses, ",") {
-		uri := url.URL{
-			Scheme: "nats",
-			User:   url.UserPassword(*natsUsername, *natsPassword),
-			Host:   addr,
-		}
-		natsMembers = append(natsMembers, uri.String())
-	}
-
-	natsClient := yagnats.NewApceraClientWrapper(natsMembers)
-
-	err := natsClient.Connect()
-	if err != nil {
-		logger.Fatal("failed-to-connect-to-nats", err)
-	}
-
-	return natsClient
 }
 
 func initializeStagerBBS(logger lager.Logger) bbs.StagerBBS {
