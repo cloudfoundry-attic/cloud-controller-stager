@@ -160,6 +160,7 @@ func publishResponse(natsClient yagnats.ApceraWrapperNATSClient, task models.Tas
 		response.BuildpackKey = result.BuildpackKey
 		response.DetectedBuildpack = result.DetectedBuildpack
 		response.ExecutionMetadata = result.ExecutionMetadata
+		response.DetectedStartCommand = result.DetectedStartCommand
 	}
 
 	payload, err := json.Marshal(response)
@@ -193,6 +194,7 @@ func publishDockerResponse(natsClient yagnats.ApceraWrapperNATSClient, task mode
 			return err
 		}
 		response.ExecutionMetadata = result.ExecutionMetadata
+		response.DetectedStartCommand = result.DetectedStartCommand
 	}
 
 	payload, err := json.Marshal(response)

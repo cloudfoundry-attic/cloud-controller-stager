@@ -59,7 +59,8 @@ var _ = Describe("Outbox", func() {
 			Result: `{
 				"buildpack_key":"buildpack-key",
 				"detected_buildpack":"Some Buildpack",
-				"execution_metadata":"{\"start_command\":\"./some-start-command\"}"
+				"execution_metadata":"{\"start_command\":\"./some-start-command\"}",
+				"detected_start_command":{"web":"./some-start-command"}
 			}`,
 			Annotation: string(annotationJson),
 			Domain:     stager.TaskDomain,
@@ -117,6 +118,7 @@ var _ = Describe("Outbox", func() {
 				"buildpack_key":"buildpack-key",
 				"detected_buildpack":"Some Buildpack",
 				"execution_metadata":"{\"start_command\":\"./some-start-command\"}",
+				"detected_start_command":{"web":"./some-start-command"},
 				"app_id": "%s",
 				"task_id": "%s"
 			}`, appId, taskId)))
@@ -180,7 +182,8 @@ var _ = Describe("Outbox", func() {
 		BeforeEach(func() {
 			task.Domain = stager_docker.TaskDomain
 			task.Result = `{
-				"execution_metadata":"{\"cmd\":\"./some-start-command\"}"
+				"execution_metadata":"{\"cmd\":\"./some-start-command\"}",
+				"detected_start_command":{"web":"./some-start-command"}
 			}`
 			completedTasks <- task
 		})
@@ -193,6 +196,7 @@ var _ = Describe("Outbox", func() {
 				Eventually(published).Should(Receive(&receivedPayload))
 				Ω(receivedPayload).Should(MatchJSON(fmt.Sprintf(`{
 				"execution_metadata":"{\"cmd\":\"./some-start-command\"}",
+				"detected_start_command":{"web":"./some-start-command"},
 				"app_id": "%s",
 				"task_id": "%s"
 			}`, appId, taskId)))
@@ -245,6 +249,7 @@ var _ = Describe("Outbox", func() {
 				"buildpack_key": "",
 				"detected_buildpack": "",
 				"execution_metadata": "",
+				"detected_start_command":null,
 				"error":"because i said so",
 				"task_id":"%s"
 			}`, appId, taskId)))
