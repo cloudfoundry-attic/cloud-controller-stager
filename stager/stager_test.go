@@ -214,7 +214,7 @@ var _ = Describe("Stage", func() {
 		metrics.Initialize(metricSender)
 		err := stager.Stage(stagingRequest)
 		Ω(err).ShouldNot(HaveOccurred())
-		Ω(metricSender.GetCounter("staging-request-arrived")).Should(Equal(uint64(1)))
+		Ω(metricSender.GetCounter("StagingRequestsReceived")).Should(Equal(uint64(1)))
 	})
 
 	Context("when file the server is available", func() {
