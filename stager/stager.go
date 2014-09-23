@@ -23,7 +23,7 @@ import (
 const (
 	TaskDomain = "cf-app-staging"
 
-	stagingRequestArrivedCounter = metric.Counter("staging-request-arrived")
+	stagingRequestArrivedCounter = metric.Counter("StagingRequestsReceived")
 )
 
 type Config struct {

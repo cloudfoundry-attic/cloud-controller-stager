@@ -19,10 +19,10 @@ import (
 
 const (
 	// Metrics
-	stagingSuccessCounter  = metric.Counter("staging-success")
-	stagingSuccessDuration = metric.Duration("staging-success-duration")
-	stagingFailureCounter  = metric.Counter("staging-failure")
-	stagingFailureDuration = metric.Duration("staging-failure-duration")
+	stagingSuccessCounter  = metric.Counter("SuccessfulStagings")
+	stagingSuccessDuration = metric.Duration("SuccessfulStagingDurations")
+	stagingFailureCounter  = metric.Counter("FailedStagings")
+	stagingFailureDuration = metric.Duration("FailedStagingDurations")
 
 	// NATS subjects
 	DiegoStageFinishedSubject       = "diego.staging.finished"
