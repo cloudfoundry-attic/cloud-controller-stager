@@ -22,7 +22,7 @@ import (
 )
 
 var _ = Describe("Inbox", func() {
-	var fakenats *fakeyagnats.FakeApceraWrapper
+	var fakenats *fakeyagnats.FakeNATSConn
 	var fauxstager *fake_stager.FakeStager
 	var logOutput *gbytes.Buffer
 	var logger lager.Logger
@@ -41,7 +41,7 @@ var _ = Describe("Inbox", func() {
 			TaskId: "mytask",
 		}
 
-		fakenats = fakeyagnats.NewApceraClientWrapper()
+		fakenats = fakeyagnats.Connect()
 		fauxstager = &fake_stager.FakeStager{}
 		validator = func(request cc_messages.StagingRequestFromCC) error {
 			return nil

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/cloudfoundry/gunk/group_runner"
@@ -11,6 +12,7 @@ import (
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
+	"github.com/cloudfoundry/yagnats"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/sigmon"
@@ -83,16 +85,20 @@ func main() {
 	flag.Parse()
 
 	logger := cf_lager.New("stager")
-	natsClient := natsclientrunner.NewClient(*natsAddresses, *natsUsername, *natsPassword)
 	stagerBBS := initializeStagerBBS(logger)
 	stager, dockerStager := initializeStagers(stagerBBS, logger)
 
 	cf_debug_server.Run()
 
+	var natsClient yagnats.NATSConn
 	process := ifrit.Envoke(sigmon.New(group_runner.New([]group_runner.Member{
-		{"nats", natsclientrunner.New(natsClient, logger)},
-		{"inbox", inbox.New(natsClient, stager, dockerStager, inbox.ValidateRequest, logger)},
-		{"outbox", outbox.New(stagerBBS, natsClient, logger, timeprovider.NewTimeProvider())},
+		{"nats", natsclientrunner.New(*natsAddresses, *natsUsername, *natsPassword, logger, &natsClient)},
+		{"inbox", ifrit.RunFunc(func(signals <-chan os.Signal, ready chan<- struct{}) error {
+			return inbox.New(natsClient, stager, dockerStager, inbox.ValidateRequest, logger).Run(signals, ready)
+		})},
+		{"outbox", ifrit.RunFunc(func(signals <-chan os.Signal, ready chan<- struct{}) error {
+			return outbox.New(stagerBBS, natsClient, logger, timeprovider.NewTimeProvider()).Run(signals, ready)
+		})},
 	})))
 
 	fmt.Println("Listening for staging requests!")

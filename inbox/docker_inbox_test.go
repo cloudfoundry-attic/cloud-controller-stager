@@ -23,7 +23,7 @@ import (
 )
 
 var _ = Describe("Docker Inbox", func() {
-	var fakenats *fakeyagnats.FakeApceraWrapper
+	var fakenats *fakeyagnats.FakeNATSConn
 	var fauxstager *fake_stager.FakeStager
 	var fauxstagerdocker *fake_stager_docker.FakeStagerDocker
 	var logOutput *gbytes.Buffer
@@ -43,7 +43,7 @@ var _ = Describe("Docker Inbox", func() {
 			TaskId: "mytask",
 		}
 
-		fakenats = fakeyagnats.NewApceraClientWrapper()
+		fakenats = fakeyagnats.Connect()
 		fauxstager = &fake_stager.FakeStager{}
 		fauxstagerdocker = &fake_stager_docker.FakeStagerDocker{}
 		validator = func(request cc_messages.StagingRequestFromCC) error {

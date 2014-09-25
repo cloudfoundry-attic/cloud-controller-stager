@@ -25,7 +25,7 @@ import (
 
 var _ = Describe("Outbox", func() {
 	var (
-		fakenats  *fakeyagnats.FakeApceraWrapper
+		fakenats  *fakeyagnats.FakeNATSConn
 		logger    lager.Logger
 		task      models.Task
 		bbs       *fake_bbs.FakeStagerBBS
@@ -45,7 +45,7 @@ var _ = Describe("Outbox", func() {
 	)
 
 	BeforeEach(func() {
-		fakenats = fakeyagnats.NewApceraClientWrapper()
+		fakenats = fakeyagnats.Connect()
 		logger = lager.NewLogger("fakelogger")
 		appId = "my_app_id"
 		taskId = "do_this"

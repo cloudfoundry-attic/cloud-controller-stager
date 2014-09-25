@@ -19,7 +19,7 @@ const DiegoStageStartSubject = "diego.staging.start"
 const DiegoDockerStageStartSubject = "diego.docker.staging.start"
 
 type Inbox struct {
-	natsClient      yagnats.ApceraWrapperNATSClient
+	natsClient      yagnats.NATSConn
 	stager          stager.Stager
 	validateRequest RequestValidator
 	dockerStager    stager_docker.DockerStager
@@ -28,7 +28,7 @@ type Inbox struct {
 
 type RequestValidator func(cc_messages.StagingRequestFromCC) error
 
-func New(natsClient yagnats.ApceraWrapperNATSClient, stager stager.Stager, dockerStager stager_docker.DockerStager, validator RequestValidator, logger lager.Logger) *Inbox {
+func New(natsClient yagnats.NATSConn, stager stager.Stager, dockerStager stager_docker.DockerStager, validator RequestValidator, logger lager.Logger) *Inbox {
 	inboxLogger := logger.Session("inbox")
 	return &Inbox{
 		natsClient:      natsClient,
