@@ -7,7 +7,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/cloudfoundry/gunk/group_runner"
 	"github.com/cloudfoundry/gunk/natsclientrunner"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
@@ -15,6 +14,7 @@ import (
 	"github.com/cloudfoundry/yagnats"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
+	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/sigmon"
 
 	"github.com/cloudfoundry-incubator/cf-debug-server"
@@ -91,7 +91,8 @@ func main() {
 	cf_debug_server.Run()
 
 	var natsClient yagnats.NATSConn
-	process := ifrit.Envoke(sigmon.New(group_runner.New([]group_runner.Member{
+
+	group := grouper.NewOrdered(os.Interrupt, grouper.Members{
 		{"nats", natsclientrunner.New(*natsAddresses, *natsUsername, *natsPassword, logger, &natsClient)},
 		{"inbox", ifrit.RunFunc(func(signals <-chan os.Signal, ready chan<- struct{}) error {
 			return inbox.New(natsClient, stager, dockerStager, inbox.ValidateRequest, logger).Run(signals, ready)
@@ -99,7 +100,9 @@ func main() {
 		{"outbox", ifrit.RunFunc(func(signals <-chan os.Signal, ready chan<- struct{}) error {
 			return outbox.New(stagerBBS, natsClient, logger, timeprovider.NewTimeProvider()).Run(signals, ready)
 		})},
-	})))
+	})
+
+	process := ifrit.Envoke(sigmon.New(group))
 
 	fmt.Println("Listening for staging requests!")
 
