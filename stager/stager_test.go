@@ -172,9 +172,8 @@ var _ = Describe("Stage", func() {
 		uploadDropletAction = models.EmitProgressFor(
 			models.ExecutorAction{
 				models.UploadAction{
-					From:     "/tmp/droplet/",
-					To:       "http://file-server.com/v1/droplet/bunny",
-					Compress: false,
+					From: "/tmp/droplet/",
+					To:   "http://file-server.com/v1/droplet/bunny",
 				},
 			},
 			"",
@@ -186,9 +185,8 @@ var _ = Describe("Stage", func() {
 			models.EmitProgressFor(
 				models.ExecutorAction{
 					models.UploadAction{
-						From:     "/tmp/cache/",
-						To:       "http://file-server.com/v1/build_artifacts/bunny",
-						Compress: true,
+						From: "/tmp/cache/",
+						To:   "http://file-server.com/v1/build_artifacts/bunny",
 					},
 				},
 				"",

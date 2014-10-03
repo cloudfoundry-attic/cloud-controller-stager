@@ -232,9 +232,8 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 			models.EmitProgressFor(
 				models.ExecutorAction{
 					models.UploadAction{
-						From:     tailorConfig.BuildArtifactsCacheDir() + "/", // get the contents, not the directory itself
-						To:       uploadURL.String(),
-						Compress: true,
+						From: tailorConfig.BuildArtifactsCacheDir() + "/", // get the contents, not the directory itself
+						To:   uploadURL.String(),
 					},
 				},
 				"",
