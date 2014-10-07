@@ -176,7 +176,7 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 		fileDescriptorLimit = &fd
 	}
 
-	//Run Smelter
+	//Run Tailor
 	actions = append(
 		actions,
 		models.EmitProgressFor(
@@ -210,7 +210,7 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 		models.EmitProgressFor(
 			models.ExecutorAction{
 				models.UploadAction{
-					From: tailorConfig.OutputDropletDir() + "/", // get the contents, not the directory itself
+					From: tailorConfig.OutputDropletDir() + "/droplet.tgz", // get the droplet
 					To:   uploadURL.String(),
 				},
 			},
@@ -232,7 +232,7 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 			models.EmitProgressFor(
 				models.ExecutorAction{
 					models.UploadAction{
-						From: tailorConfig.BuildArtifactsCacheDir() + "/", // get the contents, not the directory itself
+						From: tailorConfig.OutputBuildArtifactsCache(), // get the compressed build artifacts cache
 						To:   uploadURL.String(),
 					},
 				},

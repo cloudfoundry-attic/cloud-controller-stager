@@ -153,6 +153,7 @@ var _ = Describe("Stage", func() {
 						"-buildArtifactsCacheDir=/tmp/cache",
 						"-buildpackOrder=zfirst-buildpack,asecond-buildpack",
 						"-buildpacksDir=/tmp/buildpacks",
+						"-outputBuildArtifactsCache=/tmp/output-cache",
 						"-outputDropletDir=/tmp/droplet",
 						"-outputMetadataDir=/tmp/result",
 					},
@@ -172,7 +173,7 @@ var _ = Describe("Stage", func() {
 		uploadDropletAction = models.EmitProgressFor(
 			models.ExecutorAction{
 				models.UploadAction{
-					From: "/tmp/droplet/",
+					From: "/tmp/droplet/droplet.tgz",
 					To:   "http://file-server.com/v1/droplet/bunny",
 				},
 			},
@@ -185,7 +186,7 @@ var _ = Describe("Stage", func() {
 			models.EmitProgressFor(
 				models.ExecutorAction{
 					models.UploadAction{
-						From: "/tmp/cache/",
+						From: "/tmp/output-cache",
 						To:   "http://file-server.com/v1/build_artifacts/bunny",
 					},
 				},
@@ -321,6 +322,7 @@ var _ = Describe("Stage", func() {
 									"-buildArtifactsCacheDir=/tmp/cache",
 									"-buildpackOrder=zfirst-buildpack,asecond-buildpack",
 									"-buildpacksDir=/tmp/buildpacks",
+									"-outputBuildArtifactsCache=/tmp/output-cache",
 									"-outputDropletDir=/tmp/droplet",
 									"-outputMetadataDir=/tmp/result",
 								},
