@@ -210,7 +210,7 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 		models.EmitProgressFor(
 			models.ExecutorAction{
 				models.UploadAction{
-					From: tailorConfig.OutputDropletDir() + "/droplet.tgz", // get the droplet
+					From: tailorConfig.OutputDroplet(), // get the droplet
 					To:   uploadURL.String(),
 				},
 			},
