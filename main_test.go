@@ -1,9 +1,8 @@
-package integration_test
+package main_test
 
 import (
 	"fmt"
 	"os"
-	"testing"
 	"time"
 
 	"github.com/cloudfoundry/gunk/natsrunner"
@@ -13,19 +12,14 @@ import (
 	"github.com/tedsuo/ifrit"
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
-	"github.com/cloudfoundry-incubator/stager/integration/stager_runner"
+	"github.com/cloudfoundry-incubator/stager/testrunner"
 	"github.com/cloudfoundry/storeadapter/storerunner/etcdstorerunner"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 )
 
-var stagerPath string
-var etcdRunner *etcdstorerunner.ETCDClusterRunner
-var natsRunner *natsrunner.NATSRunner
-var runner *stager_runner.StagerRunner
-
-var _ = Describe("Main", func() {
+var _ = Describe("Stager", func() {
 	var (
 		natsClient        yagnats.NATSConn
 		bbs               *Bbs.BBS
@@ -48,7 +42,7 @@ var _ = Describe("Main", func() {
 
 		fileServerProcess = ifrit.Envoke(bbs.NewFileServerHeartbeat("http://example.com", "file-server-id", time.Second))
 
-		runner = stager_runner.New(
+		runner = testrunner.New(
 			stagerPath,
 			[]string{fmt.Sprintf("http://127.0.0.1:%d", etcdPort)},
 			[]string{fmt.Sprintf("127.0.0.1:%d", natsPort)},
@@ -128,31 +122,4 @@ var _ = Describe("Main", func() {
 			})
 		})
 	})
-})
-
-func TestStagerMain(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Integration Suite")
-}
-
-var _ = SynchronizedBeforeSuite(func() []byte {
-	stager, err := gexec.Build("github.com/cloudfoundry-incubator/stager", "-race")
-	Ω(err).ShouldNot(HaveOccurred())
-	return []byte(stager)
-}, func(stager []byte) {
-	stagerPath = string(stager)
-})
-
-var _ = SynchronizedAfterSuite(func() {
-	if etcdRunner != nil {
-		etcdRunner.Stop()
-	}
-	if natsRunner != nil {
-		natsRunner.Stop()
-	}
-	if runner != nil {
-		runner.Stop()
-	}
-}, func() {
-	gexec.CleanupBuildArtifacts()
 })

@@ -1,4 +1,4 @@
-package stager_runner
+package testrunner
 
 import (
 	"os/exec"
