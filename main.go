@@ -7,11 +7,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/cloudfoundry/gunk/natsclientrunner"
+	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
-	"github.com/cloudfoundry/yagnats"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
@@ -90,10 +89,10 @@ func main() {
 
 	cf_debug_server.Run()
 
-	var natsClient yagnats.NATSConn
+	natsClient := diegonats.NewClient()
 
 	group := grouper.NewOrdered(os.Interrupt, grouper.Members{
-		{"nats", natsclientrunner.New(*natsAddresses, *natsUsername, *natsPassword, logger, &natsClient)},
+		{"nats", diegonats.NewClientRunner(*natsAddresses, *natsUsername, *natsPassword, logger, natsClient)},
 		{"inbox", ifrit.RunFunc(func(signals <-chan os.Signal, ready chan<- struct{}) error {
 			return inbox.New(natsClient, stager, dockerStager, inbox.ValidateRequest, logger).Run(signals, ready)
 		})},

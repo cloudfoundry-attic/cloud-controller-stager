@@ -13,7 +13,7 @@ import (
 	"github.com/tedsuo/ifrit"
 
 	"github.com/apcera/nats"
-	"github.com/cloudfoundry/yagnats/fakeyagnats"
+	"github.com/cloudfoundry/gunk/diegonats"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	. "github.com/cloudfoundry-incubator/stager/inbox"
@@ -23,7 +23,7 @@ import (
 )
 
 var _ = Describe("Docker Inbox", func() {
-	var fakenats *fakeyagnats.FakeNATSConn
+	var fakenats *diegonats.FakeNATSClient
 	var fauxstager *fake_stager.FakeStager
 	var fauxstagerdocker *fake_stager_docker.FakeStagerDocker
 	var logOutput *gbytes.Buffer
@@ -43,7 +43,7 @@ var _ = Describe("Docker Inbox", func() {
 			TaskId: "mytask",
 		}
 
-		fakenats = fakeyagnats.Connect()
+		fakenats = diegonats.NewFakeClient()
 		fauxstager = &fake_stager.FakeStager{}
 		fauxstagerdocker = &fake_stager_docker.FakeStagerDocker{}
 		validator = func(request cc_messages.StagingRequestFromCC) error {

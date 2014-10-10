@@ -12,8 +12,8 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/stager/stager"
 	"github.com/cloudfoundry-incubator/stager/stager_docker"
+	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/cloudfoundry/gunk/timeprovider"
-	"github.com/cloudfoundry/yagnats"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -31,12 +31,12 @@ const (
 
 type Outbox struct {
 	bbs          bbs.StagerBBS
-	natsClient   yagnats.NATSConn
+	natsClient   diegonats.NATSClient
 	logger       lager.Logger
 	timeProvider timeprovider.TimeProvider
 }
 
-func New(bbs bbs.StagerBBS, natsClient yagnats.NATSConn, logger lager.Logger, timeProvider timeprovider.TimeProvider) *Outbox {
+func New(bbs bbs.StagerBBS, natsClient diegonats.NATSClient, logger lager.Logger, timeProvider timeprovider.TimeProvider) *Outbox {
 	outboxLogger := logger.Session("outbox")
 	return &Outbox{
 		bbs:          bbs,
@@ -90,7 +90,7 @@ func (o *Outbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 func handleCompletedStagingTask(
 	task models.Task,
 	bbs bbs.StagerBBS,
-	natsClient yagnats.NATSConn,
+	natsClient diegonats.NATSClient,
 	logger lager.Logger,
 	timeProvider timeprovider.TimeProvider,
 ) {
@@ -136,7 +136,7 @@ func handleCompletedStagingTask(
 	logger.Info("resolve-success", lager.Data{"guid": task.Guid})
 }
 
-func publishResponse(natsClient yagnats.NATSConn, task models.Task, logger lager.Logger) error {
+func publishResponse(natsClient diegonats.NATSClient, task models.Task, logger lager.Logger) error {
 	var response cc_messages.StagingResponseForCC
 
 	var annotation models.StagingTaskAnnotation
@@ -173,7 +173,7 @@ func publishResponse(natsClient yagnats.NATSConn, task models.Task, logger lager
 	return natsClient.Publish(DiegoStageFinishedSubject, payload)
 }
 
-func publishDockerResponse(natsClient yagnats.NATSConn, task models.Task, logger lager.Logger) error {
+func publishDockerResponse(natsClient diegonats.NATSClient, task models.Task, logger lager.Logger) error {
 	var response cc_messages.DockerStagingResponseForCC
 
 	var annotation models.StagingTaskAnnotation

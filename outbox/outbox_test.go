@@ -15,8 +15,8 @@ import (
 	"github.com/cloudfoundry-incubator/stager/stager_docker"
 	"github.com/cloudfoundry/dropsonde/autowire/metrics"
 	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
+	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/cloudfoundry/gunk/timeprovider/faketimeprovider"
-	"github.com/cloudfoundry/yagnats/fakeyagnats"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/pivotal-golang/lager"
@@ -25,7 +25,7 @@ import (
 
 var _ = Describe("Outbox", func() {
 	var (
-		fakenats  *fakeyagnats.FakeNATSConn
+		fakenats  *diegonats.FakeNATSClient
 		logger    lager.Logger
 		task      models.Task
 		bbs       *fake_bbs.FakeStagerBBS
@@ -45,7 +45,7 @@ var _ = Describe("Outbox", func() {
 	)
 
 	BeforeEach(func() {
-		fakenats = fakeyagnats.Connect()
+		fakenats = diegonats.NewFakeClient()
 		logger = lager.NewLogger("fakelogger")
 		appId = "my_app_id"
 		taskId = "do_this"

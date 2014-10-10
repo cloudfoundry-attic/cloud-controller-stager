@@ -5,9 +5,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/cloudfoundry/gunk/natsrunner"
+	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/cloudfoundry/gunk/timeprovider"
-	"github.com/cloudfoundry/yagnats"
 	"github.com/pivotal-golang/lager/lagertest"
 	"github.com/tedsuo/ifrit"
 
@@ -21,7 +20,7 @@ import (
 
 var _ = Describe("Stager", func() {
 	var (
-		natsClient        yagnats.NATSConn
+		natsClient        diegonats.NATSClient
 		bbs               *Bbs.BBS
 		fileServerProcess ifrit.Process
 	)
@@ -33,10 +32,10 @@ var _ = Describe("Stager", func() {
 		etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1)
 		etcdRunner.Start()
 
-		natsRunner = natsrunner.NewNATSRunner(natsPort)
+		natsRunner = diegonats.NewRunner(natsPort)
 		natsRunner.Start()
 
-		natsClient = natsRunner.MessageBus
+		natsClient = natsRunner.Client
 
 		bbs = Bbs.NewBBS(etcdRunner.Adapter(), timeprovider.NewTimeProvider(), lagertest.NewTestLogger("test"))
 

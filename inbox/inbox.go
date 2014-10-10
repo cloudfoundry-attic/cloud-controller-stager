@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/apcera/nats"
-	"github.com/cloudfoundry/yagnats"
+	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/pivotal-golang/lager"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
@@ -19,7 +19,7 @@ const DiegoStageStartSubject = "diego.staging.start"
 const DiegoDockerStageStartSubject = "diego.docker.staging.start"
 
 type Inbox struct {
-	natsClient      yagnats.NATSConn
+	natsClient      diegonats.NATSClient
 	stager          stager.Stager
 	validateRequest RequestValidator
 	dockerStager    stager_docker.DockerStager
@@ -28,7 +28,7 @@ type Inbox struct {
 
 type RequestValidator func(cc_messages.StagingRequestFromCC) error
 
-func New(natsClient yagnats.NATSConn, stager stager.Stager, dockerStager stager_docker.DockerStager, validator RequestValidator, logger lager.Logger) *Inbox {
+func New(natsClient diegonats.NATSClient, stager stager.Stager, dockerStager stager_docker.DockerStager, validator RequestValidator, logger lager.Logger) *Inbox {
 	inboxLogger := logger.Session("inbox")
 	return &Inbox{
 		natsClient:      natsClient,
