@@ -1,11 +1,7 @@
 package outbox
 
 import (
-	"bytes"
-	"crypto/tls"
 	"encoding/json"
-	"fmt"
-	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -14,11 +10,10 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry-incubator/stager/api_client"
 	"github.com/cloudfoundry-incubator/stager/stager"
 	"github.com/cloudfoundry-incubator/stager/stager_docker"
-	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/cloudfoundry/gunk/timeprovider"
-	"github.com/cloudfoundry/gunk/urljoiner"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -28,42 +23,23 @@ const (
 	stagingSuccessDuration = metric.Duration("StagingRequestSucceededDuration")
 	stagingFailureCounter  = metric.Counter("StagingRequestsFailed")
 	stagingFailureDuration = metric.Duration("StagingRequestFailedDuration")
-
-	// CC Endpoints
-	stagingCompletePath           = "/internal/staging/completed"
-	stagingCompleteRequestTimeout = 900 * time.Second
 )
 
 type Outbox struct {
-	bbs                bbs.StagerBBS
-	logger             lager.Logger
-	timeProvider       timeprovider.TimeProvider
-	stagingCompleteURI string
-	username           string
-	password           string
-	ccClient           *http.Client
+	bbs          bbs.StagerBBS
+	apiClient    api_client.ApiClient
+	logger       lager.Logger
+	timeProvider timeprovider.TimeProvider
 }
 
-func New(bbs bbs.StagerBBS, baseURI string, username string, password string, skipCertVerify bool, logger lager.Logger, timeProvider timeprovider.TimeProvider) *Outbox {
+func New(bbs bbs.StagerBBS, apiClient api_client.ApiClient, logger lager.Logger, timeProvider timeprovider.TimeProvider) *Outbox {
 	outboxLogger := logger.Session("outbox")
 
-	client := &http.Client{
-		Timeout: stagingCompleteRequestTimeout,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: skipCertVerify,
-			},
-		},
-	}
-
 	return &Outbox{
-		bbs:                bbs,
-		logger:             outboxLogger,
-		timeProvider:       timeProvider,
-		stagingCompleteURI: urljoiner.Join(baseURI, stagingCompletePath),
-		username:           username,
-		password:           password,
-		ccClient:           client,
+		bbs:          bbs,
+		apiClient:    apiClient,
+		logger:       outboxLogger,
+		timeProvider: timeProvider,
 	}
 }
 
@@ -188,7 +164,7 @@ func (o *Outbox) deliverResponse(task models.Task, logger lager.Logger) error {
 		return err
 	}
 
-	err = o.deliverResponseToCC(payload, logger)
+	err = o.apiClient.StagingComplete(payload, logger)
 	if err != nil {
 		return err
 	}
@@ -225,38 +201,10 @@ func (o *Outbox) publishDockerResponse(task models.Task, logger lager.Logger) er
 		return err
 	}
 
-	err = o.deliverResponseToCC(payload, logger)
+	err = o.apiClient.StagingComplete(payload, logger)
 	if err != nil {
 		return err
 	}
 
-	return nil
-}
-
-func (o *Outbox) deliverResponseToCC(payload []byte, logger lager.Logger) error {
-	logger.Info("delivering-staging-response", lager.Data{"payload": string(payload)})
-
-	request, err := http.NewRequest("POST", o.stagingCompleteURI, bytes.NewReader(payload))
-	if err != nil {
-		return err
-	}
-
-	request.SetBasicAuth(o.username, o.password)
-	request.Header.Set("content-type", "application/json")
-
-	response, err := o.ccClient.Do(request)
-	if err != nil {
-		logger.Error("deliver-staging-response-failed", err)
-		return err
-	}
-
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		err = fmt.Errorf("Staging response POST failed with %d", response.StatusCode)
-		return err
-	}
-
-	logger.Info("delivered-staging-response")
 	return nil
 }

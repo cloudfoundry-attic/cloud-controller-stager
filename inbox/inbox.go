@@ -10,7 +10,7 @@ import (
 	"github.com/pivotal-golang/lager"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/stager/outbox"
+	"github.com/cloudfoundry-incubator/stager/api_client"
 	"github.com/cloudfoundry-incubator/stager/stager"
 	"github.com/cloudfoundry-incubator/stager/stager_docker"
 )
@@ -21,6 +21,7 @@ const DiegoDockerStageStartSubject = "diego.docker.staging.start"
 type Inbox struct {
 	natsClient      diegonats.NATSClient
 	stager          stager.Stager
+	apiClient       api_client.ApiClient
 	validateRequest RequestValidator
 	dockerStager    stager_docker.DockerStager
 	logger          lager.Logger
@@ -28,11 +29,12 @@ type Inbox struct {
 
 type RequestValidator func(cc_messages.StagingRequestFromCC) error
 
-func New(natsClient diegonats.NATSClient, stager stager.Stager, dockerStager stager_docker.DockerStager, validator RequestValidator, logger lager.Logger) *Inbox {
+func New(natsClient diegonats.NATSClient, apiClient api_client.ApiClient, stager stager.Stager, dockerStager stager_docker.DockerStager, validator RequestValidator, logger lager.Logger) *Inbox {
 	inboxLogger := logger.Session("inbox")
 	return &Inbox{
 		natsClient:      natsClient,
 		stager:          stager,
+		apiClient:       apiClient,
 		validateRequest: validator,
 		dockerStager:    dockerStager,
 		logger:          inboxLogger,
@@ -84,7 +86,7 @@ func (inbox *Inbox) onDockerStagingRequest(message *nats.Msg) {
 		}
 
 		if responseJson, err := json.Marshal(response); err == nil {
-			inbox.natsClient.Publish(outbox.DiegoDockerStageFinishedSubject, responseJson)
+			inbox.apiClient.StagingComplete(responseJson, inbox.logger)
 		}
 	}
 }
@@ -136,6 +138,6 @@ func (inbox *Inbox) sendErrorResponse(errorMessage string, request cc_messages.S
 	}
 
 	if responseJson, err := json.Marshal(response); err == nil {
-		inbox.natsClient.Publish(outbox.DiegoStageFinishedSubject, responseJson)
+		inbox.apiClient.StagingComplete(responseJson, inbox.logger)
 	}
 }

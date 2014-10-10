@@ -11,12 +11,12 @@ import (
 
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry-incubator/stager/api_client"
 	"github.com/cloudfoundry-incubator/stager/outbox"
 	"github.com/cloudfoundry-incubator/stager/stager"
 	"github.com/cloudfoundry-incubator/stager/stager_docker"
 	"github.com/cloudfoundry/dropsonde/autowire/metrics"
 	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
-	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/cloudfoundry/gunk/timeprovider/faketimeprovider"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -44,6 +44,8 @@ var _ = Describe("Outbox", func() {
 
 		runner  *outbox.Outbox
 		process ifrit.Process
+
+		apiClient api_client.ApiClient
 
 		fakeTimeProvider    *faketimeprovider.FakeTimeProvider
 		metricSender        *fake.FakeMetricSender
@@ -91,11 +93,13 @@ var _ = Describe("Outbox", func() {
 		metricSender = fake.NewFakeMetricSender()
 		metrics.Initialize(metricSender)
 
+		apiClient = api_client.NewApiClient(fakeCC.URL(), "username", "password", true)
+
 		fakeTimeProvider = faketimeprovider.New(time.Now())
 		task.CreatedAt = fakeTimeProvider.Time().UnixNano()
 		fakeTimeProvider.Increment(stagingDurationNano)
 
-		runner = outbox.New(bbs, fakeCC.URL(), "username", "password", true, logger, fakeTimeProvider)
+		runner = outbox.New(bbs, apiClient, logger, fakeTimeProvider)
 	})
 
 	JustBeforeEach(func() {
