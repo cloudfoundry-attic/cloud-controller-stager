@@ -1,7 +1,11 @@
 package outbox
 
 import (
+	"bytes"
+	"crypto/tls"
 	"encoding/json"
+	"fmt"
+	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -14,6 +18,7 @@ import (
 	"github.com/cloudfoundry-incubator/stager/stager_docker"
 	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/cloudfoundry/gunk/timeprovider"
+	"github.com/cloudfoundry/gunk/urljoiner"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -24,25 +29,41 @@ const (
 	stagingFailureCounter  = metric.Counter("StagingRequestsFailed")
 	stagingFailureDuration = metric.Duration("StagingRequestFailedDuration")
 
-	// NATS subjects
-	DiegoStageFinishedSubject       = "diego.staging.finished"
-	DiegoDockerStageFinishedSubject = "diego.docker.staging.finished"
+	// CC Endpoints
+	stagingCompletePath           = "/internal/staging/completed"
+	stagingCompleteRequestTimeout = 900 * time.Second
 )
 
 type Outbox struct {
-	bbs          bbs.StagerBBS
-	natsClient   diegonats.NATSClient
-	logger       lager.Logger
-	timeProvider timeprovider.TimeProvider
+	bbs                bbs.StagerBBS
+	logger             lager.Logger
+	timeProvider       timeprovider.TimeProvider
+	stagingCompleteURI string
+	username           string
+	password           string
+	ccClient           *http.Client
 }
 
-func New(bbs bbs.StagerBBS, natsClient diegonats.NATSClient, logger lager.Logger, timeProvider timeprovider.TimeProvider) *Outbox {
+func New(bbs bbs.StagerBBS, baseURI string, username string, password string, skipCertVerify bool, logger lager.Logger, timeProvider timeprovider.TimeProvider) *Outbox {
 	outboxLogger := logger.Session("outbox")
+
+	client := &http.Client{
+		Timeout: stagingCompleteRequestTimeout,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: skipCertVerify,
+			},
+		},
+	}
+
 	return &Outbox{
-		bbs:          bbs,
-		natsClient:   natsClient,
-		logger:       outboxLogger,
-		timeProvider: timeProvider,
+		bbs:                bbs,
+		logger:             outboxLogger,
+		timeProvider:       timeProvider,
+		stagingCompleteURI: urljoiner.Join(baseURI, stagingCompletePath),
+		username:           username,
+		password:           password,
+		ccClient:           client,
 	}
 }
 
@@ -66,7 +87,7 @@ func (o *Outbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				handleCompletedStagingTask(task, o.bbs, o.natsClient, taskLogger, o.timeProvider)
+				o.handleCompletedStagingTask(task, o.bbs, taskLogger, o.timeProvider)
 			}()
 
 		case err, ok := <-errs:
@@ -87,10 +108,9 @@ func (o *Outbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 	}
 }
 
-func handleCompletedStagingTask(
+func (o *Outbox) handleCompletedStagingTask(
 	task models.Task,
 	bbs bbs.StagerBBS,
-	natsClient diegonats.NATSClient,
 	logger lager.Logger,
 	timeProvider timeprovider.TimeProvider,
 ) {
@@ -118,9 +138,9 @@ func handleCompletedStagingTask(
 	logger.Info("resolving-success", lager.Data{"guid": task.Guid})
 
 	if task.Domain == stager.TaskDomain {
-		err = publishResponse(natsClient, task, logger)
+		err = o.deliverResponse(task, logger.Session("staging-response"))
 	} else {
-		err = publishDockerResponse(natsClient, task, logger)
+		err = o.publishDockerResponse(task, logger.Session("docker-staging-response"))
 	}
 
 	if err != nil {
@@ -136,8 +156,8 @@ func handleCompletedStagingTask(
 	logger.Info("resolve-success", lager.Data{"guid": task.Guid})
 }
 
-func publishResponse(natsClient diegonats.NATSClient, task models.Task, logger lager.Logger) error {
-	var response cc_messages.StagingResponseForCC
+func (o *Outbox) deliverResponse(task models.Task, logger lager.Logger) error {
+	var message cc_messages.StagingResponseForCC
 
 	var annotation models.StagingTaskAnnotation
 	err := json.Unmarshal([]byte(task.Annotation), &annotation)
@@ -145,11 +165,11 @@ func publishResponse(natsClient diegonats.NATSClient, task models.Task, logger l
 		return err
 	}
 
-	response.AppId = annotation.AppId
-	response.TaskId = annotation.TaskId
+	message.AppId = annotation.AppId
+	message.TaskId = annotation.TaskId
 
 	if task.Failed {
-		response.Error = task.FailureReason
+		message.Error = task.FailureReason
 	} else {
 		var result models.StagingResult
 		err := json.Unmarshal([]byte(task.Result), &result)
@@ -157,23 +177,26 @@ func publishResponse(natsClient diegonats.NATSClient, task models.Task, logger l
 			return err
 		}
 
-		response.BuildpackKey = result.BuildpackKey
-		response.DetectedBuildpack = result.DetectedBuildpack
-		response.ExecutionMetadata = result.ExecutionMetadata
-		response.DetectedStartCommand = result.DetectedStartCommand
+		message.BuildpackKey = result.BuildpackKey
+		message.DetectedBuildpack = result.DetectedBuildpack
+		message.ExecutionMetadata = result.ExecutionMetadata
+		message.DetectedStartCommand = result.DetectedStartCommand
 	}
 
-	payload, err := json.Marshal(response)
+	payload, err := json.Marshal(message)
 	if err != nil {
 		return err
 	}
 
-	logger.Info("publish-success", lager.Data{"payload": payload})
+	err = o.deliverResponseToCC(payload, logger)
+	if err != nil {
+		return err
+	}
 
-	return natsClient.Publish(DiegoStageFinishedSubject, payload)
+	return nil
 }
 
-func publishDockerResponse(natsClient diegonats.NATSClient, task models.Task, logger lager.Logger) error {
+func (o *Outbox) publishDockerResponse(task models.Task, logger lager.Logger) error {
 	var response cc_messages.DockerStagingResponseForCC
 
 	var annotation models.StagingTaskAnnotation
@@ -201,8 +224,39 @@ func publishDockerResponse(natsClient diegonats.NATSClient, task models.Task, lo
 	if err != nil {
 		return err
 	}
-	logger.Info("publish-docker-success", lager.Data{"payload": payload})
 
-	return natsClient.Publish(DiegoDockerStageFinishedSubject, payload)
+	err = o.deliverResponseToCC(payload, logger)
+	if err != nil {
+		return err
+	}
 
+	return nil
+}
+
+func (o *Outbox) deliverResponseToCC(payload []byte, logger lager.Logger) error {
+	logger.Info("delivering-staging-response", lager.Data{"payload": string(payload)})
+
+	request, err := http.NewRequest("POST", o.stagingCompleteURI, bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+
+	request.SetBasicAuth(o.username, o.password)
+	request.Header.Set("content-type", "application/json")
+
+	response, err := o.ccClient.Do(request)
+	if err != nil {
+		logger.Error("deliver-staging-response-failed", err)
+		return err
+	}
+
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		err = fmt.Errorf("Staging response POST failed with %d", response.StatusCode)
+		return err
+	}
+
+	logger.Info("delivered-staging-response")
+	return nil
 }

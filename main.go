@@ -28,26 +28,50 @@ import (
 
 var etcdCluster = flag.String(
 	"etcdCluster",
-	"http://127.0.0.1:4001",
+	"",
 	"comma-separated list of etcd addresses (http://ip:port)",
 )
 
 var natsAddresses = flag.String(
 	"natsAddresses",
-	"127.0.0.1:4222",
+	"",
 	"comma-separated list of NATS addresses (ip:port)",
 )
 
 var natsUsername = flag.String(
 	"natsUsername",
-	"nats",
+	"",
 	"Username to connect to nats",
 )
 
 var natsPassword = flag.String(
 	"natsPassword",
-	"nats",
+	"",
 	"Password for nats user",
+)
+
+var ccBaseURL = flag.String(
+	"ccBaseURL",
+	"",
+	"URI to acccess the Cloud Controller",
+)
+
+var ccUsername = flag.String(
+	"ccUsername",
+	"",
+	"Basic auth username for CC internal API",
+)
+
+var ccPassword = flag.String(
+	"ccPassword",
+	"",
+	"Basic auth password for CC internal API",
+)
+
+var skipCertVerify = flag.Bool(
+	"skipCertVerify",
+	false,
+	"skip SSL certificate verification",
 )
 
 var circuses = flag.String(
@@ -96,9 +120,7 @@ func main() {
 		{"inbox", ifrit.RunFunc(func(signals <-chan os.Signal, ready chan<- struct{}) error {
 			return inbox.New(natsClient, stager, dockerStager, inbox.ValidateRequest, logger).Run(signals, ready)
 		})},
-		{"outbox", ifrit.RunFunc(func(signals <-chan os.Signal, ready chan<- struct{}) error {
-			return outbox.New(stagerBBS, natsClient, logger, timeprovider.NewTimeProvider()).Run(signals, ready)
-		})},
+		{"outbox", outbox.New(stagerBBS, ccBaseURL, ccUsername, ccPassword, skipCertVerify, logger, timeprovider.NewTimeProvider())},
 	})
 
 	process := ifrit.Envoke(sigmon.New(group))
