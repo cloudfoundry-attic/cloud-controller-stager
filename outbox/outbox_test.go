@@ -1,17 +1,16 @@
 package outbox_test
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"syscall"
 	"time"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/stager/api_client"
+	"github.com/cloudfoundry-incubator/stager/api_client/fakes"
 	"github.com/cloudfoundry-incubator/stager/outbox"
 	"github.com/cloudfoundry-incubator/stager/stager"
 	"github.com/cloudfoundry-incubator/stager/stager_docker"
@@ -20,17 +19,13 @@ import (
 	"github.com/cloudfoundry/gunk/timeprovider/faketimeprovider"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/ghttp"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 )
 
 var _ = Describe("Outbox", func() {
 	var (
-		fakeCC               *ghttp.Server
-		expectedBody         string
-		ccResponseStatusCode int
-		ccResponseBody       string
+		expectedBody []byte
 
 		logger lager.Logger
 		task   models.Task
@@ -45,16 +40,13 @@ var _ = Describe("Outbox", func() {
 		runner  *outbox.Outbox
 		process ifrit.Process
 
-		apiClient api_client.ApiClient
-
+		fakeApiClient       *fakes.FakeApiClient
 		fakeTimeProvider    *faketimeprovider.FakeTimeProvider
 		metricSender        *fake.FakeMetricSender
 		stagingDurationNano time.Duration
 	)
 
 	BeforeEach(func() {
-		fakeCC = ghttp.NewServer()
-
 		logger = lager.NewLogger("fakelogger")
 		logger.RegisterSink(lager.NewWriterSink(GinkgoWriter, lager.DEBUG))
 		logger.Info("hello, world")
@@ -83,23 +75,17 @@ var _ = Describe("Outbox", func() {
 		bbs = &fake_bbs.FakeStagerBBS{}
 		bbs.WatchForCompletedTaskReturns(completedTasks, watchStopChan, watchErrChan)
 
-		ccResponseBody = `{}`
-
-		fakeCC.AppendHandlers(
-			handleStagingRequest(&ccResponseStatusCode, &ccResponseBody),
-		)
-
 		stagingDurationNano = 900900
 		metricSender = fake.NewFakeMetricSender()
 		metrics.Initialize(metricSender)
 
-		apiClient = api_client.NewApiClient(fakeCC.URL(), "username", "password", true)
+		fakeApiClient = &fakes.FakeApiClient{}
 
 		fakeTimeProvider = faketimeprovider.New(time.Now())
 		task.CreatedAt = fakeTimeProvider.Time().UnixNano()
 		fakeTimeProvider.Increment(stagingDurationNano)
 
-		runner = outbox.New(bbs, apiClient, logger, fakeTimeProvider)
+		runner = outbox.New(bbs, fakeApiClient, logger, fakeTimeProvider)
 	})
 
 	JustBeforeEach(func() {
@@ -109,10 +95,6 @@ var _ = Describe("Outbox", func() {
 	AfterEach(func() {
 		process.Signal(syscall.SIGTERM)
 		Eventually(process.Wait()).Should(Receive())
-
-		if fakeCC.HTTPTestServer != nil {
-			fakeCC.Close()
-		}
 	})
 
 	Context("when a completed staging task appears in the outbox", func() {
@@ -122,16 +104,15 @@ var _ = Describe("Outbox", func() {
 
 		Context("when everything suceeds", func() {
 			BeforeEach(func() {
-				expectedBody = fmt.Sprintf(`{
+				expectedBody = []byte(fmt.Sprintf(`{
 					"buildpack_key":"buildpack-key",
 					"detected_buildpack":"Some Buildpack",
 					"execution_metadata":"{\"start_command\":\"./some-start-command\"}",
 					"detected_start_command":{"web":"./some-start-command"},
 					"app_id": "%s",
 					"task_id": "%s"
-			  }`, appId, taskId)
+			  }`, appId, taskId))
 
-				ccResponseStatusCode = 200
 			})
 
 			It("resolves the completed task, then marks the Task as resolved", func() {
@@ -141,7 +122,9 @@ var _ = Describe("Outbox", func() {
 			})
 
 			It("posts the staging result to CC", func() {
-				Eventually(fakeCC.ReceivedRequests).Should(HaveLen(1))
+				Eventually(fakeApiClient.StagingCompleteCallCount).Should(Equal(1))
+				payload, _ := fakeApiClient.StagingCompleteArgsForCall(0)
+				Ω(payload).Should(MatchJSON(expectedBody))
 			})
 
 			It("increments the staging success counter", func() {
@@ -160,29 +143,17 @@ var _ = Describe("Outbox", func() {
 			})
 		})
 
-		Context("when the CC responds with an error", func() {
+		Context("when POSTing the staging-complete message fails", func() {
 			BeforeEach(func() {
-				ccResponseStatusCode = 500
+				fakeApiClient.StagingCompleteReturns(&api_client.BadResponseError{500})
 			})
 
 			It("does not attempt to resolve the Task", func() {
 				Consistently(bbs.ResolveTaskCallCount).Should(Equal(0))
 			})
 
-			PIt("marks the task as failed to resolve", func() {
-			})
-		})
-
-		Context("when the CC connection fails", func() {
-			BeforeEach(func() {
-				fakeCC.Close()
-			})
-
-			It("does not attempt to resolve the Task", func() {
-				Consistently(bbs.ResolveTaskCallCount).Should(Equal(0))
-			})
-
-			PIt("marks the task as failed to resolve", func() {
+			It("marks the task as failed to resolve", func() {
+				Eventually(bbs.FailedToResolveTaskCallCount).Should(Equal(1))
 			})
 		})
 
@@ -192,7 +163,7 @@ var _ = Describe("Outbox", func() {
 			})
 
 			It("does not send a response to the requester, because another stager probably resolved it", func() {
-				Consistently(fakeCC.ReceivedRequests()).Should(HaveLen(0))
+				Consistently(fakeApiClient.StagingCompleteCallCount).Should(Equal(0))
 				Consistently(bbs.ResolveTaskCallCount).Should(Equal(0))
 			})
 		})
@@ -209,7 +180,7 @@ var _ = Describe("Outbox", func() {
 		})
 
 		It("should not post a response to the CC", func() {
-			Consistently(fakeCC.ReceivedRequests()).Should(HaveLen(0))
+			Consistently(fakeApiClient.StagingCompleteCallCount).Should(Equal(0))
 		})
 	})
 
@@ -225,48 +196,36 @@ var _ = Describe("Outbox", func() {
 
 		Context("when everything suceeds", func() {
 			BeforeEach(func() {
-				expectedBody = fmt.Sprintf(`{
+				expectedBody = []byte(fmt.Sprintf(`{
 					"execution_metadata":"{\"cmd\":\"./some-start-command\"}",
 					"detected_start_command":{"web":"./some-start-command"},
 					"app_id": "%s",
 					"task_id": "%s"
-			  }`, appId, taskId)
-
-				ccResponseStatusCode = 200
+			  }`, appId, taskId))
 			})
 
 			It("resolves the completed task, publishes its result and then marks the Task as resolved", func() {
 				Eventually(bbs.ResolvingTaskCallCount).Should(Equal(1))
-				Eventually(fakeCC.ReceivedRequests).Should(HaveLen(1))
+				Eventually(fakeApiClient.StagingCompleteCallCount).Should(Equal(1))
+				payload, _ := fakeApiClient.StagingCompleteArgsForCall(0)
+				Ω(payload).Should(MatchJSON(expectedBody))
 
 				Eventually(bbs.ResolveTaskCallCount).Should(Equal(1))
 				Ω(bbs.ResolveTaskArgsForCall(0)).Should(Equal(task.Guid))
 			})
 		})
 
-		Context("when the CC responds with an error", func() {
+		Context("when POSTing the staging-complete message fails", func() {
 			BeforeEach(func() {
-				ccResponseStatusCode = 500
+				fakeApiClient.StagingCompleteReturns(&api_client.BadResponseError{500})
 			})
 
 			It("does not attempt to resolve the Task", func() {
 				Consistently(bbs.ResolveTaskCallCount).Should(Equal(0))
 			})
 
-			PIt("marks the task as failed to resolve", func() {
-			})
-		})
-
-		Context("when the CC connection fails", func() {
-			BeforeEach(func() {
-				fakeCC.Close()
-			})
-
-			It("does not attempt to resolve the Task", func() {
-				Consistently(bbs.ResolveTaskCallCount).Should(Equal(0))
-			})
-
-			PIt("marks the task as failed to resolve", func() {
+			It("marks the task as failed to resolve", func() {
+				Eventually(bbs.FailedToResolveTaskCallCount).Should(Equal(1))
 			})
 		})
 	})
@@ -283,14 +242,13 @@ var _ = Describe("Outbox", func() {
 
 			completedTasks <- task
 
-			Eventually(fakeCC.ReceivedRequests).Should(HaveLen(1))
+			Eventually(fakeApiClient.StagingCompleteCallCount).Should(Equal(1))
 		})
 	})
 
 	Context("when a failed task appears in the outbox", func() {
 		BeforeEach(func() {
-			ccResponseStatusCode = 200
-			expectedBody = fmt.Sprintf(`{
+			expectedBody = []byte(fmt.Sprintf(`{
 				"app_id":"%s",
 				"buildpack_key": "",
 				"detected_buildpack": "",
@@ -298,7 +256,7 @@ var _ = Describe("Outbox", func() {
 				"detected_start_command":null,
 				"error":"because i said so",
 				"task_id":"%s"
-			}`, appId, taskId)
+			}`, appId, taskId))
 
 			task.Failed = true
 			task.FailureReason = "because i said so"
@@ -306,14 +264,16 @@ var _ = Describe("Outbox", func() {
 		})
 
 		It("publishes its reason as an error and then marks the task as completed", func() {
-			Eventually(fakeCC.ReceivedRequests).Should(HaveLen(1))
+			Eventually(fakeApiClient.StagingCompleteCallCount).Should(Equal(1))
+			payload, _ := fakeApiClient.StagingCompleteArgsForCall(0)
+			Ω(payload).Should(MatchJSON(expectedBody))
 
 			Eventually(bbs.ResolveTaskCallCount).Should(Equal(1))
 			Ω(bbs.ResolveTaskArgsForCall(0)).Should(Equal(task.Guid))
 		})
 
-		It("increments the staging success counter", func() {
-			Eventually(fakeCC.ReceivedRequests).Should(HaveLen(1))
+		It("increments the staging failed counter", func() {
+			Eventually(fakeApiClient.StagingCompleteCallCount).Should(Equal(1))
 
 			Ω(metricSender.GetCounter("StagingRequestsFailed")).Should(Equal(uint64(1)))
 		})
@@ -329,31 +289,12 @@ var _ = Describe("Outbox", func() {
 	})
 
 	Describe("asynchronous message processing", func() {
-		BeforeEach(func() {
-			fakeCC.AppendHandlers(
-				handleStagingRequest(&ccResponseStatusCode, &ccResponseBody),
-				handleStagingRequest(&ccResponseStatusCode, &ccResponseBody),
-			)
-		})
-
 		It("can accept new Completed Tasks before it's done processing existing tasks in the queue", func() {
 			Eventually(completedTasks).Should(BeSent(task))
 			Eventually(completedTasks).Should(BeSent(task))
 			Eventually(completedTasks).Should(BeSent(task))
 
-			Eventually(fakeCC.ReceivedRequests).Should(HaveLen(3))
+			Eventually(fakeApiClient.StagingCompleteCallCount).Should(Equal(3))
 		})
 	})
 })
-
-func base64Encode(input string) string {
-	return base64.StdEncoding.EncodeToString([]byte(input))
-}
-
-func handleStagingRequest(ccResponseStatusCode *int, ccResponseBody *string) http.HandlerFunc {
-	return ghttp.CombineHandlers(
-		ghttp.VerifyRequest("POST", "/internal/staging/completed"),
-		ghttp.VerifyBasicAuth("username", "password"),
-		ghttp.RespondWithPtr(ccResponseStatusCode, ccResponseBody),
-	)
-}

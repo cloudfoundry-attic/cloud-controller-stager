@@ -27,6 +27,14 @@ type apiClient struct {
 	httpClient         *http.Client
 }
 
+type BadResponseError struct {
+	StatusCode int
+}
+
+func (b *BadResponseError) Error() string {
+	return fmt.Sprintf("Staging response POST failed with %d", b.StatusCode)
+}
+
 func NewApiClient(baseURI string, username string, password string, skipCertVerify bool) ApiClient {
 	httpClient := &http.Client{
 		Timeout: stagingCompleteRequestTimeout,
@@ -66,8 +74,7 @@ func (api *apiClient) StagingComplete(payload []byte, logger lager.Logger) error
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		err = fmt.Errorf("Staging response POST failed with %d", response.StatusCode)
-		return err
+		return &BadResponseError{response.StatusCode}
 	}
 
 	logger.Info("delivered-staging-response")
