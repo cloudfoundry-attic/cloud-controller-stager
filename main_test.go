@@ -2,13 +2,13 @@ package main_test
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/pivotal-golang/lager/lagertest"
 	"github.com/tedsuo/ifrit"
+	"github.com/tedsuo/ifrit/ginkgomon"
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/stager/testrunner"
@@ -20,7 +20,9 @@ import (
 
 var _ = Describe("Stager", func() {
 	var (
-		natsClient        diegonats.NATSClient
+		gnatsdRunner ifrit.Process
+		natsClient   diegonats.NATSClient
+
 		bbs               *Bbs.BBS
 		fileServerProcess ifrit.Process
 	)
@@ -32,10 +34,7 @@ var _ = Describe("Stager", func() {
 		etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1)
 		etcdRunner.Start()
 
-		natsRunner = diegonats.NewRunner(natsPort)
-		natsRunner.Start()
-
-		natsClient = natsRunner.Client
+		gnatsdRunner, natsClient = diegonats.StartGnatsd(natsPort)
 
 		bbs = Bbs.NewBBS(etcdRunner.Adapter(), timeprovider.NewTimeProvider(), lagertest.NewTestLogger("test"))
 
@@ -48,13 +47,12 @@ var _ = Describe("Stager", func() {
 		)
 	})
 
-	AfterEach(func(done Done) {
+	AfterEach(func() {
 		runner.Stop()
-		fileServerProcess.Signal(os.Kill)
 		etcdRunner.Stop()
-		natsRunner.Stop()
-		close(done)
-	}, 10.0)
+		ginkgomon.Kill(fileServerProcess)
+		ginkgomon.Kill(gnatsdRunner)
+	})
 
 	Context("when started", func() {
 		BeforeEach(func() {

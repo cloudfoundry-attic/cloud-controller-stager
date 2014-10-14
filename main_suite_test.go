@@ -7,7 +7,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/cloudfoundry-incubator/stager/testrunner"
-	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/cloudfoundry/storeadapter/storerunner/etcdstorerunner"
 	"github.com/onsi/gomega/gexec"
 )
@@ -19,7 +18,6 @@ func TestStager(t *testing.T) {
 
 var stagerPath string
 var etcdRunner *etcdstorerunner.ETCDClusterRunner
-var natsRunner *diegonats.NATSRunner
 var runner *testrunner.StagerRunner
 
 var _ = SynchronizedBeforeSuite(func() []byte {
@@ -33,9 +31,6 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 var _ = SynchronizedAfterSuite(func() {
 	if etcdRunner != nil {
 		etcdRunner.Stop()
-	}
-	if natsRunner != nil {
-		natsRunner.Stop()
 	}
 	if runner != nil {
 		runner.Stop()
