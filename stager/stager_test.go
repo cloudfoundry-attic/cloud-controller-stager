@@ -77,7 +77,6 @@ var _ = Describe("Stage", func() {
 				models.DownloadAction{
 					From:     "http://file-server.com/v1/static/rabbit-hole-compiler",
 					To:       "/tmp/circus",
-					Extract:  true,
 					CacheKey: "tailor-rabbit_hole",
 				},
 			},
@@ -89,9 +88,8 @@ var _ = Describe("Stage", func() {
 		downloadAppAction = models.EmitProgressFor(
 			models.ExecutorAction{
 				models.DownloadAction{
-					From:    "http://example-uri.com/bunny",
-					To:      "/app",
-					Extract: true,
+					From: "http://example-uri.com/bunny",
+					To:   "/app",
 				},
 			},
 			"",
@@ -104,7 +102,6 @@ var _ = Describe("Stage", func() {
 				models.DownloadAction{
 					From:     "first-buildpack-url",
 					To:       "/tmp/buildpacks/0fe7d5fc3f73b0ab8682a664da513fbd",
-					Extract:  true,
 					CacheKey: "zfirst-buildpack",
 				},
 			},
@@ -118,7 +115,6 @@ var _ = Describe("Stage", func() {
 				models.DownloadAction{
 					From:     "second-buildpack-url",
 					To:       "/tmp/buildpacks/58015c32d26f0ad3418f87dd9bf47797",
-					Extract:  true,
 					CacheKey: "asecond-buildpack",
 				},
 			},
@@ -131,9 +127,8 @@ var _ = Describe("Stage", func() {
 			models.EmitProgressFor(
 				models.ExecutorAction{
 					models.DownloadAction{
-						From:    "http://example-uri.com/bunny-droppings",
-						To:      "/tmp/cache",
-						Extract: true,
+						From: "http://example-uri.com/bunny-droppings",
+						To:   "/tmp/cache",
 					},
 				},
 				"",

@@ -88,7 +88,6 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 				models.DownloadAction{
 					From:     compilerURL.String(),
 					To:       path.Dir(tailorConfig.ExecutablePath),
-					Extract:  true,
 					CacheKey: fmt.Sprintf("tailor-%s", request.Stack),
 				},
 			},
@@ -104,9 +103,8 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 		models.EmitProgressFor(
 			models.ExecutorAction{
 				models.DownloadAction{
-					From:    request.AppBitsDownloadUri,
-					To:      tailorConfig.AppDir(),
-					Extract: true,
+					From: request.AppBitsDownloadUri,
+					To:   tailorConfig.AppDir(),
 				},
 			},
 			"",
@@ -126,7 +124,6 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 					models.DownloadAction{
 						From:     buildpack.Url,
 						To:       tailorConfig.BuildpackPath(buildpack.Key),
-						Extract:  true,
 						CacheKey: buildpack.Key,
 					},
 				},
@@ -153,9 +150,8 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 				models.EmitProgressFor(
 					models.ExecutorAction{
 						models.DownloadAction{
-							From:    downloadURL.String(),
-							To:      tailorConfig.BuildArtifactsCacheDir(),
-							Extract: true,
+							From: downloadURL.String(),
+							To:   tailorConfig.BuildArtifactsCacheDir(),
 						},
 					},
 					"",

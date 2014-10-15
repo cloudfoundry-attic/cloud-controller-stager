@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/pivotal-golang/lager"
 	"net/url"
 	"path"
 	"time"
+
+	"github.com/pivotal-golang/lager"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
@@ -66,7 +67,6 @@ func (stager *stager_docker) Stage(request cc_messages.DockerStagingRequestFromC
 				models.DownloadAction{
 					From:     compilerURL.String(),
 					To:       path.Dir(TailorExecutablePath),
-					Extract:  true,
 					CacheKey: "tailor-docker",
 				},
 			},
