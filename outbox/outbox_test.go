@@ -152,8 +152,10 @@ var _ = Describe("Outbox", func() {
 				Consistently(bbs.ResolveTaskCallCount).Should(Equal(0))
 			})
 
-			It("marks the task as failed to resolve", func() {
-				Eventually(bbs.FailedToResolveTaskCallCount).Should(Equal(1))
+			It("increments the staging failed to resolve counter", func() {
+				Eventually(func() uint64 {
+					return metricSender.GetCounter("StagingFailedToResolve")
+				}).Should(Equal(uint64(1)))
 			})
 		})
 
@@ -224,8 +226,10 @@ var _ = Describe("Outbox", func() {
 				Consistently(bbs.ResolveTaskCallCount).Should(Equal(0))
 			})
 
-			It("marks the task as failed to resolve", func() {
-				Eventually(bbs.FailedToResolveTaskCallCount).Should(Equal(1))
+			It("increments the staging failed to resolve counter", func() {
+				Eventually(func() uint64 {
+					return metricSender.GetCounter("StagingFailedToResolve")
+				}).Should(Equal(uint64(1)))
 			})
 		})
 	})

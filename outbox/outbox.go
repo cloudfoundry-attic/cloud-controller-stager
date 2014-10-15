@@ -23,6 +23,8 @@ const (
 	stagingSuccessDuration = metric.Duration("StagingRequestSucceededDuration")
 	stagingFailureCounter  = metric.Counter("StagingRequestsFailed")
 	stagingFailureDuration = metric.Duration("StagingRequestFailedDuration")
+
+	stagingFailedToResolveCounter = metric.Counter("StagingFailedToResolve")
 )
 
 type Outbox struct {
@@ -91,8 +93,9 @@ func (o *Outbox) handleCompletedStagingTask(task models.Task, logger lager.Logge
 		return
 	}
 
-	duration := o.timeProvider.Time().Sub(time.Unix(0, task.CreatedAt))
+	logger = logger.Session("handle-staging-complete", lager.Data{"guid": task.Guid})
 
+	duration := o.timeProvider.Time().Sub(time.Unix(0, task.CreatedAt))
 	if task.Failed {
 		stagingFailureCounter.Increment()
 		stagingFailureDuration.Send(duration)
@@ -100,32 +103,34 @@ func (o *Outbox) handleCompletedStagingTask(task models.Task, logger lager.Logge
 		stagingSuccessDuration.Send(duration)
 		stagingSuccessCounter.Increment()
 	}
+
 	err = o.bbs.ResolvingTask(task.Guid)
 	if err != nil {
-		logger.Error("resolving-failed", err, lager.Data{"guid": task.Guid})
+		logger.Error("resolving-failed", err)
 		return
 	}
 
-	logger.Info("resolving-success", lager.Data{"guid": task.Guid})
+	logger.Info("resolving-success")
 
 	if task.Domain == stager.TaskDomain {
-		err = o.deliverResponse(task, logger.Session("staging-response", lager.Data{"guid": task.Guid}))
+		err = o.deliverResponse(task, logger)
 	} else {
-		err = o.deliverDockerResponse(task, logger.Session("docker-staging-response", lager.Data{"guid": task.Guid}))
+		err = o.deliverDockerResponse(task, logger)
 	}
 
 	if err != nil {
-		logger.Error("publishing-failed", err, lager.Data{"guid": task.Guid})
-		o.bbs.FailedToResolveTask(task.Guid)
+		logger.Error("deliver-response-failed", err)
+		stagingFailedToResolveCounter.Increment()
 		return
 	}
 
 	err = o.bbs.ResolveTask(task.Guid)
 	if err != nil {
-		logger.Error("resolve-failed", err, lager.Data{"guid": task.Guid})
+		logger.Error("resolve-failed", err)
 		return
 	}
-	logger.Info("resolve-success", lager.Data{"guid": task.Guid})
+
+	logger.Info("resolve-success")
 }
 
 func (o *Outbox) deliverResponse(task models.Task, logger lager.Logger) error {
@@ -161,7 +166,7 @@ func (o *Outbox) deliverResponse(task models.Task, logger lager.Logger) error {
 		return err
 	}
 
-	err = o.apiClient.StagingComplete(payload, logger)
+	err = o.stagingComplete(payload, logger)
 	if err != nil {
 		return err
 	}
@@ -195,14 +200,27 @@ func (o *Outbox) deliverDockerResponse(task models.Task, logger lager.Logger) er
 
 	payload, err := json.Marshal(response)
 	if err != nil {
-		logger.Error("marshal-error", err)
+		logger.Error("docker-marshal-error", err)
 		return err
 	}
 
-	err = o.apiClient.StagingComplete(payload, logger)
+	err = o.stagingComplete(payload, logger)
 	if err != nil {
 		return err
 	}
 
+	return nil
+}
+
+func (o *Outbox) stagingComplete(payload []byte, logger lager.Logger) error {
+	logger.Info("posting-staging-complete", lager.Data{"payload": payload})
+
+	err := o.apiClient.StagingComplete(payload, logger)
+	if err != nil {
+		logger.Error("failed-to-post-staging-complete", err)
+		return err
+	}
+
+	logger.Info("posted-staging-complete")
 	return nil
 }
