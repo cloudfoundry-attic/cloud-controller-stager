@@ -103,32 +103,19 @@ func (stager *stager_docker) Stage(request cc_messages.DockerStagingRequestFromC
 		),
 	)
 
-	//Fetch Result
-	actions = append(actions,
-		models.EmitProgressFor(
-			models.ExecutorAction{
-				models.FetchResultAction{
-					File: TailorOutputPath,
-				},
-			},
-			"",
-			"",
-			"Failed to Fetch DockerImage Metadata",
-		),
-	)
-
 	annotationJson, _ := json.Marshal(models.StagingTaskAnnotation{
 		AppId:  request.AppId,
 		TaskId: request.TaskId,
 	})
 
 	task := models.Task{
-		TaskGuid: taskGuid(request),
-		Domain:   TaskDomain,
-		Stack:    request.Stack,
-		MemoryMB: int(max(uint64(request.MemoryMB), uint64(stager.config.MinMemoryMB))),
-		DiskMB:   int(max(uint64(request.DiskMB), uint64(stager.config.MinDiskMB))),
-		Actions:  actions,
+		ResultFile: TailorOutputPath,
+		TaskGuid:   taskGuid(request),
+		Domain:     TaskDomain,
+		Stack:      request.Stack,
+		MemoryMB:   int(max(uint64(request.MemoryMB), uint64(stager.config.MinMemoryMB))),
+		DiskMB:     int(max(uint64(request.DiskMB), uint64(stager.config.MinDiskMB))),
+		Actions:    actions,
 		Log: models.LogConfig{
 			Guid:       request.AppId,
 			SourceName: "STG",
