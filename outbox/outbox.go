@@ -93,7 +93,7 @@ func (o *Outbox) handleCompletedStagingTask(task models.Task, logger lager.Logge
 		return
 	}
 
-	logger = logger.Session("handle-staging-complete", lager.Data{"guid": task.Guid})
+	logger = logger.Session("handle-staging-complete", lager.Data{"guid": task.TaskGuid})
 
 	duration := o.timeProvider.Time().Sub(time.Unix(0, task.CreatedAt))
 	if task.Failed {
@@ -104,7 +104,7 @@ func (o *Outbox) handleCompletedStagingTask(task models.Task, logger lager.Logge
 		stagingSuccessCounter.Increment()
 	}
 
-	err = o.bbs.ResolvingTask(task.Guid)
+	err = o.bbs.ResolvingTask(task.TaskGuid)
 	if err != nil {
 		logger.Error("resolving-failed", err)
 		return
@@ -124,7 +124,7 @@ func (o *Outbox) handleCompletedStagingTask(task models.Task, logger lager.Logge
 		return
 	}
 
-	err = o.bbs.ResolveTask(task.Guid)
+	err = o.bbs.ResolveTask(task.TaskGuid)
 	if err != nil {
 		logger.Error("resolve-failed", err)
 		return

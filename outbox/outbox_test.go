@@ -58,7 +58,7 @@ var _ = Describe("Outbox", func() {
 		})
 
 		task = models.Task{
-			Guid: "some-task-id",
+			TaskGuid: "some-task-id",
 			Result: `{
 				"buildpack_key":"buildpack-key",
 				"detected_buildpack":"Some Buildpack",
@@ -118,7 +118,7 @@ var _ = Describe("Outbox", func() {
 			It("resolves the completed task, then marks the Task as resolved", func() {
 				Eventually(bbs.ResolvingTaskCallCount).Should(Equal(1))
 				Eventually(bbs.ResolveTaskCallCount).Should(Equal(1))
-				Ω(bbs.ResolveTaskArgsForCall(0)).Should(Equal(task.Guid))
+				Ω(bbs.ResolveTaskArgsForCall(0)).Should(Equal(task.TaskGuid))
 			})
 
 			It("posts the staging result to CC", func() {
@@ -213,7 +213,7 @@ var _ = Describe("Outbox", func() {
 				Ω(payload).Should(MatchJSON(expectedBody))
 
 				Eventually(bbs.ResolveTaskCallCount).Should(Equal(1))
-				Ω(bbs.ResolveTaskArgsForCall(0)).Should(Equal(task.Guid))
+				Ω(bbs.ResolveTaskArgsForCall(0)).Should(Equal(task.TaskGuid))
 			})
 		})
 
@@ -273,7 +273,7 @@ var _ = Describe("Outbox", func() {
 			Ω(payload).Should(MatchJSON(expectedBody))
 
 			Eventually(bbs.ResolveTaskCallCount).Should(Equal(1))
-			Ω(bbs.ResolveTaskArgsForCall(0)).Should(Equal(task.Guid))
+			Ω(bbs.ResolveTaskArgsForCall(0)).Should(Equal(task.TaskGuid))
 		})
 
 		It("increments the staging failed counter", func() {

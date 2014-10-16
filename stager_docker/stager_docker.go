@@ -123,7 +123,7 @@ func (stager *stager_docker) Stage(request cc_messages.DockerStagingRequestFromC
 	})
 
 	task := models.Task{
-		Guid:     taskGuid(request),
+		TaskGuid: taskGuid(request),
 		Domain:   TaskDomain,
 		Stack:    request.Stack,
 		MemoryMB: int(max(uint64(request.MemoryMB), uint64(stager.config.MinMemoryMB))),

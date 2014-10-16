@@ -263,7 +263,7 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 	})
 
 	task := models.Task{
-		Guid:     taskGuid(request),
+		TaskGuid: taskGuid(request),
 		Domain:   TaskDomain,
 		Stack:    request.Stack,
 		MemoryMB: int(max(uint64(request.MemoryMB), uint64(stager.config.MinMemoryMB))),

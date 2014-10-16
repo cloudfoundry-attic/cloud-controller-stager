@@ -223,7 +223,7 @@ var _ = Describe("Stage", func() {
 			desiredTask := bbs.DesireTaskArgsForCall(0)
 
 			Ω(desiredTask.Domain).To(Equal("cf-app-staging"))
-			Ω(desiredTask.Guid).To(Equal("bunny-hop"))
+			Ω(desiredTask.TaskGuid).To(Equal("bunny-hop"))
 			Ω(desiredTask.Stack).To(Equal("rabbit_hole"))
 			Ω(desiredTask.Log.Guid).To(Equal("bunny"))
 			Ω(desiredTask.Log.SourceName).To(Equal("STG"))
