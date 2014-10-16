@@ -2,6 +2,7 @@ package outbox
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -112,12 +113,7 @@ func (o *Outbox) handleCompletedStagingTask(task models.Task, logger lager.Logge
 
 	logger.Info("resolving-success")
 
-	if task.Domain == stager.TaskDomain {
-		err = o.deliverResponse(task, logger)
-	} else {
-		err = o.deliverDockerResponse(task, logger)
-	}
-
+	err = o.deliverResponse(task, logger)
 	if err != nil {
 		logger.Error("deliver-response-failed", err)
 		stagingFailedToResolveCounter.Increment()
@@ -134,6 +130,18 @@ func (o *Outbox) handleCompletedStagingTask(task models.Task, logger lager.Logge
 }
 
 func (o *Outbox) deliverResponse(task models.Task, logger lager.Logger) error {
+	switch task.Domain {
+	case stager.TaskDomain:
+		return o.deliverBuildpackResponse(task, logger)
+	case stager_docker.TaskDomain:
+		return o.deliverDockerResponse(task, logger)
+	default:
+		// Should never get here due to guard in function that calls this function
+		panic(fmt.Sprintf("Should not try to deliver response for task domain '%s'", task.Domain))
+	}
+}
+
+func (o *Outbox) deliverBuildpackResponse(task models.Task, logger lager.Logger) error {
 	var message cc_messages.StagingResponseForCC
 
 	var annotation models.StagingTaskAnnotation
