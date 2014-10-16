@@ -31,7 +31,6 @@ var _ = Describe("Stage", func() {
 		runAction                     models.ExecutorAction
 		uploadDropletAction           models.ExecutorAction
 		uploadBuildArtifactsAction    models.ExecutorAction
-		fetchResultsAction            models.ExecutorAction
 		config                        Config
 	)
 
@@ -190,17 +189,6 @@ var _ = Describe("Stage", func() {
 				"Failed to Upload Build Artifacts Cache.  Proceeding...",
 			),
 		)
-
-		fetchResultsAction = models.EmitProgressFor(
-			models.ExecutorAction{
-				models.FetchResultAction{
-					File: "/tmp/result/result.json",
-				},
-			},
-			"",
-			"",
-			"Failed to Fetch Detected Buildpack",
-		)
 	})
 
 	It("increments the counter to track arriving staging messages", func() {
@@ -227,6 +215,7 @@ var _ = Describe("Stage", func() {
 			Ω(desiredTask.Stack).To(Equal("rabbit_hole"))
 			Ω(desiredTask.Log.Guid).To(Equal("bunny"))
 			Ω(desiredTask.Log.SourceName).To(Equal("STG"))
+			Ω(desiredTask.ResultFile).To(Equal("/tmp/result/result.json"))
 
 			var annotation models.StagingTaskAnnotation
 
@@ -261,7 +250,6 @@ var _ = Describe("Stage", func() {
 					"Uploading complete",
 					"Uploading failed",
 				),
-				fetchResultsAction,
 			}))
 
 			Ω(desiredTask.MemoryMB).To(Equal(2048))
@@ -357,7 +345,6 @@ var _ = Describe("Stage", func() {
 							"Uploading complete",
 							"Uploading failed",
 						),
-						fetchResultsAction,
 					}))
 				})
 			})
@@ -396,7 +383,6 @@ var _ = Describe("Stage", func() {
 						"Uploading complete",
 						"Uploading failed",
 					),
-					fetchResultsAction,
 				}))
 			})
 		})

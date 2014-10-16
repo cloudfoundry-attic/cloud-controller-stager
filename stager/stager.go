@@ -243,32 +243,19 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 	uploadMsg := fmt.Sprintf("Uploading %s...", strings.Join(uploadNames, ", "))
 	actions = append(actions, models.EmitProgressFor(models.Parallel(uploadActions...), uploadMsg, "Uploading complete", "Uploading failed"))
 
-	//Fetch Result
-	actions = append(actions,
-		models.EmitProgressFor(
-			models.ExecutorAction{
-				models.FetchResultAction{
-					File: tailorConfig.OutputMetadataPath(),
-				},
-			},
-			"",
-			"",
-			"Failed to Fetch Detected Buildpack",
-		),
-	)
-
 	annotationJson, _ := json.Marshal(models.StagingTaskAnnotation{
 		AppId:  request.AppId,
 		TaskId: request.TaskId,
 	})
 
 	task := models.Task{
-		TaskGuid: taskGuid(request),
-		Domain:   TaskDomain,
-		Stack:    request.Stack,
-		MemoryMB: int(max(uint64(request.MemoryMB), uint64(stager.config.MinMemoryMB))),
-		DiskMB:   int(max(uint64(request.DiskMB), uint64(stager.config.MinDiskMB))),
-		Actions:  actions,
+		TaskGuid:   taskGuid(request),
+		Domain:     TaskDomain,
+		Stack:      request.Stack,
+		ResultFile: tailorConfig.OutputMetadataPath(),
+		MemoryMB:   int(max(uint64(request.MemoryMB), uint64(stager.config.MinMemoryMB))),
+		DiskMB:     int(max(uint64(request.DiskMB), uint64(stager.config.MinDiskMB))),
+		Actions:    actions,
 		Log: models.LogConfig{
 			Guid:       request.AppId,
 			SourceName: "STG",
