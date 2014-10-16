@@ -252,7 +252,7 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 		TaskGuid:   taskGuid(request),
 		Domain:     TaskDomain,
 		Stack:      request.Stack,
-		ResultFile: tailorConfig.OutputMetadataPath(),
+		ResultFile: tailorConfig.OutputMetadata(),
 		MemoryMB:   int(max(uint64(request.MemoryMB), uint64(stager.config.MinMemoryMB))),
 		DiskMB:     int(max(uint64(request.DiskMB), uint64(stager.config.MinDiskMB))),
 		Actions:    actions,

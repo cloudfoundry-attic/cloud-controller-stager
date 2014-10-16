@@ -149,7 +149,7 @@ var _ = Describe("Stage", func() {
 						"-buildpacksDir=/tmp/buildpacks",
 						"-outputBuildArtifactsCache=/tmp/output-cache",
 						"-outputDroplet=/tmp/droplet",
-						"-outputMetadataDir=/tmp/result",
+						"-outputMetadata=/tmp/result.json",
 					},
 					Env: []models.EnvironmentVariable{
 						{"VCAP_APPLICATION", "foo"},
@@ -215,7 +215,7 @@ var _ = Describe("Stage", func() {
 			Ω(desiredTask.Stack).To(Equal("rabbit_hole"))
 			Ω(desiredTask.Log.Guid).To(Equal("bunny"))
 			Ω(desiredTask.Log.SourceName).To(Equal("STG"))
-			Ω(desiredTask.ResultFile).To(Equal("/tmp/result/result.json"))
+			Ω(desiredTask.ResultFile).To(Equal("/tmp/result.json"))
 
 			var annotation models.StagingTaskAnnotation
 
@@ -307,7 +307,7 @@ var _ = Describe("Stage", func() {
 									"-buildpacksDir=/tmp/buildpacks",
 									"-outputBuildArtifactsCache=/tmp/output-cache",
 									"-outputDroplet=/tmp/droplet",
-									"-outputMetadataDir=/tmp/result",
+									"-outputMetadata=/tmp/result.json",
 								},
 								Env: []models.EnvironmentVariable{
 									{"VCAP_APPLICATION", "foo"},
