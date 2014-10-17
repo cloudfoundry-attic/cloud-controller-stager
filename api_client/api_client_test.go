@@ -99,7 +99,8 @@ var _ = Describe("API Client", func() {
 	Describe("Error conditions", func() {
 		Context("when the request couldn't be completed", func() {
 			BeforeEach(func() {
-				apiClient = api_client.NewApiClient("http://0.0.0.0:80", "username", "password", true)
+				bogusURL := "http://0.0.0.0.0:80"
+				apiClient = api_client.NewApiClient(bogusURL, "username", "password", true)
 			})
 
 			It("percolates the error", func() {
