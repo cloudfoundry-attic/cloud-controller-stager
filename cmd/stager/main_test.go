@@ -11,7 +11,7 @@ import (
 	"github.com/tedsuo/ifrit/ginkgomon"
 
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
-	"github.com/cloudfoundry-incubator/stager/testrunner"
+	"github.com/cloudfoundry-incubator/stager/cmd/stager/testrunner"
 	"github.com/cloudfoundry/storeadapter/storerunner/etcdstorerunner"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

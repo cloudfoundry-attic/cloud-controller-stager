@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/cloudfoundry-incubator/stager/testrunner"
+	"github.com/cloudfoundry-incubator/stager/cmd/stager/testrunner"
 	"github.com/cloudfoundry/storeadapter/storerunner/etcdstorerunner"
 	"github.com/onsi/gomega/gexec"
 )
