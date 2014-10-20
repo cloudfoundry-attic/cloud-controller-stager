@@ -21,7 +21,7 @@ var etcdRunner *etcdstorerunner.ETCDClusterRunner
 var runner *testrunner.StagerRunner
 
 var _ = SynchronizedBeforeSuite(func() []byte {
-	stager, err := gexec.Build("github.com/cloudfoundry-incubator/stager", "-race")
+	stager, err := gexec.Build("github.com/cloudfoundry-incubator/stager/cmd/stager", "-race")
 	Ω(err).ShouldNot(HaveOccurred())
 	return []byte(stager)
 }, func(stager []byte) {
