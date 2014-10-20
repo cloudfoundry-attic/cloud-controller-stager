@@ -1,6 +1,7 @@
 package api_client_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -128,4 +129,64 @@ var _ = Describe("API Client", func() {
 			})
 		})
 	})
+
+	Describe("IsRetryable", func() {
+		Context("when the error is a net.Error", func() {
+			It("is not retryable", func() {
+				err := &testNetError{}
+				Ω(api_client.IsRetryable(err)).To(BeFalse())
+			})
+
+			Context("when the error is temporary", func() {
+				It("is retryable", func() {
+					err := &testNetError{timeout: false, temporary: true}
+					Ω(api_client.IsRetryable(err)).To(BeTrue())
+				})
+			})
+
+			Context("when the error is a timeout", func() {
+				It("is retryable", func() {
+					err := &testNetError{timeout: true, temporary: false}
+					Ω(api_client.IsRetryable(err)).To(BeTrue())
+				})
+			})
+		})
+
+		Context("when the error is a BadResponseError", func() {
+			It("is not retryable", func() {
+				err := &api_client.BadResponseError{}
+				Ω(api_client.IsRetryable(err)).To(BeFalse())
+			})
+
+			Context("when the response code is StatusServiceUnavailable", func() {
+				It("is retryable", func() {
+					err := &api_client.BadResponseError{http.StatusServiceUnavailable}
+					Ω(api_client.IsRetryable(err)).To(BeTrue())
+				})
+			})
+
+			Context("when the response code is StatusGatewayTimeout", func() {
+				It("is retryable", func() {
+					err := &api_client.BadResponseError{http.StatusGatewayTimeout}
+					Ω(api_client.IsRetryable(err)).To(BeTrue())
+				})
+			})
+		})
+
+		Context("general errors", func() {
+			It("is not retryable", func() {
+				err := fmt.Errorf("A generic error")
+				Ω(api_client.IsRetryable(err)).To(BeFalse())
+			})
+		})
+	})
 })
+
+type testNetError struct {
+	timeout   bool
+	temporary bool
+}
+
+func (e *testNetError) Error() string   { return "test error" }
+func (e *testNetError) Timeout() bool   { return e.timeout }
+func (e *testNetError) Temporary() bool { return e.temporary }

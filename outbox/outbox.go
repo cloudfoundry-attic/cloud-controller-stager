@@ -110,14 +110,25 @@ func (o *Outbox) handleCompletedStagingTask(task models.Task, logger lager.Logge
 		logger.Error("resolving-failed", err)
 		return
 	}
-
 	logger.Info("resolving-success")
 
-	err = o.deliverResponse(task, logger)
+	response, err := o.stagingResponse(task, logger)
+	if err != nil {
+		logger.Error("get-staging-response-failed", err)
+		return
+	}
+
+	err = o.stagingComplete(response, logger)
 	if err != nil {
 		logger.Error("deliver-response-failed", err)
+
 		stagingFailedToResolveCounter.Increment()
-		return
+
+		if api_client.IsRetryable(err) {
+			logger.Info("retryable-error")
+			o.bbs.FailedToResolveTask(task.TaskGuid)
+			return
+		}
 	}
 
 	err = o.bbs.ResolveTask(task.TaskGuid)
@@ -129,25 +140,25 @@ func (o *Outbox) handleCompletedStagingTask(task models.Task, logger lager.Logge
 	logger.Info("resolve-success")
 }
 
-func (o *Outbox) deliverResponse(task models.Task, logger lager.Logger) error {
+func (o *Outbox) stagingResponse(task models.Task, logger lager.Logger) ([]byte, error) {
 	switch task.Domain {
 	case stager.TaskDomain:
-		return o.deliverBuildpackResponse(task, logger)
+		return o.buildpackResponse(task, logger)
 	case stager_docker.TaskDomain:
-		return o.deliverDockerResponse(task, logger)
+		return o.dockerResponse(task, logger)
 	default:
 		// Should never get here due to guard in function that calls this function
 		panic(fmt.Sprintf("Should not try to deliver response for task domain '%s'", task.Domain))
 	}
 }
 
-func (o *Outbox) deliverBuildpackResponse(task models.Task, logger lager.Logger) error {
+func (o *Outbox) buildpackResponse(task models.Task, logger lager.Logger) ([]byte, error) {
 	var message cc_messages.StagingResponseForCC
 
 	var annotation models.StagingTaskAnnotation
 	err := json.Unmarshal([]byte(task.Annotation), &annotation)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	message.AppId = annotation.AppId
@@ -159,7 +170,7 @@ func (o *Outbox) deliverBuildpackResponse(task models.Task, logger lager.Logger)
 		var result models.StagingResult
 		err := json.Unmarshal([]byte(task.Result), &result)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		message.BuildpackKey = result.BuildpackKey
@@ -171,24 +182,19 @@ func (o *Outbox) deliverBuildpackResponse(task models.Task, logger lager.Logger)
 	payload, err := json.Marshal(message)
 	if err != nil {
 		logger.Error("marshal-error", err)
-		return err
+		return nil, err
 	}
 
-	err = o.stagingComplete(payload, logger)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return payload, nil
 }
 
-func (o *Outbox) deliverDockerResponse(task models.Task, logger lager.Logger) error {
+func (o *Outbox) dockerResponse(task models.Task, logger lager.Logger) ([]byte, error) {
 	var response cc_messages.DockerStagingResponseForCC
 
 	var annotation models.StagingTaskAnnotation
 	err := json.Unmarshal([]byte(task.Annotation), &annotation)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	response.AppId = annotation.AppId
@@ -200,7 +206,7 @@ func (o *Outbox) deliverDockerResponse(task models.Task, logger lager.Logger) er
 		var result models.StagingDockerResult
 		err := json.Unmarshal([]byte(task.Result), &result)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		response.ExecutionMetadata = result.ExecutionMetadata
 		response.DetectedStartCommand = result.DetectedStartCommand
@@ -209,15 +215,10 @@ func (o *Outbox) deliverDockerResponse(task models.Task, logger lager.Logger) er
 	payload, err := json.Marshal(response)
 	if err != nil {
 		logger.Error("docker-marshal-error", err)
-		return err
+		return nil, err
 	}
 
-	err = o.stagingComplete(payload, logger)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return payload, nil
 }
 
 func (o *Outbox) stagingComplete(payload []byte, logger lager.Logger) error {

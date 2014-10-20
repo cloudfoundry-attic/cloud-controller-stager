@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 
 const (
 	stagingCompletePath           = "/internal/staging/completed"
-	stagingCompleteRequestTimeout = 900 * time.Second
+	stagingCompleteRequestTimeout = 30 * time.Second
 )
 
 type ApiClient interface {
@@ -79,4 +80,21 @@ func (api *apiClient) StagingComplete(payload []byte, logger lager.Logger) error
 
 	logger.Info("delivered-staging-response")
 	return nil
+}
+
+func IsRetryable(err error) bool {
+	if nerr, ok := err.(net.Error); ok {
+		return nerr.Temporary() || nerr.Timeout()
+	}
+
+	if berr, ok := err.(*BadResponseError); ok {
+		switch berr.StatusCode {
+		case http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+			return true
+		default:
+			return false
+		}
+	}
+
+	return false
 }

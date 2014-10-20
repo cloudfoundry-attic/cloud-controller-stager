@@ -49,7 +49,7 @@ var _ = Describe("Outbox", func() {
 	BeforeEach(func() {
 		logger = lager.NewLogger("fakelogger")
 		logger.RegisterSink(lager.NewWriterSink(GinkgoWriter, lager.DEBUG))
-		logger.Info("hello, world")
+
 		appId = "my_app_id"
 		taskId = "do_this"
 		annotationJson, _ := json.Marshal(models.StagingTaskAnnotation{
@@ -111,7 +111,7 @@ var _ = Describe("Outbox", func() {
 					"detected_start_command":{"web":"./some-start-command"},
 					"app_id": "%s",
 					"task_id": "%s"
-			  }`, appId, taskId))
+				}`, appId, taskId))
 
 			})
 
@@ -148,14 +148,40 @@ var _ = Describe("Outbox", func() {
 				fakeApiClient.StagingCompleteReturns(&api_client.BadResponseError{500})
 			})
 
-			It("does not attempt to resolve the Task", func() {
-				Consistently(bbs.ResolveTaskCallCount).Should(Equal(0))
-			})
-
 			It("increments the staging failed to resolve counter", func() {
 				Eventually(func() uint64 {
 					return metricSender.GetCounter("StagingFailedToResolve")
 				}).Should(Equal(uint64(1)))
+			})
+
+			Context("when the api client error is retryable", func() {
+				BeforeEach(func() {
+					fakeApiClient.StagingCompleteReturns(&api_client.BadResponseError{503})
+				})
+
+				It("does not attempt to resolve the Task", func() {
+					Consistently(bbs.ResolveTaskCallCount).Should(Equal(0))
+				})
+
+				It("marks the task as FailedToResolve", func() {
+					Eventually(bbs.FailedToResolveTaskCallCount).Should(Equal(1))
+					Ω(bbs.FailedToResolveTaskArgsForCall(0)).To(Equal(task.TaskGuid))
+				})
+			})
+
+			Context("when the api client error is not retryable", func() {
+				BeforeEach(func() {
+					fakeApiClient.StagingCompleteReturns(&api_client.BadResponseError{404})
+				})
+
+				It("resolves the Task", func() {
+					Eventually(bbs.ResolveTaskCallCount).Should(Equal(1))
+					Ω(bbs.ResolveTaskArgsForCall(0)).To(Equal(task.TaskGuid))
+				})
+
+				It("does not mark the task as FailedToResolve", func() {
+					Consistently(bbs.FailedToResolveTaskCallCount).Should(Equal(0))
+				})
 			})
 		})
 
@@ -203,7 +229,7 @@ var _ = Describe("Outbox", func() {
 					"detected_start_command":{"web":"./some-start-command"},
 					"app_id": "%s",
 					"task_id": "%s"
-			  }`, appId, taskId))
+				}`, appId, taskId))
 			})
 
 			It("resolves the completed task, publishes its result and then marks the Task as resolved", func() {
@@ -214,22 +240,6 @@ var _ = Describe("Outbox", func() {
 
 				Eventually(bbs.ResolveTaskCallCount).Should(Equal(1))
 				Ω(bbs.ResolveTaskArgsForCall(0)).Should(Equal(task.TaskGuid))
-			})
-		})
-
-		Context("when POSTing the staging-complete message fails", func() {
-			BeforeEach(func() {
-				fakeApiClient.StagingCompleteReturns(&api_client.BadResponseError{500})
-			})
-
-			It("does not attempt to resolve the Task", func() {
-				Consistently(bbs.ResolveTaskCallCount).Should(Equal(0))
-			})
-
-			It("increments the staging failed to resolve counter", func() {
-				Eventually(func() uint64 {
-					return metricSender.GetCounter("StagingFailedToResolve")
-				}).Should(Equal(uint64(1)))
 			})
 		})
 	})
