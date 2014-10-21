@@ -9,8 +9,8 @@ import (
 
 	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/cloudfoundry/gunk/timeprovider"
+	"github.com/cloudfoundry/gunk/workpool"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
-	"github.com/cloudfoundry/storeadapter/workerpool"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
@@ -157,7 +157,7 @@ func initializeStagers(stagerBBS bbs.StagerBBS, logger lager.Logger) (stager.Sta
 func initializeStagerBBS(logger lager.Logger) bbs.StagerBBS {
 	etcdAdapter := etcdstoreadapter.NewETCDStoreAdapter(
 		strings.Split(*etcdCluster, ","),
-		workerpool.NewWorkerPool(10),
+		workpool.NewWorkPool(10),
 	)
 
 	err := etcdAdapter.Connect()
