@@ -98,7 +98,7 @@ var _ = Describe("Outbox", func() {
 	})
 
 	Context("when a completed staging task appears in the outbox", func() {
-		BeforeEach(func() {
+		JustBeforeEach(func() {
 			completedTasks <- task
 		})
 
@@ -145,7 +145,7 @@ var _ = Describe("Outbox", func() {
 
 		Context("when POSTing the staging-complete message fails", func() {
 			BeforeEach(func() {
-				fakeApiClient.StagingCompleteReturns(&api_client.BadResponseError{500})
+				fakeApiClient.StagingCompleteReturns(&api_client.BadResponseError{504})
 			})
 
 			It("increments the staging failed to resolve counter", func() {
@@ -159,13 +159,40 @@ var _ = Describe("Outbox", func() {
 					fakeApiClient.StagingCompleteReturns(&api_client.BadResponseError{503})
 				})
 
-				It("does not attempt to resolve the Task", func() {
+				It("retries delivering the StagingComplete message for a limited number of times", func() {
+					Eventually(fakeApiClient.StagingCompleteCallCount).Should(Equal(outbox.StagingResponseRetryLimit))
+					Consistently(fakeApiClient.StagingCompleteCallCount).Should(Equal(outbox.StagingResponseRetryLimit))
+				})
+
+				It("only increments the staging failed to resolve counter once", func() {
+					Eventually(func() uint64 {
+						return metricSender.GetCounter("StagingFailedToResolve")
+					}).Should(Equal(uint64(1)))
+
+					Consistently(func() uint64 {
+						return metricSender.GetCounter("StagingFailedToResolve")
+					}).Should(Equal(uint64(1)))
+				})
+
+				It("does not attempt to resolve the task", func() {
 					Consistently(bbs.ResolveTaskCallCount).Should(Equal(0))
 				})
 
-				It("marks the task as FailedToResolve", func() {
-					Eventually(bbs.FailedToResolveTaskCallCount).Should(Equal(1))
-					Ω(bbs.FailedToResolveTaskArgsForCall(0)).To(Equal(task.TaskGuid))
+				Context("when POSTing the staging-complete message succeeds the second time", func() {
+					BeforeEach(func() {
+						stagingCompleteResults := make(chan error, 2)
+						stagingCompleteResults <- &api_client.BadResponseError{503}
+						stagingCompleteResults <- nil
+
+						fakeApiClient.StagingCompleteStub = func([]byte, lager.Logger) error {
+							return <-stagingCompleteResults
+						}
+					})
+
+					It("resolves the task", func() {
+						Eventually(bbs.ResolveTaskCallCount).Should(Equal(1))
+						Ω(bbs.ResolveTaskArgsForCall(0)).To(Equal(task.TaskGuid))
+					})
 				})
 			})
 
@@ -174,13 +201,9 @@ var _ = Describe("Outbox", func() {
 					fakeApiClient.StagingCompleteReturns(&api_client.BadResponseError{404})
 				})
 
-				It("resolves the Task", func() {
+				It("resolves the task", func() {
 					Eventually(bbs.ResolveTaskCallCount).Should(Equal(1))
 					Ω(bbs.ResolveTaskArgsForCall(0)).To(Equal(task.TaskGuid))
-				})
-
-				It("does not mark the task as FailedToResolve", func() {
-					Consistently(bbs.FailedToResolveTaskCallCount).Should(Equal(0))
 				})
 			})
 		})

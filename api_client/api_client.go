@@ -14,7 +14,7 @@ import (
 
 const (
 	stagingCompletePath           = "/internal/staging/completed"
-	stagingCompleteRequestTimeout = 30 * time.Second
+	stagingCompleteRequestTimeout = 5 * time.Second
 )
 
 type ApiClient interface {

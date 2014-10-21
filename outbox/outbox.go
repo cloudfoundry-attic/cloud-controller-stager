@@ -20,12 +20,13 @@ import (
 
 const (
 	// Metrics
-	stagingSuccessCounter  = metric.Counter("StagingRequestsSucceeded")
-	stagingSuccessDuration = metric.Duration("StagingRequestSucceededDuration")
-	stagingFailureCounter  = metric.Counter("StagingRequestsFailed")
-	stagingFailureDuration = metric.Duration("StagingRequestFailedDuration")
-
+	stagingSuccessCounter         = metric.Counter("StagingRequestsSucceeded")
+	stagingSuccessDuration        = metric.Duration("StagingRequestSucceededDuration")
+	stagingFailureCounter         = metric.Counter("StagingRequestsFailed")
+	stagingFailureDuration        = metric.Duration("StagingRequestFailedDuration")
 	stagingFailedToResolveCounter = metric.Counter("StagingFailedToResolve")
+
+	StagingResponseRetryLimit = 3
 )
 
 type Outbox struct {
@@ -124,9 +125,15 @@ func (o *Outbox) handleCompletedStagingTask(task models.Task, logger lager.Logge
 
 		stagingFailedToResolveCounter.Increment()
 
-		if api_client.IsRetryable(err) {
-			logger.Info("retryable-error")
-			o.bbs.FailedToResolveTask(task.TaskGuid)
+		for i := 0; err != nil && api_client.IsRetryable(err) && i < StagingResponseRetryLimit-1; i++ {
+			logger.Info("retrying-staging-complete-notification")
+			err = o.stagingComplete(response, logger)
+			if err != nil {
+				logger.Error("retried-deliver-response-failed", err)
+			}
+		}
+
+		if err != nil && api_client.IsRetryable(err) {
 			return
 		}
 	}
