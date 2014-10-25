@@ -57,10 +57,12 @@ var _ = Describe("Stage", func() {
 			TaskId:                         "hop",
 			AppBitsDownloadUri:             "http://example-uri.com/bunny",
 			BuildArtifactsCacheDownloadUri: "http://example-uri.com/bunny-droppings",
-			Stack:           "rabbit_hole",
-			FileDescriptors: 512,
-			MemoryMB:        2048,
-			DiskMB:          3072,
+			BuildArtifactsCacheUploadUri:   "http://example-uri.com/bunny-uppings",
+			DropletUploadUri:               "http://example-uri.com/droplet-upload",
+			Stack:                          "rabbit_hole",
+			FileDescriptors:                512,
+			MemoryMB:                       2048,
+			DiskMB:                         3072,
 			Buildpacks: []cc_messages.Buildpack{
 				{Name: "zfirst", Key: "zfirst-buildpack", Url: "first-buildpack-url"},
 				{Name: "asecond", Key: "asecond-buildpack", Url: "second-buildpack-url"},
@@ -168,7 +170,7 @@ var _ = Describe("Stage", func() {
 			models.ExecutorAction{
 				models.UploadAction{
 					From: "/tmp/droplet",
-					To:   "http://file-server.com/v1/droplet/bunny",
+					To:   "http://file-server.com/v1/droplet/bunny?" + models.CcDropletUploadUriKey + "=http%3A%2F%2Fexample-uri.com%2Fdroplet-upload",
 				},
 			},
 			"",
@@ -181,7 +183,7 @@ var _ = Describe("Stage", func() {
 				models.ExecutorAction{
 					models.UploadAction{
 						From: "/tmp/output-cache",
-						To:   "http://file-server.com/v1/build_artifacts/bunny",
+						To:   "http://file-server.com/v1/build_artifacts/bunny?" + models.CcBuildArtifactsUploadUriKey + "=http%3A%2F%2Fexample-uri.com%2Fbunny-uppings",
 					},
 				},
 				"",

@@ -138,7 +138,7 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 	downloadNames = append(downloadNames, fmt.Sprintf("buildpacks (%s)", strings.Join(buildpackNames, ", ")))
 
 	//Download Buildpack Artifacts Cache
-	downloadURL, err := stager.buildArtifactsDownloadURL(request, fileServerURL)
+	downloadURL, err := stager.buildArtifactsDownloadURL(request)
 	if err != nil {
 		return err
 	}
@@ -336,12 +336,16 @@ func (stager *stager) dropletUploadURL(request cc_messages.StagingRequestFromCC,
 
 	urlString := urljoiner.Join(fileServerURL, path)
 
-	url, err := url.ParseRequestURI(urlString)
+	u, err := url.ParseRequestURI(urlString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse droplet upload URL: %s", err)
 	}
 
-	return url, nil
+	values := make(url.Values, 1)
+	values.Add(models.CcDropletUploadUriKey, request.DropletUploadUri)
+	u.RawQuery = values.Encode()
+
+	return u, nil
 }
 
 func (stager *stager) buildArtifactsUploadURL(request cc_messages.StagingRequestFromCC, fileServerURL string) (*url.URL, error) {
@@ -360,15 +364,19 @@ func (stager *stager) buildArtifactsUploadURL(request cc_messages.StagingRequest
 
 	urlString := urljoiner.Join(fileServerURL, path)
 
-	url, err := url.ParseRequestURI(urlString)
+	u, err := url.ParseRequestURI(urlString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse build artifacts cache upload URL: %s", err)
 	}
 
-	return url, nil
+	values := make(url.Values, 1)
+	values.Add(models.CcBuildArtifactsUploadUriKey, request.BuildArtifactsCacheUploadUri)
+	u.RawQuery = values.Encode()
+
+	return u, nil
 }
 
-func (stager *stager) buildArtifactsDownloadURL(request cc_messages.StagingRequestFromCC, fileServerURL string) (*url.URL, error) {
+func (stager *stager) buildArtifactsDownloadURL(request cc_messages.StagingRequestFromCC) (*url.URL, error) {
 	urlString := request.BuildArtifactsCacheDownloadUri
 	if urlString == "" {
 		return nil, nil
