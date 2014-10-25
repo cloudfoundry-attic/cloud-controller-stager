@@ -10,6 +10,8 @@ import (
 	"github.com/cloudfoundry/storeadapter"
 	"github.com/pivotal-golang/lager"
 
+	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/receptor/fake_receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -32,9 +34,11 @@ var _ = Describe("Stage", func() {
 		uploadDropletAction           models.ExecutorAction
 		uploadBuildArtifactsAction    models.ExecutorAction
 		config                        Config
+		fakeAPIClient                 *fake_receptor.FakeClient
 	)
 
 	BeforeEach(func() {
+		fakeAPIClient = new(fake_receptor.FakeClient)
 		bbs = &fake_bbs.FakeStagerBBS{}
 		logger := lager.NewLogger("fakelogger")
 
@@ -50,7 +54,7 @@ var _ = Describe("Stage", func() {
 			MinFileDescriptors: 256,
 		}
 
-		stager = New(bbs, logger, config)
+		stager = New(bbs, fakeAPIClient, logger, config)
 
 		stagingRequest = cc_messages.StagingRequestFromCC{
 			AppId:                          "bunny",
@@ -210,7 +214,7 @@ var _ = Describe("Stage", func() {
 			err := stager.Stage(stagingRequest)
 			Ω(err).ShouldNot(HaveOccurred())
 
-			desiredTask := bbs.DesireTaskArgsForCall(0)
+			desiredTask := fakeAPIClient.CreateTaskArgsForCall(0)
 
 			Ω(desiredTask.Domain).To(Equal("cf-app-staging"))
 			Ω(desiredTask.TaskGuid).To(Equal("bunny-hop"))
@@ -268,7 +272,7 @@ var _ = Describe("Stage", func() {
 					err := stager.Stage(stagingRequest)
 					Ω(err).ShouldNot(HaveOccurred())
 
-					desiredTask := bbs.DesireTaskArgsForCall(0)
+					desiredTask := fakeAPIClient.CreateTaskArgsForCall(0)
 					Ω(desiredTask.MemoryMB).Should(BeNumerically("==", config.MinMemoryMB))
 				})
 			})
@@ -282,7 +286,7 @@ var _ = Describe("Stage", func() {
 					err := stager.Stage(stagingRequest)
 					Ω(err).ShouldNot(HaveOccurred())
 
-					desiredTask := bbs.DesireTaskArgsForCall(0)
+					desiredTask := fakeAPIClient.CreateTaskArgsForCall(0)
 					Ω(desiredTask.DiskMB).Should(BeNumerically("==", config.MinDiskMB))
 				})
 			})
@@ -296,7 +300,7 @@ var _ = Describe("Stage", func() {
 					err := stager.Stage(stagingRequest)
 					Ω(err).ShouldNot(HaveOccurred())
 
-					desiredTask := bbs.DesireTaskArgsForCall(0)
+					desiredTask := fakeAPIClient.CreateTaskArgsForCall(0)
 
 					runAction = models.EmitProgressFor(
 						models.ExecutorAction{
@@ -361,7 +365,7 @@ var _ = Describe("Stage", func() {
 				err := stager.Stage(stagingRequest)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				desiredTask := bbs.DesireTaskArgsForCall(0)
+				desiredTask := fakeAPIClient.CreateTaskArgsForCall(0)
 
 				Ω(desiredTask.Actions).Should(Equal([]models.ExecutorAction{
 					models.EmitProgressFor(
@@ -411,7 +415,7 @@ var _ = Describe("Stage", func() {
 				err := stager.Stage(stagingRequest)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				desiredTask := bbs.DesireTaskArgsForCall(0)
+				desiredTask := fakeAPIClient.CreateTaskArgsForCall(0)
 
 				downloadAction := desiredTask.Actions[0].Action.(models.EmitProgressAction).Action.Action.(models.ParallelAction).Actions[0].Action.(models.EmitProgressAction).Action.Action.(models.DownloadAction)
 				Ω(downloadAction.From).Should(Equal("http://the-full-compiler-url"))
@@ -444,7 +448,10 @@ var _ = Describe("Stage", func() {
 
 		Context("when the task has already been created", func() {
 			BeforeEach(func() {
-				bbs.DesireTaskReturns(storeadapter.ErrorKeyExists)
+				fakeAPIClient.CreateTaskReturns(receptor.Error{
+					Type:    receptor.TaskGuidAlreadyExists,
+					Message: "ok, this task already exists",
+				})
 			})
 
 			It("does not raise an error", func() {
@@ -453,11 +460,11 @@ var _ = Describe("Stage", func() {
 			})
 		})
 
-		Context("when writing the task to the BBS fails", func() {
+		Context("when the API call fails", func() {
 			desireErr := errors.New("Could not connect!")
 
 			BeforeEach(func() {
-				bbs.DesireTaskReturns(desireErr)
+				fakeAPIClient.CreateTaskReturns(desireErr)
 			})
 
 			It("returns an error", func() {

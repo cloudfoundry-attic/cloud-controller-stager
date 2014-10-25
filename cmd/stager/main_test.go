@@ -1,7 +1,9 @@
 package main_test
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/cloudfoundry/gunk/diegonats"
@@ -10,19 +12,21 @@ import (
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/ginkgomon"
 
+	"github.com/cloudfoundry-incubator/receptor"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/stager/cmd/stager/testrunner"
 	"github.com/cloudfoundry/storeadapter/storerunner/etcdstorerunner"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+	"github.com/onsi/gomega/ghttp"
 )
 
 var _ = Describe("Stager", func() {
 	var (
-		gnatsdRunner ifrit.Process
-		natsClient   diegonats.NATSClient
-
+		gnatsdRunner      ifrit.Process
+		natsClient        diegonats.NATSClient
+		fakeServer        *ghttp.Server
 		bbs               *Bbs.BBS
 		fileServerProcess ifrit.Process
 	)
@@ -30,6 +34,8 @@ var _ = Describe("Stager", func() {
 	BeforeEach(func() {
 		etcdPort := 5001 + GinkgoParallelNode()
 		natsPort := 4001 + GinkgoParallelNode()
+
+		fakeServer = ghttp.NewServer()
 
 		etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1)
 		etcdRunner.Start()
@@ -44,6 +50,9 @@ var _ = Describe("Stager", func() {
 			stagerPath,
 			[]string{fmt.Sprintf("http://127.0.0.1:%d", etcdPort)},
 			[]string{fmt.Sprintf("127.0.0.1:%d", natsPort)},
+
+			// TODO - remove this slice (currently, we need to remove the 'http://' prefix)
+			fakeServer.URL()[7:],
 		)
 	})
 
@@ -61,6 +70,15 @@ var _ = Describe("Stager", func() {
 
 		Describe("when a 'diego.staging.start' message is recieved", func() {
 			BeforeEach(func() {
+				fakeServer.RouteToHandler("POST", "/tasks", func(w http.ResponseWriter, req *http.Request) {
+					var taskRequest receptor.CreateTaskRequest
+					err := json.NewDecoder(req.Body).Decode(&taskRequest)
+					Ω(err).ShouldNot(HaveOccurred())
+
+					Ω(taskRequest.MemoryMB).Should(Equal(1024))
+					Ω(taskRequest.DiskMB).Should(Equal(2048))
+				})
+
 				natsClient.Publish("diego.staging.start", []byte(`
 				      {
 				        "app_id":"my-app-guid",
@@ -76,12 +94,8 @@ var _ = Describe("Stager", func() {
 				    `))
 			})
 
-			It("desires a staging task via the BBS", func() {
-				Eventually(bbs.GetAllPendingTasks, 1.0).Should(HaveLen(1))
-				tasks, err := bbs.GetAllPendingTasks()
-				Ω(err).ShouldNot(HaveOccurred())
-				Ω(tasks[0].MemoryMB).Should(Equal(1024))
-				Ω(tasks[0].DiskMB).Should(Equal(2048))
+			It("desires a staging task via the API", func() {
+				Eventually(fakeServer.ReceivedRequests).Should(HaveLen(1))
 			})
 
 			It("does not exit", func() {
@@ -91,6 +105,14 @@ var _ = Describe("Stager", func() {
 
 		Describe("when a 'diego.docker.staging.start' message is recieved", func() {
 			BeforeEach(func() {
+				fakeServer.RouteToHandler("POST", "/tasks", func(w http.ResponseWriter, req *http.Request) {
+					var taskRequest receptor.CreateTaskRequest
+					err := json.NewDecoder(req.Body).Decode(&taskRequest)
+					Ω(err).ShouldNot(HaveOccurred())
+
+					Ω(taskRequest.MemoryMB).Should(Equal(1024))
+					Ω(taskRequest.DiskMB).Should(Equal(2048))
+				})
 
 				natsClient.Publish("diego.docker.staging.start", []byte(`
 				      {
@@ -106,12 +128,8 @@ var _ = Describe("Stager", func() {
 				    `))
 			})
 
-			It("desires a staging task via the BBS", func() {
-				Eventually(bbs.GetAllPendingTasks, 1.0).Should(HaveLen(1))
-				tasks, err := bbs.GetAllPendingTasks()
-				Ω(err).ShouldNot(HaveOccurred())
-				Ω(tasks[0].MemoryMB).Should(Equal(1024))
-				Ω(tasks[0].DiskMB).Should(Equal(2048))
+			It("desires a staging task via the API", func() {
+				Eventually(fakeServer.ReceivedRequests).Should(HaveLen(1))
 			})
 
 			It("does not exit", func() {

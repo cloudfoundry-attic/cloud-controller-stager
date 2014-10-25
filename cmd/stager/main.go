@@ -18,6 +18,7 @@ import (
 
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	"github.com/cloudfoundry-incubator/cf-lager"
+	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/stager/api_client"
 	"github.com/cloudfoundry-incubator/stager/inbox"
@@ -105,6 +106,12 @@ var minFileDescriptors = flag.Uint64(
 	"minimum file descriptors for staging tasks",
 )
 
+var apiURL = flag.String(
+	"apiURL",
+	"",
+	"URL of diego API",
+)
+
 func main() {
 	flag.Parse()
 
@@ -148,8 +155,11 @@ func initializeStagers(stagerBBS bbs.StagerBBS, logger lager.Logger) (stager.Sta
 		MinDiskMB:          *minDiskMB,
 		MinFileDescriptors: *minFileDescriptors,
 	}
-	bpStager := stager.New(stagerBBS, logger, config)
-	dockerStager := stager_docker.New(stagerBBS, logger, config)
+
+	apiClient := receptor.NewClient(*apiURL, "", "")
+
+	bpStager := stager.New(stagerBBS, apiClient, logger, config)
+	dockerStager := stager_docker.New(stagerBBS, apiClient, logger, config)
 
 	return bpStager, dockerStager
 }

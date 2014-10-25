@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudfoundry/storeadapter"
 	"github.com/pivotal-golang/lager"
 
+	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
@@ -42,13 +42,15 @@ type stager struct {
 	stagerBBS bbs.StagerBBS
 	logger    lager.Logger
 	config    Config
+	apiClient receptor.Client
 }
 
-func New(stagerBBS bbs.StagerBBS, logger lager.Logger, config Config) Stager {
+func New(stagerBBS bbs.StagerBBS, apiClient receptor.Client, logger lager.Logger, config Config) Stager {
 	return &stager{
 		stagerBBS: stagerBBS,
 		logger:    logger,
 		config:    config,
+		apiClient: apiClient,
 	}
 }
 
@@ -248,7 +250,7 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 		TaskId: request.TaskId,
 	})
 
-	task := models.Task{
+	task := receptor.CreateTaskRequest{
 		TaskGuid:   taskGuid(request),
 		Domain:     TaskDomain,
 		Stack:      request.Stack,
@@ -265,9 +267,11 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 
 	stager.logger.Info("desiring-task", lager.Data{"task": task})
 
-	err = stager.stagerBBS.DesireTask(task)
-	if err == storeadapter.ErrorKeyExists {
-		err = nil
+	err = stager.apiClient.CreateTask(task)
+	if receptorErr, ok := err.(receptor.Error); ok {
+		if receptorErr.Type == receptor.TaskGuidAlreadyExists {
+			err = nil
+		}
 	}
 
 	return err
