@@ -1,9 +1,11 @@
 package main_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/cloudfoundry/gunk/diegonats"
@@ -15,6 +17,7 @@ import (
 	"github.com/cloudfoundry-incubator/receptor"
 	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/stager/cmd/stager/testrunner"
+	"github.com/cloudfoundry-incubator/stager/stager"
 	"github.com/cloudfoundry/storeadapter/storerunner/etcdstorerunner"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -24,9 +27,11 @@ import (
 
 var _ = Describe("Stager", func() {
 	var (
+		stagerPort        int
 		gnatsdRunner      ifrit.Process
 		natsClient        diegonats.NATSClient
 		fakeServer        *ghttp.Server
+		fakeCC            *ghttp.Server
 		bbs               *Bbs.BBS
 		fileServerProcess ifrit.Process
 	)
@@ -34,8 +39,11 @@ var _ = Describe("Stager", func() {
 	BeforeEach(func() {
 		etcdPort := 5001 + GinkgoParallelNode()
 		natsPort := 4001 + GinkgoParallelNode()
+		stagerPort = 8888 + GinkgoParallelNode()
 
 		fakeServer = ghttp.NewServer()
+		fakeServerURL, err := url.Parse(fakeServer.URL())
+		Ω(err).ShouldNot(HaveOccurred())
 
 		etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1)
 		etcdRunner.Start()
@@ -46,14 +54,16 @@ var _ = Describe("Stager", func() {
 
 		fileServerProcess = ifrit.Envoke(bbs.NewFileServerHeartbeat("http://example.com", "file-server-id", time.Second))
 
-		runner = testrunner.New(
-			stagerPath,
-			[]string{fmt.Sprintf("http://127.0.0.1:%d", etcdPort)},
-			[]string{fmt.Sprintf("127.0.0.1:%d", natsPort)},
+		fakeCC = ghttp.NewServer()
 
-			// TODO - remove this slice (currently, we need to remove the 'http://' prefix)
-			fakeServer.URL()[7:],
-		)
+		runner = testrunner.New(testrunner.Config{
+			StagerBin:     stagerPath,
+			StagerAddr:    fmt.Sprintf("127.0.0.1:%d", stagerPort),
+			EtcdCluster:   []string{fmt.Sprintf("http://127.0.0.1:%d", etcdPort)},
+			NatsAddresses: []string{fmt.Sprintf("127.0.0.1:%d", natsPort)},
+			APIURL:        fakeServerURL.Host,
+			CCBaseURL:     fakeCC.URL(),
+		})
 	})
 
 	AfterEach(func() {
@@ -134,6 +144,30 @@ var _ = Describe("Stager", func() {
 
 			It("does not exit", func() {
 				Consistently(runner.Session()).ShouldNot(gexec.Exit())
+			})
+		})
+
+		Describe("when a staging task completes", func() {
+			var resp *http.Response
+
+			BeforeEach(func() {
+				fakeCC.RouteToHandler("POST", "/internal/staging/completed", func(res http.ResponseWriter, req *http.Request) {
+				})
+
+				taskJSON, err := json.Marshal(receptor.TaskResponse{
+					TaskGuid:   "the-task-guid",
+					Domain:     stager.TaskDomain,
+					Annotation: `{}`,
+					Result:     `{}`,
+				})
+				Ω(err).ShouldNot(HaveOccurred())
+
+				resp, err = http.Post(fmt.Sprintf("http://127.0.0.1:%d", stagerPort), "application/json", bytes.NewReader(taskJSON))
+				Ω(err).ShouldNot(HaveOccurred())
+			})
+
+			It("POSTs to the CC that staging is complete", func() {
+				Eventually(fakeCC.ReceivedRequests).Should(HaveLen(1))
 			})
 		})
 	})

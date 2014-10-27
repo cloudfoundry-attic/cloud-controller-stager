@@ -13,20 +13,33 @@ import (
 
 type StagerRunner struct {
 	stagerBin     string
+	stagerAddr    string
 	etcdCluster   []string
 	natsAddresses []string
 	apiURL        string
+	ccBaseURL     string
 
 	session     *gexec.Session
 	CompilerUrl string
 }
 
-func New(stagerBin string, etcdCluster []string, natsAddresses []string, apiURL string) *StagerRunner {
+type Config struct {
+	StagerBin     string
+	StagerAddr    string
+	EtcdCluster   []string
+	NatsAddresses []string
+	APIURL        string
+	CCBaseURL     string
+}
+
+func New(config Config) *StagerRunner {
 	return &StagerRunner{
-		stagerBin:     stagerBin,
-		etcdCluster:   etcdCluster,
-		natsAddresses: natsAddresses,
-		apiURL:        apiURL,
+		stagerBin:     config.StagerBin,
+		stagerAddr:    config.StagerAddr,
+		etcdCluster:   config.EtcdCluster,
+		natsAddresses: config.NatsAddresses,
+		apiURL:        config.APIURL,
+		ccBaseURL:     config.CCBaseURL,
 	}
 }
 
@@ -42,6 +55,8 @@ func (r *StagerRunner) Start(args ...string) {
 				"-etcdCluster", strings.Join(r.etcdCluster, ","),
 				"-natsAddresses", strings.Join(r.natsAddresses, ","),
 				"-apiURL", r.apiURL,
+				"-listenAddr", r.stagerAddr,
+				"-ccBaseURL", r.ccBaseURL,
 			}, args...)...,
 		),
 		gexec.NewPrefixedWriter("\x1b[32m[o]\x1b[95m[stager]\x1b[0m ", ginkgo.GinkgoWriter),

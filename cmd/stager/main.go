@@ -112,6 +112,12 @@ var apiURL = flag.String(
 	"URL of diego API",
 )
 
+var listenAddr = flag.String(
+	"listenAddr",
+	"",
+	"address on which to listen for staging task completion callbacks",
+)
+
 func main() {
 	flag.Parse()
 
@@ -129,7 +135,7 @@ func main() {
 		{"inbox", ifrit.RunFunc(func(signals <-chan os.Signal, ready chan<- struct{}) error {
 			return inbox.New(natsClient, apiClient, traditionalStager, dockerStager, inbox.ValidateRequest, logger).Run(signals, ready)
 		})},
-		{"outbox", outbox.New(stagerBBS, apiClient, logger, timeprovider.NewTimeProvider())},
+		{"outbox", outbox.New(*listenAddr, apiClient, logger, timeprovider.NewTimeProvider())},
 	})
 
 	process := ifrit.Envoke(sigmon.New(group))

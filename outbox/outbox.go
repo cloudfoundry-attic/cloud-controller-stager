@@ -2,12 +2,13 @@ package outbox
 
 import (
 	"encoding/json"
-	"fmt"
+	"net/http"
 	"os"
-	"sync"
 	"time"
 
-	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
+	"github.com/tedsuo/ifrit/http_server"
+
+	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -20,27 +21,24 @@ import (
 
 const (
 	// Metrics
-	stagingSuccessCounter         = metric.Counter("StagingRequestsSucceeded")
-	stagingSuccessDuration        = metric.Duration("StagingRequestSucceededDuration")
-	stagingFailureCounter         = metric.Counter("StagingRequestsFailed")
-	stagingFailureDuration        = metric.Duration("StagingRequestFailedDuration")
-	stagingFailedToResolveCounter = metric.Counter("StagingFailedToResolve")
-
-	StagingResponseRetryLimit = 3
+	stagingSuccessCounter  = metric.Counter("StagingRequestsSucceeded")
+	stagingSuccessDuration = metric.Duration("StagingRequestSucceededDuration")
+	stagingFailureCounter  = metric.Counter("StagingRequestsFailed")
+	stagingFailureDuration = metric.Duration("StagingRequestFailedDuration")
 )
 
 type Outbox struct {
-	bbs          bbs.StagerBBS
+	address      string
 	ccClient     api_client.ApiClient
 	logger       lager.Logger
 	timeProvider timeprovider.TimeProvider
 }
 
-func New(bbs bbs.StagerBBS, ccClient api_client.ApiClient, logger lager.Logger, timeProvider timeprovider.TimeProvider) *Outbox {
+func New(address string, ccClient api_client.ApiClient, logger lager.Logger, timeProvider timeprovider.TimeProvider) *Outbox {
 	outboxLogger := logger.Session("outbox")
 
 	return &Outbox{
-		bbs:          bbs,
+		address:      address,
 		ccClient:     ccClient,
 		logger:       outboxLogger,
 		timeProvider: timeProvider,
@@ -48,62 +46,64 @@ func New(bbs bbs.StagerBBS, ccClient api_client.ApiClient, logger lager.Logger, 
 }
 
 func (o *Outbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
-	wg := new(sync.WaitGroup)
-	tasks, stopWatching, errs := o.bbs.WatchForCompletedTask()
-
-	taskLogger := o.logger.Session("task")
-	watchLogger := taskLogger.Session("watching-for-completed-task")
-	watchLogger.Info("started")
-
-	close(ready)
-
-	for {
-		select {
-		case task, ok := <-tasks:
-			if !ok {
-				tasks = nil
-			}
-
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				o.handleCompletedStagingTask(task, taskLogger)
-			}()
-
-		case err, ok := <-errs:
-			if ok && err != nil {
-				watchLogger.Error("failed", err)
-			}
-
-			time.Sleep(3 * time.Second)
-
-			tasks, stopWatching, errs = o.bbs.WatchForCompletedTask()
-
-		case <-signals:
-			close(stopWatching)
-			wg.Wait()
-			watchLogger.Info("stopped")
-			return nil
-		}
-	}
+	server := http_server.New(o.address, http.HandlerFunc(o.handleRequest))
+	return server.Run(signals, ready)
 }
 
-func (o *Outbox) handleCompletedStagingTask(task models.Task, logger lager.Logger) {
-	var err error
-
-	if task.Domain != stager.TaskDomain && task.Domain != stager_docker.TaskDomain {
-		return
-	}
-
-	logger = logger.Session("handle-staging-complete", lager.Data{"guid": task.TaskGuid})
-
-	err = o.bbs.ResolvingTask(task.TaskGuid)
+func (o *Outbox) handleRequest(res http.ResponseWriter, req *http.Request) {
+	var task receptor.TaskResponse
+	err := json.NewDecoder(req.Body).Decode(&task)
 	if err != nil {
-		logger.Error("resolving-failed", err)
+		o.logger.Error("parsing-incoming-task-failed", err)
+		res.WriteHeader(400)
 		return
 	}
-	logger.Info("resolving-success")
 
+	logger := o.logger.Session("task-complete-callback-received", lager.Data{
+		"guid": task.TaskGuid,
+	})
+
+	response, err := o.stagingResponse(task)
+	if err != nil {
+		logger.Error("get-staging-response-failed", err)
+		return
+	}
+
+	if response == nil {
+		res.WriteHeader(404)
+		res.Write([]byte("Unknown task domain"))
+		return
+	}
+
+	payload, err := json.Marshal(response)
+	if err != nil {
+		logger.Error("marshal-error", err)
+		res.WriteHeader(http.StatusOK)
+		return
+	}
+
+	logger.Info("posting-staging-complete", lager.Data{
+		"payload": payload,
+	})
+
+	err = o.ccClient.StagingComplete(payload, logger)
+	if err != nil {
+		logger.Error("cc-request-failed", err)
+		if responseErr, ok := err.(*api_client.BadResponseError); ok {
+			res.WriteHeader(responseErr.StatusCode)
+		} else {
+			res.WriteHeader(503)
+		}
+		return
+	}
+
+	o.reportMetrics(task)
+
+	logger.Info("posted-staging-complete")
+	res.WriteHeader(http.StatusOK)
+}
+
+func (o *Outbox) reportMetrics(task receptor.TaskResponse) {
 	duration := o.timeProvider.Time().Sub(time.Unix(0, task.CreatedAt))
 	if task.Failed {
 		stagingFailureCounter.Increment()
@@ -112,55 +112,21 @@ func (o *Outbox) handleCompletedStagingTask(task models.Task, logger lager.Logge
 		stagingSuccessDuration.Send(duration)
 		stagingSuccessCounter.Increment()
 	}
-
-	response, err := o.stagingResponse(task, logger)
-	if err != nil {
-		logger.Error("get-staging-response-failed", err)
-		return
-	}
-
-	err = o.stagingComplete(response, logger)
-	if err != nil {
-		logger.Error("deliver-response-failed", err)
-
-		stagingFailedToResolveCounter.Increment()
-
-		for i := 0; err != nil && api_client.IsRetryable(err) && i < StagingResponseRetryLimit-1; i++ {
-			logger.Info("retrying-staging-complete-notification")
-			err = o.stagingComplete(response, logger)
-			if err != nil {
-				logger.Error("retried-deliver-response-failed", err)
-			}
-		}
-
-		if err != nil && api_client.IsRetryable(err) {
-			return
-		}
-	}
-
-	err = o.bbs.ResolveTask(task.TaskGuid)
-	if err != nil {
-		logger.Error("resolve-failed", err)
-		return
-	}
-
-	logger.Info("resolve-success")
 }
 
-func (o *Outbox) stagingResponse(task models.Task, logger lager.Logger) ([]byte, error) {
+func (o *Outbox) stagingResponse(task receptor.TaskResponse) (interface{}, error) {
 	switch task.Domain {
 	case stager.TaskDomain:
-		return o.buildpackResponse(task, logger)
+		return o.buildpackStagingResponse(task)
 	case stager_docker.TaskDomain:
-		return o.dockerResponse(task, logger)
+		return o.dockerStagingResponse(task)
 	default:
-		// Should never get here due to guard in function that calls this function
-		panic(fmt.Sprintf("Should not try to deliver response for task domain '%s'", task.Domain))
+		return nil, nil
 	}
 }
 
-func (o *Outbox) buildpackResponse(task models.Task, logger lager.Logger) ([]byte, error) {
-	var message cc_messages.StagingResponseForCC
+func (o *Outbox) buildpackStagingResponse(task receptor.TaskResponse) (interface{}, error) {
+	var response cc_messages.StagingResponseForCC
 
 	var annotation models.StagingTaskAnnotation
 	err := json.Unmarshal([]byte(task.Annotation), &annotation)
@@ -168,11 +134,11 @@ func (o *Outbox) buildpackResponse(task models.Task, logger lager.Logger) ([]byt
 		return nil, err
 	}
 
-	message.AppId = annotation.AppId
-	message.TaskId = annotation.TaskId
+	response.AppId = annotation.AppId
+	response.TaskId = annotation.TaskId
 
 	if task.Failed {
-		message.Error = task.FailureReason
+		response.Error = task.FailureReason
 	} else {
 		var result models.StagingResult
 		err := json.Unmarshal([]byte(task.Result), &result)
@@ -180,22 +146,16 @@ func (o *Outbox) buildpackResponse(task models.Task, logger lager.Logger) ([]byt
 			return nil, err
 		}
 
-		message.BuildpackKey = result.BuildpackKey
-		message.DetectedBuildpack = result.DetectedBuildpack
-		message.ExecutionMetadata = result.ExecutionMetadata
-		message.DetectedStartCommand = result.DetectedStartCommand
+		response.BuildpackKey = result.BuildpackKey
+		response.DetectedBuildpack = result.DetectedBuildpack
+		response.ExecutionMetadata = result.ExecutionMetadata
+		response.DetectedStartCommand = result.DetectedStartCommand
 	}
 
-	payload, err := json.Marshal(message)
-	if err != nil {
-		logger.Error("marshal-error", err)
-		return nil, err
-	}
-
-	return payload, nil
+	return response, nil
 }
 
-func (o *Outbox) dockerResponse(task models.Task, logger lager.Logger) ([]byte, error) {
+func (o *Outbox) dockerStagingResponse(task receptor.TaskResponse) (interface{}, error) {
 	var response cc_messages.DockerStagingResponseForCC
 
 	var annotation models.StagingTaskAnnotation
@@ -219,24 +179,5 @@ func (o *Outbox) dockerResponse(task models.Task, logger lager.Logger) ([]byte, 
 		response.DetectedStartCommand = result.DetectedStartCommand
 	}
 
-	payload, err := json.Marshal(response)
-	if err != nil {
-		logger.Error("docker-marshal-error", err)
-		return nil, err
-	}
-
-	return payload, nil
-}
-
-func (o *Outbox) stagingComplete(payload []byte, logger lager.Logger) error {
-	logger.Info("posting-staging-complete", lager.Data{"payload": payload})
-
-	err := o.ccClient.StagingComplete(payload, logger)
-	if err != nil {
-		logger.Error("failed-to-post-staging-complete", err)
-		return err
-	}
-
-	logger.Info("posted-staging-complete")
-	return nil
+	return response, nil
 }
