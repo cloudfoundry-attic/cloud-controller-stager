@@ -106,8 +106,8 @@ var minFileDescriptors = flag.Uint64(
 	"minimum file descriptors for staging tasks",
 )
 
-var apiURL = flag.String(
-	"apiURL",
+var diegoAPIURL = flag.String(
+	"diegoAPIURL",
 	"",
 	"URL of diego API",
 )
@@ -162,10 +162,10 @@ func initializeStagers(stagerBBS bbs.StagerBBS, logger lager.Logger) (stager.Sta
 		MinFileDescriptors: *minFileDescriptors,
 	}
 
-	apiClient := receptor.NewClient(*apiURL, "", "")
+	diegoAPIClient := receptor.NewClient(*diegoAPIURL, "", "")
 
-	bpStager := stager.New(stagerBBS, apiClient, logger, config)
-	dockerStager := stager_docker.New(stagerBBS, apiClient, logger, config)
+	bpStager := stager.New(stagerBBS, diegoAPIClient, logger, config)
+	dockerStager := stager_docker.New(stagerBBS, diegoAPIClient, logger, config)
 
 	return bpStager, dockerStager
 }

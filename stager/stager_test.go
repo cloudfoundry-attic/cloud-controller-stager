@@ -34,11 +34,11 @@ var _ = Describe("Stage", func() {
 		uploadDropletAction           models.ExecutorAction
 		uploadBuildArtifactsAction    models.ExecutorAction
 		config                        Config
-		fakeAPIClient                 *fake_receptor.FakeClient
+		fakeDiegoAPIClient            *fake_receptor.FakeClient
 	)
 
 	BeforeEach(func() {
-		fakeAPIClient = new(fake_receptor.FakeClient)
+		fakeDiegoAPIClient = new(fake_receptor.FakeClient)
 		bbs = &fake_bbs.FakeStagerBBS{}
 		logger := lager.NewLogger("fakelogger")
 
@@ -54,7 +54,7 @@ var _ = Describe("Stage", func() {
 			MinFileDescriptors: 256,
 		}
 
-		stager = New(bbs, fakeAPIClient, logger, config)
+		stager = New(bbs, fakeDiegoAPIClient, logger, config)
 
 		stagingRequest = cc_messages.StagingRequestFromCC{
 			AppId:                          "bunny",
@@ -214,7 +214,7 @@ var _ = Describe("Stage", func() {
 			err := stager.Stage(stagingRequest)
 			Ω(err).ShouldNot(HaveOccurred())
 
-			desiredTask := fakeAPIClient.CreateTaskArgsForCall(0)
+			desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
 
 			Ω(desiredTask.Domain).To(Equal("cf-app-staging"))
 			Ω(desiredTask.TaskGuid).To(Equal("bunny-hop"))
@@ -272,7 +272,7 @@ var _ = Describe("Stage", func() {
 					err := stager.Stage(stagingRequest)
 					Ω(err).ShouldNot(HaveOccurred())
 
-					desiredTask := fakeAPIClient.CreateTaskArgsForCall(0)
+					desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
 					Ω(desiredTask.MemoryMB).Should(BeNumerically("==", config.MinMemoryMB))
 				})
 			})
@@ -286,7 +286,7 @@ var _ = Describe("Stage", func() {
 					err := stager.Stage(stagingRequest)
 					Ω(err).ShouldNot(HaveOccurred())
 
-					desiredTask := fakeAPIClient.CreateTaskArgsForCall(0)
+					desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
 					Ω(desiredTask.DiskMB).Should(BeNumerically("==", config.MinDiskMB))
 				})
 			})
@@ -300,7 +300,7 @@ var _ = Describe("Stage", func() {
 					err := stager.Stage(stagingRequest)
 					Ω(err).ShouldNot(HaveOccurred())
 
-					desiredTask := fakeAPIClient.CreateTaskArgsForCall(0)
+					desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
 
 					runAction = models.EmitProgressFor(
 						models.ExecutorAction{
@@ -365,7 +365,7 @@ var _ = Describe("Stage", func() {
 				err := stager.Stage(stagingRequest)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				desiredTask := fakeAPIClient.CreateTaskArgsForCall(0)
+				desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
 
 				Ω(desiredTask.Actions).Should(Equal([]models.ExecutorAction{
 					models.EmitProgressFor(
@@ -415,7 +415,7 @@ var _ = Describe("Stage", func() {
 				err := stager.Stage(stagingRequest)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				desiredTask := fakeAPIClient.CreateTaskArgsForCall(0)
+				desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
 
 				downloadAction := desiredTask.Actions[0].Action.(models.EmitProgressAction).Action.Action.(models.ParallelAction).Actions[0].Action.(models.EmitProgressAction).Action.Action.(models.DownloadAction)
 				Ω(downloadAction.From).Should(Equal("http://the-full-compiler-url"))
@@ -448,7 +448,7 @@ var _ = Describe("Stage", func() {
 
 		Context("when the task has already been created", func() {
 			BeforeEach(func() {
-				fakeAPIClient.CreateTaskReturns(receptor.Error{
+				fakeDiegoAPIClient.CreateTaskReturns(receptor.Error{
 					Type:    receptor.TaskGuidAlreadyExists,
 					Message: "ok, this task already exists",
 				})
@@ -464,7 +464,7 @@ var _ = Describe("Stage", func() {
 			desireErr := errors.New("Could not connect!")
 
 			BeforeEach(func() {
-				fakeAPIClient.CreateTaskReturns(desireErr)
+				fakeDiegoAPIClient.CreateTaskReturns(desireErr)
 			})
 
 			It("returns an error", func() {

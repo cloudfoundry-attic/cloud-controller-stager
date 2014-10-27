@@ -16,7 +16,7 @@ type StagerRunner struct {
 	stagerAddr    string
 	etcdCluster   []string
 	natsAddresses []string
-	apiURL        string
+	diegoAPIURL   string
 	ccBaseURL     string
 
 	session     *gexec.Session
@@ -28,7 +28,7 @@ type Config struct {
 	StagerAddr    string
 	EtcdCluster   []string
 	NatsAddresses []string
-	APIURL        string
+	DiegoAPIURL   string
 	CCBaseURL     string
 }
 
@@ -38,7 +38,7 @@ func New(config Config) *StagerRunner {
 		stagerAddr:    config.StagerAddr,
 		etcdCluster:   config.EtcdCluster,
 		natsAddresses: config.NatsAddresses,
-		apiURL:        config.APIURL,
+		diegoAPIURL:   config.DiegoAPIURL,
 		ccBaseURL:     config.CCBaseURL,
 	}
 }
@@ -54,7 +54,7 @@ func (r *StagerRunner) Start(args ...string) {
 			append([]string{
 				"-etcdCluster", strings.Join(r.etcdCluster, ","),
 				"-natsAddresses", strings.Join(r.natsAddresses, ","),
-				"-apiURL", r.apiURL,
+				"-diegoAPIURL", r.diegoAPIURL,
 				"-listenAddr", r.stagerAddr,
 				"-ccBaseURL", r.ccBaseURL,
 			}, args...)...,

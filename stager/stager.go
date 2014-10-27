@@ -39,18 +39,18 @@ type Stager interface {
 }
 
 type stager struct {
-	stagerBBS bbs.StagerBBS
-	logger    lager.Logger
-	config    Config
-	apiClient receptor.Client
+	stagerBBS      bbs.StagerBBS
+	logger         lager.Logger
+	config         Config
+	diegoAPIClient receptor.Client
 }
 
-func New(stagerBBS bbs.StagerBBS, apiClient receptor.Client, logger lager.Logger, config Config) Stager {
+func New(stagerBBS bbs.StagerBBS, diegoAPIClient receptor.Client, logger lager.Logger, config Config) Stager {
 	return &stager{
-		stagerBBS: stagerBBS,
-		logger:    logger,
-		config:    config,
-		apiClient: apiClient,
+		stagerBBS:      stagerBBS,
+		logger:         logger,
+		config:         config,
+		diegoAPIClient: diegoAPIClient,
 	}
 }
 
@@ -267,7 +267,7 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 
 	stager.logger.Info("desiring-task", lager.Data{"task": task})
 
-	err = stager.apiClient.CreateTask(task)
+	err = stager.diegoAPIClient.CreateTask(task)
 	if receptorErr, ok := err.(receptor.Error); ok {
 		if receptorErr.Type == receptor.TaskGuidAlreadyExists {
 			err = nil

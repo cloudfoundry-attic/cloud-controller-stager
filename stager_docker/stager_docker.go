@@ -27,10 +27,10 @@ type DockerStager interface {
 }
 
 type stager_docker struct {
-	stagerBBS bbs.StagerBBS
-	logger    lager.Logger
-	config    stager.Config
-	apiClient receptor.Client
+	stagerBBS      bbs.StagerBBS
+	logger         lager.Logger
+	config         stager.Config
+	diegoAPIClient receptor.Client
 }
 
 var TailorExecutablePath = "/tmp/docker-circus/tailor"
@@ -39,12 +39,12 @@ var TailorOutputPath = "/tmp/docker-result/result.json"
 var ErrNoFileServerPresent = errors.New("no available file server present")
 var ErrNoCompilerDefined = errors.New("no compiler defined for requested stack")
 
-func New(stagerBBS bbs.StagerBBS, apiClient receptor.Client, logger lager.Logger, config stager.Config) DockerStager {
+func New(stagerBBS bbs.StagerBBS, diegoAPIClient receptor.Client, logger lager.Logger, config stager.Config) DockerStager {
 	return &stager_docker{
-		stagerBBS: stagerBBS,
-		logger:    logger,
-		config:    config,
-		apiClient: apiClient,
+		stagerBBS:      stagerBBS,
+		logger:         logger,
+		config:         config,
+		diegoAPIClient: diegoAPIClient,
 	}
 }
 
@@ -127,7 +127,7 @@ func (stager *stager_docker) Stage(request cc_messages.DockerStagingRequestFromC
 
 	stager.logger.Info("desiring-task", lager.Data{"task": task})
 
-	err = stager.apiClient.CreateTask(task)
+	err = stager.diegoAPIClient.CreateTask(task)
 	if receptorErr, ok := err.(receptor.Error); ok {
 		if receptorErr.Type == receptor.TaskGuidAlreadyExists {
 			fmt.Println("TaskGuidAlreadyExists")

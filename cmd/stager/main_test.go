@@ -61,7 +61,7 @@ var _ = Describe("Stager", func() {
 			StagerAddr:    fmt.Sprintf("127.0.0.1:%d", stagerPort),
 			EtcdCluster:   []string{fmt.Sprintf("http://127.0.0.1:%d", etcdPort)},
 			NatsAddresses: []string{fmt.Sprintf("127.0.0.1:%d", natsPort)},
-			APIURL:        fakeServerURL.Host,
+			DiegoAPIURL:   fakeServerURL.Host,
 			CCBaseURL:     fakeCC.URL(),
 		})
 	})
