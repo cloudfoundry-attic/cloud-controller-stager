@@ -1,4 +1,4 @@
-package api_client_test
+package cc_client_test
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestApiClient(t *testing.T) {
+func TestCcClient(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "ApiClient Suite")
+	RunSpecs(t, "CcClient Suite")
 }

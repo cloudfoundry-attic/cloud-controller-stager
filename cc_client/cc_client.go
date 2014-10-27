@@ -1,4 +1,4 @@
-package api_client
+package cc_client
 
 import (
 	"bytes"
@@ -17,11 +17,11 @@ const (
 	stagingCompleteRequestTimeout = 5 * time.Second
 )
 
-type ApiClient interface {
+type CcClient interface {
 	StagingComplete(payload []byte, logger lager.Logger) error
 }
 
-type apiClient struct {
+type ccClient struct {
 	stagingCompleteURI string
 	username           string
 	password           string
@@ -36,7 +36,7 @@ func (b *BadResponseError) Error() string {
 	return fmt.Sprintf("Staging response POST failed with %d", b.StatusCode)
 }
 
-func NewApiClient(baseURI string, username string, password string, skipCertVerify bool) ApiClient {
+func NewCcClient(baseURI string, username string, password string, skipCertVerify bool) CcClient {
 	httpClient := &http.Client{
 		Timeout: stagingCompleteRequestTimeout,
 		Transport: &http.Transport{
@@ -46,7 +46,7 @@ func NewApiClient(baseURI string, username string, password string, skipCertVeri
 		},
 	}
 
-	return &apiClient{
+	return &ccClient{
 		stagingCompleteURI: urljoiner.Join(baseURI, stagingCompletePath),
 		username:           username,
 		password:           password,
@@ -54,19 +54,19 @@ func NewApiClient(baseURI string, username string, password string, skipCertVeri
 	}
 }
 
-func (api *apiClient) StagingComplete(payload []byte, logger lager.Logger) error {
-	logger = logger.Session("api-client")
+func (cc *ccClient) StagingComplete(payload []byte, logger lager.Logger) error {
+	logger = logger.Session("cc-client")
 	logger.Info("delivering-staging-response", lager.Data{"payload": string(payload)})
 
-	request, err := http.NewRequest("POST", api.stagingCompleteURI, bytes.NewReader(payload))
+	request, err := http.NewRequest("POST", cc.stagingCompleteURI, bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
 
-	request.SetBasicAuth(api.username, api.password)
+	request.SetBasicAuth(cc.username, cc.password)
 	request.Header.Set("content-type", "application/json")
 
-	response, err := api.httpClient.Do(request)
+	response, err := cc.httpClient.Do(request)
 	if err != nil {
 		logger.Error("deliver-staging-response-failed", err)
 		return err

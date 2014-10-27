@@ -20,7 +20,7 @@ import (
 	"github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
-	"github.com/cloudfoundry-incubator/stager/api_client"
+	"github.com/cloudfoundry-incubator/stager/cc_client"
 	"github.com/cloudfoundry-incubator/stager/inbox"
 	"github.com/cloudfoundry-incubator/stager/outbox"
 	"github.com/cloudfoundry-incubator/stager/stager"
@@ -124,7 +124,7 @@ func main() {
 	logger := cf_lager.New("stager")
 	stagerBBS := initializeStagerBBS(logger)
 	traditionalStager, dockerStager := initializeStagers(stagerBBS, logger)
-	apiClient := api_client.NewApiClient(*ccBaseURL, *ccUsername, *ccPassword, *skipCertVerify)
+	ccClient := cc_client.NewCcClient(*ccBaseURL, *ccUsername, *ccPassword, *skipCertVerify)
 
 	cf_debug_server.Run()
 
@@ -133,9 +133,9 @@ func main() {
 	group := grouper.NewOrdered(os.Interrupt, grouper.Members{
 		{"nats", diegonats.NewClientRunner(*natsAddresses, *natsUsername, *natsPassword, logger, natsClient)},
 		{"inbox", ifrit.RunFunc(func(signals <-chan os.Signal, ready chan<- struct{}) error {
-			return inbox.New(natsClient, apiClient, traditionalStager, dockerStager, inbox.ValidateRequest, logger).Run(signals, ready)
+			return inbox.New(natsClient, ccClient, traditionalStager, dockerStager, inbox.ValidateRequest, logger).Run(signals, ready)
 		})},
-		{"outbox", outbox.New(*listenAddr, apiClient, logger, timeprovider.NewTimeProvider())},
+		{"outbox", outbox.New(*listenAddr, ccClient, logger, timeprovider.NewTimeProvider())},
 	})
 
 	process := ifrit.Envoke(sigmon.New(group))

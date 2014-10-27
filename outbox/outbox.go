@@ -12,7 +12,7 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	"github.com/cloudfoundry-incubator/stager/api_client"
+	"github.com/cloudfoundry-incubator/stager/cc_client"
 	"github.com/cloudfoundry-incubator/stager/stager"
 	"github.com/cloudfoundry-incubator/stager/stager_docker"
 	"github.com/cloudfoundry/gunk/timeprovider"
@@ -29,12 +29,12 @@ const (
 
 type Outbox struct {
 	address      string
-	ccClient     api_client.ApiClient
+	ccClient     cc_client.CcClient
 	logger       lager.Logger
 	timeProvider timeprovider.TimeProvider
 }
 
-func New(address string, ccClient api_client.ApiClient, logger lager.Logger, timeProvider timeprovider.TimeProvider) *Outbox {
+func New(address string, ccClient cc_client.CcClient, logger lager.Logger, timeProvider timeprovider.TimeProvider) *Outbox {
 	outboxLogger := logger.Session("outbox")
 
 	return &Outbox{
@@ -89,7 +89,7 @@ func (o *Outbox) handleRequest(res http.ResponseWriter, req *http.Request) {
 	err = o.ccClient.StagingComplete(payload, logger)
 	if err != nil {
 		logger.Error("cc-request-failed", err)
-		if responseErr, ok := err.(*api_client.BadResponseError); ok {
+		if responseErr, ok := err.(*cc_client.BadResponseError); ok {
 			res.WriteHeader(responseErr.StatusCode)
 		} else {
 			res.WriteHeader(503)

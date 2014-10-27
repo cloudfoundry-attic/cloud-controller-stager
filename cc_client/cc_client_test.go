@@ -1,4 +1,4 @@
-package api_client_test
+package cc_client_test
 
 import (
 	"fmt"
@@ -6,19 +6,19 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/cloudfoundry-incubator/stager/api_client"
+	"github.com/cloudfoundry-incubator/stager/cc_client"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	"github.com/pivotal-golang/lager"
 )
 
-var _ = Describe("API Client", func() {
+var _ = Describe("CC Client", func() {
 	var (
 		fakeCC *ghttp.Server
 
-		logger    lager.Logger
-		apiClient api_client.ApiClient
+		logger   lager.Logger
+		ccClient cc_client.CcClient
 	)
 
 	BeforeEach(func() {
@@ -27,7 +27,7 @@ var _ = Describe("API Client", func() {
 		logger = lager.NewLogger("fakelogger")
 		logger.RegisterSink(lager.NewWriterSink(GinkgoWriter, lager.DEBUG))
 
-		apiClient = api_client.NewApiClient(fakeCC.URL(), "username", "password", true)
+		ccClient = cc_client.NewCcClient(fakeCC.URL(), "username", "password", true)
 	})
 
 	AfterEach(func() {
@@ -57,7 +57,7 @@ var _ = Describe("API Client", func() {
 		})
 
 		It("sends the request payload to the CC without modification", func() {
-			err := apiClient.StagingComplete(expectedBody, logger)
+			err := ccClient.StagingComplete(expectedBody, logger)
 			Ω(err).ShouldNot(HaveOccurred())
 		})
 	})
@@ -76,22 +76,22 @@ var _ = Describe("API Client", func() {
 
 		Context("when certificate verfication is enabled", func() {
 			BeforeEach(func() {
-				apiClient = api_client.NewApiClient(fakeCC.URL(), "username", "password", false)
+				ccClient = cc_client.NewCcClient(fakeCC.URL(), "username", "password", false)
 			})
 
 			It("fails with a self-signed certificate", func() {
-				err := apiClient.StagingComplete([]byte(`{}`), logger)
+				err := ccClient.StagingComplete([]byte(`{}`), logger)
 				Ω(err).Should(HaveOccurred())
 			})
 		})
 
 		Context("when certificate verfication is disabled", func() {
 			BeforeEach(func() {
-				apiClient = api_client.NewApiClient(fakeCC.URL(), "username", "password", true)
+				ccClient = cc_client.NewCcClient(fakeCC.URL(), "username", "password", true)
 			})
 
 			It("Attempts to validate SSL certificates", func() {
-				err := apiClient.StagingComplete([]byte(`{}`), logger)
+				err := ccClient.StagingComplete([]byte(`{}`), logger)
 				Ω(err).ShouldNot(HaveOccurred())
 			})
 		})
@@ -101,11 +101,11 @@ var _ = Describe("API Client", func() {
 		Context("when the request couldn't be completed", func() {
 			BeforeEach(func() {
 				bogusURL := "http://0.0.0.0.0:80"
-				apiClient = api_client.NewApiClient(bogusURL, "username", "password", true)
+				ccClient = cc_client.NewCcClient(bogusURL, "username", "password", true)
 			})
 
 			It("percolates the error", func() {
-				err := apiClient.StagingComplete([]byte(`{}`), logger)
+				err := ccClient.StagingComplete([]byte(`{}`), logger)
 				Ω(err).Should(HaveOccurred())
 				Ω(err).Should(BeAssignableToTypeOf(&url.Error{}))
 			})
@@ -122,10 +122,10 @@ var _ = Describe("API Client", func() {
 			})
 
 			It("returns an error with the actual status code", func() {
-				err := apiClient.StagingComplete([]byte(`{}`), logger)
+				err := ccClient.StagingComplete([]byte(`{}`), logger)
 				Ω(err).Should(HaveOccurred())
-				Ω(err).Should(BeAssignableToTypeOf(&api_client.BadResponseError{}))
-				Ω(err.(*api_client.BadResponseError).StatusCode).Should(Equal(500))
+				Ω(err).Should(BeAssignableToTypeOf(&cc_client.BadResponseError{}))
+				Ω(err.(*cc_client.BadResponseError).StatusCode).Should(Equal(500))
 			})
 		})
 	})
@@ -134,41 +134,41 @@ var _ = Describe("API Client", func() {
 		Context("when the error is a net.Error", func() {
 			It("is not retryable", func() {
 				err := &testNetError{}
-				Ω(api_client.IsRetryable(err)).To(BeFalse())
+				Ω(cc_client.IsRetryable(err)).To(BeFalse())
 			})
 
 			Context("when the error is temporary", func() {
 				It("is retryable", func() {
 					err := &testNetError{timeout: false, temporary: true}
-					Ω(api_client.IsRetryable(err)).To(BeTrue())
+					Ω(cc_client.IsRetryable(err)).To(BeTrue())
 				})
 			})
 
 			Context("when the error is a timeout", func() {
 				It("is retryable", func() {
 					err := &testNetError{timeout: true, temporary: false}
-					Ω(api_client.IsRetryable(err)).To(BeTrue())
+					Ω(cc_client.IsRetryable(err)).To(BeTrue())
 				})
 			})
 		})
 
 		Context("when the error is a BadResponseError", func() {
 			It("is not retryable", func() {
-				err := &api_client.BadResponseError{}
-				Ω(api_client.IsRetryable(err)).To(BeFalse())
+				err := &cc_client.BadResponseError{}
+				Ω(cc_client.IsRetryable(err)).To(BeFalse())
 			})
 
 			Context("when the response code is StatusServiceUnavailable", func() {
 				It("is retryable", func() {
-					err := &api_client.BadResponseError{http.StatusServiceUnavailable}
-					Ω(api_client.IsRetryable(err)).To(BeTrue())
+					err := &cc_client.BadResponseError{http.StatusServiceUnavailable}
+					Ω(cc_client.IsRetryable(err)).To(BeTrue())
 				})
 			})
 
 			Context("when the response code is StatusGatewayTimeout", func() {
 				It("is retryable", func() {
-					err := &api_client.BadResponseError{http.StatusGatewayTimeout}
-					Ω(api_client.IsRetryable(err)).To(BeTrue())
+					err := &cc_client.BadResponseError{http.StatusGatewayTimeout}
+					Ω(cc_client.IsRetryable(err)).To(BeTrue())
 				})
 			})
 		})
@@ -176,7 +176,7 @@ var _ = Describe("API Client", func() {
 		Context("general errors", func() {
 			It("is not retryable", func() {
 				err := fmt.Errorf("A generic error")
-				Ω(api_client.IsRetryable(err)).To(BeFalse())
+				Ω(cc_client.IsRetryable(err)).To(BeFalse())
 			})
 		})
 	})

@@ -16,7 +16,7 @@ import (
 	"github.com/cloudfoundry/gunk/diegonats"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/stager/api_client/fakes"
+	"github.com/cloudfoundry-incubator/stager/cc_client/fakes"
 	. "github.com/cloudfoundry-incubator/stager/inbox"
 	"github.com/cloudfoundry-incubator/stager/stager/fake_stager"
 	"github.com/cloudfoundry-incubator/stager/stager_docker/fake_stager_docker"
@@ -24,7 +24,7 @@ import (
 
 var _ = Describe("Docker Inbox", func() {
 	var fakenats *diegonats.FakeNATSClient
-	var fakeapi *fakes.FakeApiClient
+	var fakeCCClient *fakes.FakeCcClient
 	var fauxstager *fake_stager.FakeStager
 	var fauxstagerdocker *fake_stager_docker.FakeStagerDocker
 	var logOutput *gbytes.Buffer
@@ -45,7 +45,7 @@ var _ = Describe("Docker Inbox", func() {
 		}
 
 		fakenats = diegonats.NewFakeClient()
-		fakeapi = &fakes.FakeApiClient{}
+		fakeCCClient = &fakes.FakeCcClient{}
 		fauxstager = &fake_stager.FakeStager{}
 		fauxstagerdocker = &fake_stager_docker.FakeStagerDocker{}
 		validator = func(request cc_messages.StagingRequestFromCC) error {
@@ -72,7 +72,7 @@ var _ = Describe("Docker Inbox", func() {
 		JustBeforeEach(func() {
 			process = make(chan ifrit.Process)
 			go func() {
-				process <- ifrit.Envoke(New(fakenats, fakeapi, fauxstager, fauxstagerdocker, validator, logger))
+				process <- ifrit.Envoke(New(fakenats, fakeCCClient, fauxstager, fauxstagerdocker, validator, logger))
 			}()
 		})
 
@@ -108,7 +108,7 @@ var _ = Describe("Docker Inbox", func() {
 
 	Context("when subscribing succeeds", func() {
 		JustBeforeEach(func() {
-			inbox = ifrit.Envoke(New(fakenats, fakeapi, fauxstager, fauxstagerdocker, validator, logger))
+			inbox = ifrit.Envoke(New(fakenats, fakeCCClient, fauxstager, fauxstagerdocker, validator, logger))
 		})
 
 		AfterEach(func(done Done) {
@@ -128,7 +128,7 @@ var _ = Describe("Docker Inbox", func() {
 			Context("when staging finishes successfully", func() {
 				It("does not send a nats message", func() {
 					publishStagingMessage()
-					Ω(fakeapi.StagingCompleteCallCount()).To(Equal(0))
+					Ω(fakeCCClient.StagingCompleteCallCount()).To(Equal(0))
 				})
 			})
 			Context("when unmarshaling fails", func() {
@@ -142,7 +142,7 @@ var _ = Describe("Docker Inbox", func() {
 
 				It("does not send a message in response", func() {
 					fakenats.Publish(DiegoStageStartSubject, []byte("fdsaljkfdsljkfedsews:/sdfa:''''"))
-					Ω(fakeapi.StagingCompleteCallCount()).To(Equal(0))
+					Ω(fakeCCClient.StagingCompleteCallCount()).To(Equal(0))
 				})
 			})
 		})

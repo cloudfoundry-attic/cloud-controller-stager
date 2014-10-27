@@ -14,7 +14,7 @@ import (
 
 	"github.com/apcera/nats"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/stager/api_client/fakes"
+	"github.com/cloudfoundry-incubator/stager/cc_client/fakes"
 	. "github.com/cloudfoundry-incubator/stager/inbox"
 	"github.com/cloudfoundry-incubator/stager/stager/fake_stager"
 	"github.com/cloudfoundry/gunk/diegonats"
@@ -22,7 +22,7 @@ import (
 
 var _ = Describe("Inbox", func() {
 	var fakenats *diegonats.FakeNATSClient
-	var fakeapi *fakes.FakeApiClient
+	var fakeCcClient *fakes.FakeCcClient
 	var fauxstager *fake_stager.FakeStager
 	var logOutput *gbytes.Buffer
 	var logger lager.Logger
@@ -42,7 +42,7 @@ var _ = Describe("Inbox", func() {
 		}
 
 		fakenats = diegonats.NewFakeClient()
-		fakeapi = &fakes.FakeApiClient{}
+		fakeCcClient = &fakes.FakeCcClient{}
 		fauxstager = &fake_stager.FakeStager{}
 		validator = func(request cc_messages.StagingRequestFromCC) error {
 			return nil
@@ -68,7 +68,7 @@ var _ = Describe("Inbox", func() {
 		JustBeforeEach(func() {
 			process = make(chan ifrit.Process)
 			go func() {
-				process <- ifrit.Invoke(New(fakenats, fakeapi, fauxstager, nil, validator, logger))
+				process <- ifrit.Invoke(New(fakenats, fakeCcClient, fauxstager, nil, validator, logger))
 			}()
 		})
 
@@ -104,7 +104,7 @@ var _ = Describe("Inbox", func() {
 
 	Context("when subscribing succeeds", func() {
 		JustBeforeEach(func() {
-			inbox = ifrit.Envoke(New(fakenats, fakeapi, fauxstager, nil, validator, logger))
+			inbox = ifrit.Envoke(New(fakenats, fakeCcClient, fauxstager, nil, validator, logger))
 		})
 
 		AfterEach(func(done Done) {
@@ -124,7 +124,7 @@ var _ = Describe("Inbox", func() {
 			Context("when staging finishes successfully", func() {
 				It("does not send a staging complete message", func() {
 					publishStagingMessage()
-					Ω(fakeapi.StagingCompleteCallCount()).To(Equal(0))
+					Ω(fakeCcClient.StagingCompleteCallCount()).To(Equal(0))
 				})
 			})
 
@@ -144,8 +144,8 @@ var _ = Describe("Inbox", func() {
 				It("sends a staging failure response", func() {
 					publishStagingMessage()
 
-					Ω(fakeapi.StagingCompleteCallCount()).To(Equal(1))
-					response, _ := fakeapi.StagingCompleteArgsForCall(0)
+					Ω(fakeCcClient.StagingCompleteCallCount()).To(Equal(1))
+					response, _ := fakeCcClient.StagingCompleteArgsForCall(0)
 
 					stagingResponse := cc_messages.StagingResponseForCC{}
 					json.Unmarshal(response, &stagingResponse)
@@ -168,8 +168,8 @@ var _ = Describe("Inbox", func() {
 				It("sends a staging failure response", func() {
 					publishStagingMessage()
 
-					Ω(fakeapi.StagingCompleteCallCount()).To(Equal(1))
-					response, _ := fakeapi.StagingCompleteArgsForCall(0)
+					Ω(fakeCcClient.StagingCompleteCallCount()).To(Equal(1))
+					response, _ := fakeCcClient.StagingCompleteArgsForCall(0)
 
 					stagingResponse := cc_messages.StagingResponseForCC{}
 					json.Unmarshal(response, &stagingResponse)
@@ -193,7 +193,7 @@ var _ = Describe("Inbox", func() {
 
 				It("does not send a message in response", func() {
 					fakenats.Publish(DiegoStageStartSubject, []byte("fdsaljkfdsljkfedsews:/sdfa:''''"))
-					Ω(fakeapi.StagingCompleteCallCount()).To(Equal(0))
+					Ω(fakeCcClient.StagingCompleteCallCount()).To(Equal(0))
 				})
 			})
 		})

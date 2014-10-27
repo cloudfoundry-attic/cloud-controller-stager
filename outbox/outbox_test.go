@@ -13,8 +13,8 @@ import (
 
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	"github.com/cloudfoundry-incubator/stager/api_client"
-	"github.com/cloudfoundry-incubator/stager/api_client/fakes"
+	"github.com/cloudfoundry-incubator/stager/cc_client"
+	"github.com/cloudfoundry-incubator/stager/cc_client/fakes"
 	"github.com/cloudfoundry-incubator/stager/outbox"
 	"github.com/cloudfoundry-incubator/stager/stager"
 	"github.com/cloudfoundry-incubator/stager/stager_docker"
@@ -36,7 +36,7 @@ var _ = Describe("Outbox", func() {
 		runner  *outbox.Outbox
 		process ifrit.Process
 
-		fakeCCClient        *fakes.FakeApiClient
+		fakeCCClient        *fakes.FakeCcClient
 		fakeTimeProvider    *faketimeprovider.FakeTimeProvider
 		metricSender        *fake.FakeMetricSender
 		stagingDurationNano time.Duration
@@ -57,7 +57,7 @@ var _ = Describe("Outbox", func() {
 		metricSender = fake.NewFakeMetricSender()
 		metrics.Initialize(metricSender)
 
-		fakeCCClient = &fakes.FakeApiClient{}
+		fakeCCClient = &fakes.FakeCcClient{}
 
 		fakeTimeProvider = faketimeprovider.New(time.Now())
 
@@ -145,7 +145,7 @@ var _ = Describe("Outbox", func() {
 
 		Context("when the CC request fails", func() {
 			BeforeEach(func() {
-				fakeCCClient.StagingCompleteReturns(&api_client.BadResponseError{504})
+				fakeCCClient.StagingCompleteReturns(&cc_client.BadResponseError{504})
 			})
 
 			It("responds with the status code that the CC returned", func() {

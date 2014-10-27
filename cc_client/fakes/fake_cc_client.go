@@ -4,11 +4,11 @@ package fakes
 import (
 	"sync"
 
-	"github.com/cloudfoundry-incubator/stager/api_client"
+	"github.com/cloudfoundry-incubator/stager/cc_client"
 	"github.com/pivotal-golang/lager"
 )
 
-type FakeApiClient struct {
+type FakeCcClient struct {
 	StagingCompleteStub        func(payload []byte, logger lager.Logger) error
 	stagingCompleteMutex       sync.RWMutex
 	stagingCompleteArgsForCall []struct {
@@ -20,7 +20,7 @@ type FakeApiClient struct {
 	}
 }
 
-func (fake *FakeApiClient) StagingComplete(payload []byte, logger lager.Logger) error {
+func (fake *FakeCcClient) StagingComplete(payload []byte, logger lager.Logger) error {
 	fake.stagingCompleteMutex.Lock()
 	fake.stagingCompleteArgsForCall = append(fake.stagingCompleteArgsForCall, struct {
 		payload []byte
@@ -34,23 +34,23 @@ func (fake *FakeApiClient) StagingComplete(payload []byte, logger lager.Logger) 
 	}
 }
 
-func (fake *FakeApiClient) StagingCompleteCallCount() int {
+func (fake *FakeCcClient) StagingCompleteCallCount() int {
 	fake.stagingCompleteMutex.RLock()
 	defer fake.stagingCompleteMutex.RUnlock()
 	return len(fake.stagingCompleteArgsForCall)
 }
 
-func (fake *FakeApiClient) StagingCompleteArgsForCall(i int) ([]byte, lager.Logger) {
+func (fake *FakeCcClient) StagingCompleteArgsForCall(i int) ([]byte, lager.Logger) {
 	fake.stagingCompleteMutex.RLock()
 	defer fake.stagingCompleteMutex.RUnlock()
 	return fake.stagingCompleteArgsForCall[i].payload, fake.stagingCompleteArgsForCall[i].logger
 }
 
-func (fake *FakeApiClient) StagingCompleteReturns(result1 error) {
+func (fake *FakeCcClient) StagingCompleteReturns(result1 error) {
 	fake.StagingCompleteStub = nil
 	fake.stagingCompleteReturns = struct {
 		result1 error
 	}{result1}
 }
 
-var _ api_client.ApiClient = new(FakeApiClient)
+var _ cc_client.CcClient = new(FakeCcClient)
