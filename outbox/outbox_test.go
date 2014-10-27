@@ -40,7 +40,7 @@ var _ = Describe("Outbox", func() {
 		runner  *outbox.Outbox
 		process ifrit.Process
 
-		fakeApiClient       *fakes.FakeApiClient
+		fakeCCClient       *fakes.FakeApiClient
 		fakeTimeProvider    *faketimeprovider.FakeTimeProvider
 		metricSender        *fake.FakeMetricSender
 		stagingDurationNano time.Duration
@@ -79,13 +79,13 @@ var _ = Describe("Outbox", func() {
 		metricSender = fake.NewFakeMetricSender()
 		metrics.Initialize(metricSender)
 
-		fakeApiClient = &fakes.FakeApiClient{}
+		fakeCCClient = &fakes.FakeApiClient{}
 
 		fakeTimeProvider = faketimeprovider.New(time.Now())
 		task.CreatedAt = fakeTimeProvider.Time().UnixNano()
 		fakeTimeProvider.Increment(stagingDurationNano)
 
-		runner = outbox.New(bbs, fakeApiClient, logger, fakeTimeProvider)
+		runner = outbox.New(bbs, fakeCCClient, logger, fakeTimeProvider)
 	})
 
 	JustBeforeEach(func() {
@@ -122,8 +122,8 @@ var _ = Describe("Outbox", func() {
 			})
 
 			It("posts the staging result to CC", func() {
-				Eventually(fakeApiClient.StagingCompleteCallCount).Should(Equal(1))
-				payload, _ := fakeApiClient.StagingCompleteArgsForCall(0)
+				Eventually(fakeCCClient.StagingCompleteCallCount).Should(Equal(1))
+				payload, _ := fakeCCClient.StagingCompleteArgsForCall(0)
 				Ω(payload).Should(MatchJSON(expectedBody))
 			})
 
@@ -145,7 +145,7 @@ var _ = Describe("Outbox", func() {
 
 		Context("when POSTing the staging-complete message fails", func() {
 			BeforeEach(func() {
-				fakeApiClient.StagingCompleteReturns(&api_client.BadResponseError{504})
+				fakeCCClient.StagingCompleteReturns(&api_client.BadResponseError{504})
 			})
 
 			It("increments the staging failed to resolve counter", func() {
@@ -156,12 +156,12 @@ var _ = Describe("Outbox", func() {
 
 			Context("when the api client error is retryable", func() {
 				BeforeEach(func() {
-					fakeApiClient.StagingCompleteReturns(&api_client.BadResponseError{503})
+					fakeCCClient.StagingCompleteReturns(&api_client.BadResponseError{503})
 				})
 
 				It("retries delivering the StagingComplete message for a limited number of times", func() {
-					Eventually(fakeApiClient.StagingCompleteCallCount).Should(Equal(outbox.StagingResponseRetryLimit))
-					Consistently(fakeApiClient.StagingCompleteCallCount).Should(Equal(outbox.StagingResponseRetryLimit))
+					Eventually(fakeCCClient.StagingCompleteCallCount).Should(Equal(outbox.StagingResponseRetryLimit))
+					Consistently(fakeCCClient.StagingCompleteCallCount).Should(Equal(outbox.StagingResponseRetryLimit))
 				})
 
 				It("only increments the staging failed to resolve counter once", func() {
@@ -184,7 +184,7 @@ var _ = Describe("Outbox", func() {
 						stagingCompleteResults <- &api_client.BadResponseError{503}
 						stagingCompleteResults <- nil
 
-						fakeApiClient.StagingCompleteStub = func([]byte, lager.Logger) error {
+						fakeCCClient.StagingCompleteStub = func([]byte, lager.Logger) error {
 							return <-stagingCompleteResults
 						}
 					})
@@ -198,7 +198,7 @@ var _ = Describe("Outbox", func() {
 
 			Context("when the api client error is not retryable", func() {
 				BeforeEach(func() {
-					fakeApiClient.StagingCompleteReturns(&api_client.BadResponseError{404})
+					fakeCCClient.StagingCompleteReturns(&api_client.BadResponseError{404})
 				})
 
 				It("resolves the task", func() {
@@ -214,7 +214,7 @@ var _ = Describe("Outbox", func() {
 			})
 
 			It("does not send a response to the requester, because another stager probably resolved it", func() {
-				Consistently(fakeApiClient.StagingCompleteCallCount).Should(Equal(0))
+				Consistently(fakeCCClient.StagingCompleteCallCount).Should(Equal(0))
 				Consistently(bbs.ResolveTaskCallCount).Should(Equal(0))
 			})
 
@@ -243,7 +243,7 @@ var _ = Describe("Outbox", func() {
 		})
 
 		It("should not post a response to the CC", func() {
-			Consistently(fakeApiClient.StagingCompleteCallCount).Should(Equal(0))
+			Consistently(fakeCCClient.StagingCompleteCallCount).Should(Equal(0))
 		})
 	})
 
@@ -269,8 +269,8 @@ var _ = Describe("Outbox", func() {
 
 			It("resolves the completed task, publishes its result and then marks the Task as resolved", func() {
 				Eventually(bbs.ResolvingTaskCallCount).Should(Equal(1))
-				Eventually(fakeApiClient.StagingCompleteCallCount).Should(Equal(1))
-				payload, _ := fakeApiClient.StagingCompleteArgsForCall(0)
+				Eventually(fakeCCClient.StagingCompleteCallCount).Should(Equal(1))
+				payload, _ := fakeCCClient.StagingCompleteArgsForCall(0)
 				Ω(payload).Should(MatchJSON(expectedBody))
 
 				Eventually(bbs.ResolveTaskCallCount).Should(Equal(1))
@@ -291,7 +291,7 @@ var _ = Describe("Outbox", func() {
 
 			completedTasks <- task
 
-			Eventually(fakeApiClient.StagingCompleteCallCount).Should(Equal(1))
+			Eventually(fakeCCClient.StagingCompleteCallCount).Should(Equal(1))
 		})
 	})
 
@@ -313,8 +313,8 @@ var _ = Describe("Outbox", func() {
 		})
 
 		It("publishes its reason as an error and then marks the task as completed", func() {
-			Eventually(fakeApiClient.StagingCompleteCallCount).Should(Equal(1))
-			payload, _ := fakeApiClient.StagingCompleteArgsForCall(0)
+			Eventually(fakeCCClient.StagingCompleteCallCount).Should(Equal(1))
+			payload, _ := fakeCCClient.StagingCompleteArgsForCall(0)
 			Ω(payload).Should(MatchJSON(expectedBody))
 
 			Eventually(bbs.ResolveTaskCallCount).Should(Equal(1))
@@ -322,7 +322,7 @@ var _ = Describe("Outbox", func() {
 		})
 
 		It("increments the staging failed counter", func() {
-			Eventually(fakeApiClient.StagingCompleteCallCount).Should(Equal(1))
+			Eventually(fakeCCClient.StagingCompleteCallCount).Should(Equal(1))
 
 			Ω(metricSender.GetCounter("StagingRequestsFailed")).Should(Equal(uint64(1)))
 		})
@@ -343,7 +343,7 @@ var _ = Describe("Outbox", func() {
 			Eventually(completedTasks).Should(BeSent(task))
 			Eventually(completedTasks).Should(BeSent(task))
 
-			Eventually(fakeApiClient.StagingCompleteCallCount).Should(Equal(3))
+			Eventually(fakeCCClient.StagingCompleteCallCount).Should(Equal(3))
 		})
 	})
 })

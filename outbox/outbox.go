@@ -31,17 +31,17 @@ const (
 
 type Outbox struct {
 	bbs          bbs.StagerBBS
-	apiClient    api_client.ApiClient
+	ccClient     api_client.ApiClient
 	logger       lager.Logger
 	timeProvider timeprovider.TimeProvider
 }
 
-func New(bbs bbs.StagerBBS, apiClient api_client.ApiClient, logger lager.Logger, timeProvider timeprovider.TimeProvider) *Outbox {
+func New(bbs bbs.StagerBBS, ccClient api_client.ApiClient, logger lager.Logger, timeProvider timeprovider.TimeProvider) *Outbox {
 	outboxLogger := logger.Session("outbox")
 
 	return &Outbox{
 		bbs:          bbs,
-		apiClient:    apiClient,
+		ccClient:     ccClient,
 		logger:       outboxLogger,
 		timeProvider: timeProvider,
 	}
@@ -231,7 +231,7 @@ func (o *Outbox) dockerResponse(task models.Task, logger lager.Logger) ([]byte, 
 func (o *Outbox) stagingComplete(payload []byte, logger lager.Logger) error {
 	logger.Info("posting-staging-complete", lager.Data{"payload": payload})
 
-	err := o.apiClient.StagingComplete(payload, logger)
+	err := o.ccClient.StagingComplete(payload, logger)
 	if err != nil {
 		logger.Error("failed-to-post-staging-complete", err)
 		return err
