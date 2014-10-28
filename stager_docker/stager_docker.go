@@ -128,7 +128,10 @@ func (stager *stager_docker) Stage(request cc_messages.DockerStagingRequestFromC
 		Annotation: string(annotationJson),
 	}
 
-	stager.logger.Info("desiring-task", lager.Data{"task": task})
+	stager.logger.Info("desiring-docker-task", lager.Data{
+		"task_guid":    task.TaskGuid,
+		"callback_url": stager.callbackURL,
+	})
 
 	err = stager.diegoAPIClient.CreateTask(task)
 	if receptorErr, ok := err.(receptor.Error); ok {
