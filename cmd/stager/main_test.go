@@ -58,7 +58,7 @@ var _ = Describe("Stager", func() {
 
 		runner = testrunner.New(testrunner.Config{
 			StagerBin:     stagerPath,
-			StagerAddr:    fmt.Sprintf("127.0.0.1:%d", stagerPort),
+			StagerURL:     fmt.Sprintf("http://127.0.0.1:%d", stagerPort),
 			EtcdCluster:   []string{fmt.Sprintf("http://127.0.0.1:%d", etcdPort)},
 			NatsAddresses: []string{fmt.Sprintf("127.0.0.1:%d", natsPort)},
 			DiegoAPIURL:   fakeServerURL.Host,
@@ -79,7 +79,7 @@ var _ = Describe("Stager", func() {
 		})
 
 		Describe("when a 'diego.staging.start' message is recieved", func() {
-			BeforeEach(func() {
+			It("desires a staging task via the API", func() {
 				fakeServer.RouteToHandler("POST", "/tasks", func(w http.ResponseWriter, req *http.Request) {
 					var taskRequest receptor.CreateTaskRequest
 					err := json.NewDecoder(req.Body).Decode(&taskRequest)
@@ -87,34 +87,28 @@ var _ = Describe("Stager", func() {
 
 					Ω(taskRequest.MemoryMB).Should(Equal(1024))
 					Ω(taskRequest.DiskMB).Should(Equal(2048))
+					Ω(taskRequest.CompletionCallbackURL).Should(Equal(runner.Config.StagerURL))
 				})
 
-				natsClient.Publish("diego.staging.start", []byte(`
-				      {
-				        "app_id":"my-app-guid",
-                "task_id":"my-task-guid",
-                "stack":"lucid64",
-                "app_bits_download_uri":"http://example.com/app_bits",
-                "file_descriptors":3,
-                "memory_mb" : 1024,
-                "disk_mb" : 128,
-                "buildpacks" : [],
-                "environment" : []
-				      }
-				    `))
-			})
+				natsClient.Publish("diego.staging.start", []byte(`{
+					"app_id":"my-app-guid",
+					"task_id":"my-task-guid",
+					"stack":"lucid64",
+					"app_bits_download_uri":"http://example.com/app_bits",
+					"file_descriptors":3,
+					"memory_mb" : 1024,
+					"disk_mb" : 128,
+					"buildpacks" : [],
+					"environment" : []
+				}`))
 
-			It("desires a staging task via the API", func() {
 				Eventually(fakeServer.ReceivedRequests).Should(HaveLen(1))
-			})
-
-			It("does not exit", func() {
 				Consistently(runner.Session()).ShouldNot(gexec.Exit())
 			})
 		})
 
 		Describe("when a 'diego.docker.staging.start' message is recieved", func() {
-			BeforeEach(func() {
+			It("desires a staging task via the API", func() {
 				fakeServer.RouteToHandler("POST", "/tasks", func(w http.ResponseWriter, req *http.Request) {
 					var taskRequest receptor.CreateTaskRequest
 					err := json.NewDecoder(req.Body).Decode(&taskRequest)
@@ -122,27 +116,21 @@ var _ = Describe("Stager", func() {
 
 					Ω(taskRequest.MemoryMB).Should(Equal(1024))
 					Ω(taskRequest.DiskMB).Should(Equal(2048))
+					Ω(taskRequest.CompletionCallbackURL).Should(Equal(runner.Config.StagerURL))
 				})
 
-				natsClient.Publish("diego.docker.staging.start", []byte(`
-				      {
-				        "app_id":"my-app-guid",
-                "task_id":"my-task-guid",
-                "stack":"lucid64",
-                "docker_image_url":"http://docker.docker/docker",
-                "file_descriptors":3,
-                "memory_mb" : 1024,
-                "disk_mb" : 128,
-                "environment" : []
-				      }
-				    `))
-			})
+				natsClient.Publish("diego.docker.staging.start", []byte(`{
+					"app_id":"my-app-guid",
+					"task_id":"my-task-guid",
+					"stack":"lucid64",
+					"docker_image_url":"http://docker.docker/docker",
+					"file_descriptors":3,
+					"memory_mb" : 1024,
+					"disk_mb" : 128,
+					"environment" : []
+				}`))
 
-			It("desires a staging task via the API", func() {
 				Eventually(fakeServer.ReceivedRequests).Should(HaveLen(1))
-			})
-
-			It("does not exit", func() {
 				Consistently(runner.Session()).ShouldNot(gexec.Exit())
 			})
 		})
@@ -162,7 +150,7 @@ var _ = Describe("Stager", func() {
 				})
 				Ω(err).ShouldNot(HaveOccurred())
 
-				resp, err = http.Post(fmt.Sprintf("http://127.0.0.1:%d", stagerPort), "application/json", bytes.NewReader(taskJSON))
+				resp, err = http.Post(runner.Config.StagerURL, "application/json", bytes.NewReader(taskJSON))
 				Ω(err).ShouldNot(HaveOccurred())
 			})
 

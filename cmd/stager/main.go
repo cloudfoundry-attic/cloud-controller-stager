@@ -3,7 +3,8 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"strings"
 
@@ -112,10 +113,10 @@ var diegoAPIURL = flag.String(
 	"URL of diego API",
 )
 
-var listenAddr = flag.String(
-	"listenAddr",
+var stagerURL = flag.String(
+	"stagerURL",
 	"",
-	"address on which to listen for staging task completion callbacks",
+	"URL of the stager",
 )
 
 func main() {
@@ -130,21 +131,26 @@ func main() {
 
 	natsClient := diegonats.NewClient()
 
+	address, err := getStagerAddress()
+	if err != nil {
+		logger.Fatal("Invalid stager URL", err)
+	}
+
 	group := grouper.NewOrdered(os.Interrupt, grouper.Members{
 		{"nats", diegonats.NewClientRunner(*natsAddresses, *natsUsername, *natsPassword, logger, natsClient)},
 		{"inbox", ifrit.RunFunc(func(signals <-chan os.Signal, ready chan<- struct{}) error {
 			return inbox.New(natsClient, ccClient, traditionalStager, dockerStager, inbox.ValidateRequest, logger).Run(signals, ready)
 		})},
-		{"outbox", outbox.New(*listenAddr, ccClient, logger, timeprovider.NewTimeProvider())},
+		{"outbox", outbox.New(address, ccClient, logger, timeprovider.NewTimeProvider())},
 	})
 
 	process := ifrit.Envoke(sigmon.New(group))
 
-	fmt.Println("Listening for staging requests!")
+	logger.Info("Listening for staging requests!")
 
-	err := <-process.Wait()
+	err = <-process.Wait()
 	if err != nil {
-		logger.Fatal("Stager exited with error: %s", err)
+		logger.Fatal("Stager exited with error", err)
 	}
 }
 
@@ -152,7 +158,7 @@ func initializeStagers(stagerBBS bbs.StagerBBS, logger lager.Logger) (stager.Sta
 	circusesMap := make(map[string]string)
 	err := json.Unmarshal([]byte(*circuses), &circusesMap)
 	if err != nil {
-		logger.Fatal("Error parsing circuses flag: %s\n", err)
+		logger.Fatal("Error parsing circuses flag", err)
 	}
 	config := stager.Config{
 		Circuses:           circusesMap,
@@ -164,8 +170,8 @@ func initializeStagers(stagerBBS bbs.StagerBBS, logger lager.Logger) (stager.Sta
 
 	diegoAPIClient := receptor.NewClient(*diegoAPIURL, "", "")
 
-	bpStager := stager.New(stagerBBS, diegoAPIClient, logger, config)
-	dockerStager := stager_docker.New(stagerBBS, diegoAPIClient, logger, config)
+	bpStager := stager.New(stagerBBS, *stagerURL, diegoAPIClient, logger, config)
+	dockerStager := stager_docker.New(stagerBBS, *stagerURL, diegoAPIClient, logger, config)
 
 	return bpStager, dockerStager
 }
@@ -182,4 +188,18 @@ func initializeStagerBBS(logger lager.Logger) bbs.StagerBBS {
 	}
 
 	return bbs.NewStagerBBS(etcdAdapter, timeprovider.NewTimeProvider(), logger)
+}
+
+func getStagerAddress() (string, error) {
+	url, err := url.Parse(*stagerURL)
+	if err != nil {
+		return "", err
+	}
+
+	_, port, err := net.SplitHostPort(url.Host)
+	if err != nil {
+		return "", err
+	}
+
+	return "0.0.0.0:" + port, nil
 }

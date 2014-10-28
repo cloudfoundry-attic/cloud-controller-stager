@@ -35,12 +35,15 @@ var _ = Describe("Stage", func() {
 		uploadBuildArtifactsAction    models.ExecutorAction
 		config                        Config
 		fakeDiegoAPIClient            *fake_receptor.FakeClient
+		callbackURL                   string
 	)
 
 	BeforeEach(func() {
 		fakeDiegoAPIClient = new(fake_receptor.FakeClient)
 		bbs = &fake_bbs.FakeStagerBBS{}
 		logger := lager.NewLogger("fakelogger")
+
+		callbackURL = "http://the-stager.example.com"
 
 		config = Config{
 			Circuses: map[string]string{
@@ -54,7 +57,7 @@ var _ = Describe("Stage", func() {
 			MinFileDescriptors: 256,
 		}
 
-		stager = New(bbs, fakeDiegoAPIClient, logger, config)
+		stager = New(bbs, callbackURL, fakeDiegoAPIClient, logger, config)
 
 		stagingRequest = cc_messages.StagingRequestFromCC{
 			AppId:                          "bunny",
@@ -260,6 +263,14 @@ var _ = Describe("Stage", func() {
 
 			Ω(desiredTask.MemoryMB).To(Equal(2048))
 			Ω(desiredTask.DiskMB).To(Equal(3072))
+		})
+
+		It("gives the task a callback URL to call it back", func() {
+			err := stager.Stage(stagingRequest)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
+			Ω(desiredTask.CompletionCallbackURL).Should(Equal(callbackURL))
 		})
 
 		Describe("resource limits", func() {

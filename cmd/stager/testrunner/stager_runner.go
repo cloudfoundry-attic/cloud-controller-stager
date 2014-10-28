@@ -12,20 +12,14 @@ import (
 )
 
 type StagerRunner struct {
-	stagerBin     string
-	stagerAddr    string
-	etcdCluster   []string
-	natsAddresses []string
-	diegoAPIURL   string
-	ccBaseURL     string
-
-	session     *gexec.Session
+	Config      Config
 	CompilerUrl string
+	session     *gexec.Session
 }
 
 type Config struct {
 	StagerBin     string
-	StagerAddr    string
+	StagerURL     string
 	EtcdCluster   []string
 	NatsAddresses []string
 	DiegoAPIURL   string
@@ -34,12 +28,7 @@ type Config struct {
 
 func New(config Config) *StagerRunner {
 	return &StagerRunner{
-		stagerBin:     config.StagerBin,
-		stagerAddr:    config.StagerAddr,
-		etcdCluster:   config.EtcdCluster,
-		natsAddresses: config.NatsAddresses,
-		diegoAPIURL:   config.DiegoAPIURL,
-		ccBaseURL:     config.CCBaseURL,
+		Config: config,
 	}
 }
 
@@ -50,13 +39,13 @@ func (r *StagerRunner) Start(args ...string) {
 
 	stagerSession, err := gexec.Start(
 		exec.Command(
-			r.stagerBin,
+			r.Config.StagerBin,
 			append([]string{
-				"-etcdCluster", strings.Join(r.etcdCluster, ","),
-				"-natsAddresses", strings.Join(r.natsAddresses, ","),
-				"-diegoAPIURL", r.diegoAPIURL,
-				"-listenAddr", r.stagerAddr,
-				"-ccBaseURL", r.ccBaseURL,
+				"-etcdCluster", strings.Join(r.Config.EtcdCluster, ","),
+				"-natsAddresses", strings.Join(r.Config.NatsAddresses, ","),
+				"-diegoAPIURL", r.Config.DiegoAPIURL,
+				"-stagerURL", r.Config.StagerURL,
+				"-ccBaseURL", r.Config.CCBaseURL,
 			}, args...)...,
 		),
 		gexec.NewPrefixedWriter("\x1b[32m[o]\x1b[95m[stager]\x1b[0m ", ginkgo.GinkgoWriter),

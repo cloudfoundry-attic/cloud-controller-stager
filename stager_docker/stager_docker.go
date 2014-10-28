@@ -31,6 +31,7 @@ type stager_docker struct {
 	logger         lager.Logger
 	config         stager.Config
 	diegoAPIClient receptor.Client
+	callbackURL    string
 }
 
 var TailorExecutablePath = "/tmp/docker-circus/tailor"
@@ -39,12 +40,13 @@ var TailorOutputPath = "/tmp/docker-result/result.json"
 var ErrNoFileServerPresent = errors.New("no available file server present")
 var ErrNoCompilerDefined = errors.New("no compiler defined for requested stack")
 
-func New(stagerBBS bbs.StagerBBS, diegoAPIClient receptor.Client, logger lager.Logger, config stager.Config) DockerStager {
+func New(stagerBBS bbs.StagerBBS, callbackURL string, diegoAPIClient receptor.Client, logger lager.Logger, config stager.Config) DockerStager {
 	return &stager_docker{
 		stagerBBS:      stagerBBS,
 		logger:         logger,
 		config:         config,
 		diegoAPIClient: diegoAPIClient,
+		callbackURL:    callbackURL,
 	}
 }
 
@@ -111,13 +113,14 @@ func (stager *stager_docker) Stage(request cc_messages.DockerStagingRequestFromC
 	})
 
 	task := receptor.CreateTaskRequest{
-		ResultFile: TailorOutputPath,
-		TaskGuid:   taskGuid(request),
-		Domain:     TaskDomain,
-		Stack:      request.Stack,
-		MemoryMB:   int(max(uint64(request.MemoryMB), uint64(stager.config.MinMemoryMB))),
-		DiskMB:     int(max(uint64(request.DiskMB), uint64(stager.config.MinDiskMB))),
-		Actions:    actions,
+		ResultFile:            TailorOutputPath,
+		TaskGuid:              taskGuid(request),
+		Domain:                TaskDomain,
+		Stack:                 request.Stack,
+		MemoryMB:              int(max(uint64(request.MemoryMB), uint64(stager.config.MinMemoryMB))),
+		DiskMB:                int(max(uint64(request.DiskMB), uint64(stager.config.MinDiskMB))),
+		Actions:               actions,
+		CompletionCallbackURL: stager.callbackURL,
 		Log: models.LogConfig{
 			Guid:       request.AppId,
 			SourceName: "STG",
@@ -130,7 +133,6 @@ func (stager *stager_docker) Stage(request cc_messages.DockerStagingRequestFromC
 	err = stager.diegoAPIClient.CreateTask(task)
 	if receptorErr, ok := err.(receptor.Error); ok {
 		if receptorErr.Type == receptor.TaskGuidAlreadyExists {
-			fmt.Println("TaskGuidAlreadyExists")
 			err = nil
 		}
 	}

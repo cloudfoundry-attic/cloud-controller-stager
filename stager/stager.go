@@ -43,14 +43,16 @@ type stager struct {
 	logger         lager.Logger
 	config         Config
 	diegoAPIClient receptor.Client
+	callbackURL    string
 }
 
-func New(stagerBBS bbs.StagerBBS, diegoAPIClient receptor.Client, logger lager.Logger, config Config) Stager {
+func New(stagerBBS bbs.StagerBBS, callbackURL string, diegoAPIClient receptor.Client, logger lager.Logger, config Config) Stager {
 	return &stager{
 		stagerBBS:      stagerBBS,
 		logger:         logger,
 		config:         config,
 		diegoAPIClient: diegoAPIClient,
+		callbackURL:    callbackURL,
 	}
 }
 
@@ -262,7 +264,8 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 			Guid:       request.AppId,
 			SourceName: "STG",
 		},
-		Annotation: string(annotationJson),
+		CompletionCallbackURL: stager.callbackURL,
+		Annotation:            string(annotationJson),
 	}
 
 	stager.logger.Info("desiring-task", lager.Data{"task": task})
