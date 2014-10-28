@@ -217,6 +217,18 @@ var _ = Describe("Outbox", func() {
 				Consistently(fakeApiClient.StagingCompleteCallCount).Should(Equal(0))
 				Consistently(bbs.ResolveTaskCallCount).Should(Equal(0))
 			})
+
+			It("does not update the staging counter", func() {
+				Consistently(func() uint64 {
+					return metricSender.GetCounter("StagingRequestsSucceeded")
+				}).Should(Equal(uint64(0)))
+			})
+
+			It("does not update the staging duration", func() {
+				Consistently(func() fake.Metric {
+					return metricSender.GetValue("StagingRequestSucceededDuration")
+				}).Should(Equal(fake.Metric{}))
+			})
 		})
 	})
 
