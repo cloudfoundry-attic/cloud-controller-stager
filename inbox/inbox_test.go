@@ -149,7 +149,7 @@ var _ = Describe("Inbox", func() {
 
 					stagingResponse := cc_messages.StagingResponseForCC{}
 					json.Unmarshal(response, &stagingResponse)
-					Ω(stagingResponse.Error).Should(Equal("Staging failed"))
+					Ω(stagingResponse.Error).Should(Equal("Staging failed: The thingy broke :("))
 				})
 			})
 

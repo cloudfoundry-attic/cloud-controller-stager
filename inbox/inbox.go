@@ -125,7 +125,7 @@ func (inbox *Inbox) onStagingRequest(message *nats.Msg) {
 	err = inbox.stager.Stage(stagingRequest)
 	if err != nil {
 		requestLogger.Error("staging-failed", err, lager.Data{"message": stagingRequest})
-		inbox.sendErrorResponse("Staging failed", stagingRequest)
+		inbox.sendErrorResponse("Staging failed: "+err.Error(), stagingRequest)
 		return
 	}
 }
