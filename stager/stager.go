@@ -21,7 +21,8 @@ import (
 )
 
 const (
-	TaskDomain = "cf-app-staging"
+	TaskDomain           = "cf-app-staging"
+	StagingTaskCpuWeight = uint(50)
 
 	stagingRequestArrivedCounter = metric.Counter("StagingRequestsReceived")
 )
@@ -259,6 +260,7 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 		ResultFile: tailorConfig.OutputMetadata(),
 		MemoryMB:   int(max(uint64(request.MemoryMB), uint64(stager.config.MinMemoryMB))),
 		DiskMB:     int(max(uint64(request.DiskMB), uint64(stager.config.MinDiskMB))),
+		CPUWeight:  StagingTaskCpuWeight,
 		Actions:    actions,
 		Log: models.LogConfig{
 			Guid:       request.AppId,

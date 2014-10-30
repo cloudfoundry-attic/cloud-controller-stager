@@ -263,6 +263,7 @@ var _ = Describe("Stage", func() {
 
 			Ω(desiredTask.MemoryMB).To(Equal(2048))
 			Ω(desiredTask.DiskMB).To(Equal(3072))
+			Ω(desiredTask.CPUWeight).To(Equal(StagingTaskCpuWeight))
 		})
 
 		It("gives the task a callback URL to call it back", func() {
