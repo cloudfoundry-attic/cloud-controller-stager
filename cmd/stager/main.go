@@ -6,12 +6,9 @@ import (
 	"net"
 	"net/url"
 	"os"
-	"strings"
 
 	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/cloudfoundry/gunk/timeprovider"
-	"github.com/cloudfoundry/gunk/workpool"
-	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
@@ -20,19 +17,12 @@ import (
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	"github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/receptor"
-	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/stager/cc_client"
 	"github.com/cloudfoundry-incubator/stager/inbox"
 	"github.com/cloudfoundry-incubator/stager/outbox"
 	"github.com/cloudfoundry-incubator/stager/stager"
 	"github.com/cloudfoundry-incubator/stager/stager_docker"
 	_ "github.com/cloudfoundry/dropsonde/autowire"
-)
-
-var etcdCluster = flag.String(
-	"etcdCluster",
-	"",
-	"comma-separated list of etcd addresses (http://ip:port)",
 )
 
 var natsAddresses = flag.String(
@@ -119,12 +109,17 @@ var stagerURL = flag.String(
 	"URL of the stager",
 )
 
+var fileServerURL = flag.String(
+	"fileServerURL",
+	"",
+	"URL of the file server",
+)
+
 func main() {
 	flag.Parse()
 
 	logger := cf_lager.New("stager")
-	stagerBBS := initializeStagerBBS(logger)
-	traditionalStager, dockerStager := initializeStagers(stagerBBS, logger)
+	traditionalStager, dockerStager := initializeStagers(logger)
 	ccClient := cc_client.NewCcClient(*ccBaseURL, *ccUsername, *ccPassword, *skipCertVerify)
 
 	cf_debug_server.Run()
@@ -154,13 +149,15 @@ func main() {
 	}
 }
 
-func initializeStagers(stagerBBS bbs.StagerBBS, logger lager.Logger) (stager.Stager, stager_docker.DockerStager) {
+func initializeStagers(logger lager.Logger) (stager.Stager, stager_docker.DockerStager) {
 	circusesMap := make(map[string]string)
 	err := json.Unmarshal([]byte(*circuses), &circusesMap)
 	if err != nil {
 		logger.Fatal("Error parsing circuses flag", err)
 	}
 	config := stager.Config{
+		CallbackURL:        *stagerURL,
+		FileServerURL:      *fileServerURL,
 		Circuses:           circusesMap,
 		DockerCircusPath:   *dockerCircusPath,
 		MinMemoryMB:        *minMemoryMB,
@@ -170,24 +167,10 @@ func initializeStagers(stagerBBS bbs.StagerBBS, logger lager.Logger) (stager.Sta
 
 	diegoAPIClient := receptor.NewClient(*diegoAPIURL, "", "")
 
-	bpStager := stager.New(stagerBBS, *stagerURL, diegoAPIClient, logger, config)
-	dockerStager := stager_docker.New(stagerBBS, *stagerURL, diegoAPIClient, logger, config)
+	bpStager := stager.New(diegoAPIClient, logger, config)
+	dockerStager := stager_docker.New(diegoAPIClient, logger, config)
 
 	return bpStager, dockerStager
-}
-
-func initializeStagerBBS(logger lager.Logger) bbs.StagerBBS {
-	etcdAdapter := etcdstoreadapter.NewETCDStoreAdapter(
-		strings.Split(*etcdCluster, ","),
-		workpool.NewWorkPool(10),
-	)
-
-	err := etcdAdapter.Connect()
-	if err != nil {
-		logger.Fatal("failed-to-connect-to-etcd", err)
-	}
-
-	return bbs.NewStagerBBS(etcdAdapter, timeprovider.NewTimeProvider(), logger)
 }
 
 func getStagerAddress() (string, error) {

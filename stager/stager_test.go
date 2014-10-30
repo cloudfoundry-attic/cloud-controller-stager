@@ -7,12 +7,10 @@ import (
 
 	"github.com/cloudfoundry/dropsonde/autowire/metrics"
 	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
-	"github.com/cloudfoundry/storeadapter"
 	"github.com/pivotal-golang/lager"
 
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/receptor/fake_receptor"
-	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/cloudfoundry-incubator/stager/stager"
@@ -23,7 +21,6 @@ import (
 var _ = Describe("Stage", func() {
 	var (
 		stager                        Stager
-		bbs                           *fake_bbs.FakeStagerBBS
 		stagingRequest                cc_messages.StagingRequestFromCC
 		downloadTailorAction          models.ExecutorAction
 		downloadAppAction             models.ExecutorAction
@@ -40,12 +37,13 @@ var _ = Describe("Stage", func() {
 
 	BeforeEach(func() {
 		fakeDiegoAPIClient = new(fake_receptor.FakeClient)
-		bbs = &fake_bbs.FakeStagerBBS{}
 		logger := lager.NewLogger("fakelogger")
 
 		callbackURL = "http://the-stager.example.com"
 
 		config = Config{
+			CallbackURL:   callbackURL,
+			FileServerURL: "http://file-server.com",
 			Circuses: map[string]string{
 				"penguin":                "penguin-compiler",
 				"rabbit_hole":            "rabbit-hole-compiler",
@@ -57,7 +55,7 @@ var _ = Describe("Stage", func() {
 			MinFileDescriptors: 256,
 		}
 
-		stager = New(bbs, callbackURL, fakeDiegoAPIClient, logger, config)
+		stager = New(fakeDiegoAPIClient, logger, config)
 
 		stagingRequest = cc_messages.StagingRequestFromCC{
 			AppId:                          "bunny",
@@ -208,176 +206,132 @@ var _ = Describe("Stage", func() {
 		Ω(metricSender.GetCounter("StagingRequestsReceived")).Should(Equal(uint64(1)))
 	})
 
-	Context("when file the server is available", func() {
-		BeforeEach(func() {
-			bbs.GetAvailableFileServerReturns("http://file-server.com/", nil)
-		})
+	It("creates a cf-app-staging Task with staging instructions", func() {
+		err := stager.Stage(stagingRequest)
+		Ω(err).ShouldNot(HaveOccurred())
 
-		It("creates a cf-app-staging Task with staging instructions", func() {
-			err := stager.Stage(stagingRequest)
-			Ω(err).ShouldNot(HaveOccurred())
+		desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
 
-			desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
+		Ω(desiredTask.Domain).To(Equal("cf-app-staging"))
+		Ω(desiredTask.TaskGuid).To(Equal("bunny-hop"))
+		Ω(desiredTask.Stack).To(Equal("rabbit_hole"))
+		Ω(desiredTask.Log.Guid).To(Equal("bunny"))
+		Ω(desiredTask.Log.SourceName).To(Equal("STG"))
+		Ω(desiredTask.ResultFile).To(Equal("/tmp/result.json"))
 
-			Ω(desiredTask.Domain).To(Equal("cf-app-staging"))
-			Ω(desiredTask.TaskGuid).To(Equal("bunny-hop"))
-			Ω(desiredTask.Stack).To(Equal("rabbit_hole"))
-			Ω(desiredTask.Log.Guid).To(Equal("bunny"))
-			Ω(desiredTask.Log.SourceName).To(Equal("STG"))
-			Ω(desiredTask.ResultFile).To(Equal("/tmp/result.json"))
+		var annotation models.StagingTaskAnnotation
 
-			var annotation models.StagingTaskAnnotation
+		err = json.Unmarshal([]byte(desiredTask.Annotation), &annotation)
+		Ω(err).ShouldNot(HaveOccurred())
 
-			err = json.Unmarshal([]byte(desiredTask.Annotation), &annotation)
-			Ω(err).ShouldNot(HaveOccurred())
+		Ω(annotation).Should(Equal(models.StagingTaskAnnotation{
+			AppId:  "bunny",
+			TaskId: "hop",
+		}))
 
-			Ω(annotation).Should(Equal(models.StagingTaskAnnotation{
-				AppId:  "bunny",
-				TaskId: "hop",
-			}))
-
-			Ω(desiredTask.Actions).Should(Equal([]models.ExecutorAction{
-				models.EmitProgressFor(
-					models.Parallel(
-						downloadTailorAction,
-						downloadAppAction,
-						downloadFirstBuildpackAction,
-						downloadSecondBuildpackAction,
-						downloadBuildArtifactsAction,
-					),
-					"Fetching app, buildpacks (zfirst, asecond), artifacts cache...",
-					"Fetching complete",
-					"Fetching failed",
+		Ω(desiredTask.Actions).Should(Equal([]models.ExecutorAction{
+			models.EmitProgressFor(
+				models.Parallel(
+					downloadTailorAction,
+					downloadAppAction,
+					downloadFirstBuildpackAction,
+					downloadSecondBuildpackAction,
+					downloadBuildArtifactsAction,
 				),
-				runAction,
-				models.EmitProgressFor(
-					models.Parallel(
-						uploadDropletAction,
-						uploadBuildArtifactsAction,
-					),
-					"Uploading droplet, artifacts cache...",
-					"Uploading complete",
-					"Uploading failed",
+				"Fetching app, buildpacks (zfirst, asecond), artifacts cache...",
+				"Fetching complete",
+				"Fetching failed",
+			),
+			runAction,
+			models.EmitProgressFor(
+				models.Parallel(
+					uploadDropletAction,
+					uploadBuildArtifactsAction,
 				),
-			}))
+				"Uploading droplet, artifacts cache...",
+				"Uploading complete",
+				"Uploading failed",
+			),
+		}))
 
-			Ω(desiredTask.MemoryMB).To(Equal(2048))
-			Ω(desiredTask.DiskMB).To(Equal(3072))
-			Ω(desiredTask.CPUWeight).To(Equal(StagingTaskCpuWeight))
-		})
+		Ω(desiredTask.MemoryMB).To(Equal(2048))
+		Ω(desiredTask.DiskMB).To(Equal(3072))
+		Ω(desiredTask.CPUWeight).To(Equal(StagingTaskCpuWeight))
+	})
 
-		It("gives the task a callback URL to call it back", func() {
-			err := stager.Stage(stagingRequest)
-			Ω(err).ShouldNot(HaveOccurred())
+	It("gives the task a callback URL to call it back", func() {
+		err := stager.Stage(stagingRequest)
+		Ω(err).ShouldNot(HaveOccurred())
 
-			desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
-			Ω(desiredTask.CompletionCallbackURL).Should(Equal(callbackURL))
-		})
+		desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
+		Ω(desiredTask.CompletionCallbackURL).Should(Equal(callbackURL))
+	})
 
-		Describe("resource limits", func() {
-			Context("when the app's memory limit is less than the minimum memory", func() {
-				BeforeEach(func() {
-					stagingRequest.MemoryMB = 256
-				})
-
-				It("uses the minimum memory", func() {
-					err := stager.Stage(stagingRequest)
-					Ω(err).ShouldNot(HaveOccurred())
-
-					desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
-					Ω(desiredTask.MemoryMB).Should(BeNumerically("==", config.MinMemoryMB))
-				})
-			})
-
-			Context("when the app's disk limit is less than the minimum disk", func() {
-				BeforeEach(func() {
-					stagingRequest.DiskMB = 256
-				})
-
-				It("uses the minimum disk", func() {
-					err := stager.Stage(stagingRequest)
-					Ω(err).ShouldNot(HaveOccurred())
-
-					desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
-					Ω(desiredTask.DiskMB).Should(BeNumerically("==", config.MinDiskMB))
-				})
-			})
-
-			Context("when the app's memory limit is less than the minimum memory", func() {
-				BeforeEach(func() {
-					stagingRequest.FileDescriptors = 17
-				})
-
-				It("uses the minimum file descriptors", func() {
-					err := stager.Stage(stagingRequest)
-					Ω(err).ShouldNot(HaveOccurred())
-
-					desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
-
-					runAction = models.EmitProgressFor(
-						models.ExecutorAction{
-							models.RunAction{
-								Path: "/tmp/circus/tailor",
-								Args: []string{
-									"-appDir=/app",
-									"-buildArtifactsCacheDir=/tmp/cache",
-									"-buildpackOrder=zfirst-buildpack,asecond-buildpack",
-									"-buildpacksDir=/tmp/buildpacks",
-									"-outputBuildArtifactsCache=/tmp/output-cache",
-									"-outputDroplet=/tmp/droplet",
-									"-outputMetadata=/tmp/result.json",
-								},
-								Env: []models.EnvironmentVariable{
-									{"VCAP_APPLICATION", "foo"},
-									{"VCAP_SERVICES", "bar"},
-								},
-								Timeout:        15 * time.Minute,
-								ResourceLimits: models.ResourceLimits{Nofile: &config.MinFileDescriptors},
-							},
-						},
-						"Staging...",
-						"Staging Complete",
-						"Staging Failed",
-					)
-
-					Ω(desiredTask.Actions).Should(Equal([]models.ExecutorAction{
-						models.EmitProgressFor(
-							models.Parallel(
-								downloadTailorAction,
-								downloadAppAction,
-								downloadFirstBuildpackAction,
-								downloadSecondBuildpackAction,
-								downloadBuildArtifactsAction,
-							),
-							"Fetching app, buildpacks (zfirst, asecond), artifacts cache...",
-							"Fetching complete",
-							"Fetching failed",
-						),
-						runAction,
-						models.EmitProgressFor(
-							models.Parallel(
-								uploadDropletAction,
-								uploadBuildArtifactsAction,
-							),
-							"Uploading droplet, artifacts cache...",
-							"Uploading complete",
-							"Uploading failed",
-						),
-					}))
-				})
-			})
-		})
-
-		Context("when build artifacts download uris are not provided", func() {
+	Describe("resource limits", func() {
+		Context("when the app's memory limit is less than the minimum memory", func() {
 			BeforeEach(func() {
-				stagingRequest.BuildArtifactsCacheDownloadUri = ""
+				stagingRequest.MemoryMB = 256
 			})
 
-			It("does not instruct the executor to download the cache", func() {
+			It("uses the minimum memory", func() {
 				err := stager.Stage(stagingRequest)
 				Ω(err).ShouldNot(HaveOccurred())
 
 				desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
+				Ω(desiredTask.MemoryMB).Should(BeNumerically("==", config.MinMemoryMB))
+			})
+		})
+
+		Context("when the app's disk limit is less than the minimum disk", func() {
+			BeforeEach(func() {
+				stagingRequest.DiskMB = 256
+			})
+
+			It("uses the minimum disk", func() {
+				err := stager.Stage(stagingRequest)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
+				Ω(desiredTask.DiskMB).Should(BeNumerically("==", config.MinDiskMB))
+			})
+		})
+
+		Context("when the app's memory limit is less than the minimum memory", func() {
+			BeforeEach(func() {
+				stagingRequest.FileDescriptors = 17
+			})
+
+			It("uses the minimum file descriptors", func() {
+				err := stager.Stage(stagingRequest)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
+
+				runAction = models.EmitProgressFor(
+					models.ExecutorAction{
+						models.RunAction{
+							Path: "/tmp/circus/tailor",
+							Args: []string{
+								"-appDir=/app",
+								"-buildArtifactsCacheDir=/tmp/cache",
+								"-buildpackOrder=zfirst-buildpack,asecond-buildpack",
+								"-buildpacksDir=/tmp/buildpacks",
+								"-outputBuildArtifactsCache=/tmp/output-cache",
+								"-outputDroplet=/tmp/droplet",
+								"-outputMetadata=/tmp/result.json",
+							},
+							Env: []models.EnvironmentVariable{
+								{"VCAP_APPLICATION", "foo"},
+								{"VCAP_SERVICES", "bar"},
+							},
+							Timeout:        15 * time.Minute,
+							ResourceLimits: models.ResourceLimits{Nofile: &config.MinFileDescriptors},
+						},
+					},
+					"Staging...",
+					"Staging Complete",
+					"Staging Failed",
+				)
 
 				Ω(desiredTask.Actions).Should(Equal([]models.ExecutorAction{
 					models.EmitProgressFor(
@@ -386,8 +340,9 @@ var _ = Describe("Stage", func() {
 							downloadAppAction,
 							downloadFirstBuildpackAction,
 							downloadSecondBuildpackAction,
+							downloadBuildArtifactsAction,
 						),
-						"Fetching app, buildpacks (zfirst, asecond)...",
+						"Fetching app, buildpacks (zfirst, asecond), artifacts cache...",
 						"Fetching complete",
 						"Fetching failed",
 					),
@@ -404,106 +359,122 @@ var _ = Describe("Stage", func() {
 				}))
 			})
 		})
+	})
 
-		Context("when no compiler is defined for the requested stack in stager configuration", func() {
-			BeforeEach(func() {
-				stagingRequest.Stack = "no_such_stack"
-			})
-
-			It("returns an error", func() {
-				err := stager.Stage(stagingRequest)
-
-				Ω(err).Should(HaveOccurred())
-				Ω(err.Error()).Should(Equal("no compiler defined for requested stack"))
-			})
+	Context("when build artifacts download uris are not provided", func() {
+		BeforeEach(func() {
+			stagingRequest.BuildArtifactsCacheDownloadUri = ""
 		})
 
-		Context("when the compiler for the requested stack is specified as a full URL", func() {
-			BeforeEach(func() {
-				stagingRequest.Stack = "compiler_with_full_url"
-			})
+		It("does not instruct the executor to download the cache", func() {
+			err := stager.Stage(stagingRequest)
+			Ω(err).ShouldNot(HaveOccurred())
 
-			It("uses the full URL in the download tailor action", func() {
-				err := stager.Stage(stagingRequest)
-				Ω(err).ShouldNot(HaveOccurred())
+			desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
 
-				desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
-
-				downloadAction := desiredTask.Actions[0].Action.(models.EmitProgressAction).Action.Action.(models.ParallelAction).Actions[0].Action.(models.EmitProgressAction).Action.Action.(models.DownloadAction)
-				Ω(downloadAction.From).Should(Equal("http://the-full-compiler-url"))
-			})
-		})
-
-		Context("when the compiler for the requested stack is specified as a full URL with an unexpected scheme", func() {
-			BeforeEach(func() {
-				stagingRequest.Stack = "compiler_with_bad_url"
-			})
-
-			It("returns an error", func() {
-				err := stager.Stage(stagingRequest)
-				Ω(err).Should(HaveOccurred())
-			})
-		})
-
-		Context("when build artifacts download url is not a valid url", func() {
-			BeforeEach(func() {
-				stagingRequest.BuildArtifactsCacheDownloadUri = "not-a-uri"
-			})
-
-			It("return a url parsing error", func() {
-				err := stager.Stage(stagingRequest)
-
-				Ω(err).Should(HaveOccurred())
-				Ω(err.Error()).Should(ContainSubstring("invalid URI"))
-			})
-		})
-
-		Context("when the task has already been created", func() {
-			BeforeEach(func() {
-				fakeDiegoAPIClient.CreateTaskReturns(receptor.Error{
-					Type:    receptor.TaskGuidAlreadyExists,
-					Message: "ok, this task already exists",
-				})
-			})
-
-			It("does not raise an error", func() {
-				err := stager.Stage(stagingRequest)
-				Ω(err).ShouldNot(HaveOccurred())
-			})
-		})
-
-		Context("when the API call fails", func() {
-			desireErr := errors.New("Could not connect!")
-
-			BeforeEach(func() {
-				fakeDiegoAPIClient.CreateTaskReturns(desireErr)
-			})
-
-			It("returns an error", func() {
-				err := stager.Stage(stagingRequest)
-				Ω(err).Should(Equal(desireErr))
-			})
+			Ω(desiredTask.Actions).Should(Equal([]models.ExecutorAction{
+				models.EmitProgressFor(
+					models.Parallel(
+						downloadTailorAction,
+						downloadAppAction,
+						downloadFirstBuildpackAction,
+						downloadSecondBuildpackAction,
+					),
+					"Fetching app, buildpacks (zfirst, asecond)...",
+					"Fetching complete",
+					"Fetching failed",
+				),
+				runAction,
+				models.EmitProgressFor(
+					models.Parallel(
+						uploadDropletAction,
+						uploadBuildArtifactsAction,
+					),
+					"Uploading droplet, artifacts cache...",
+					"Uploading complete",
+					"Uploading failed",
+				),
+			}))
 		})
 	})
 
-	Context("when file server is not available", func() {
+	Context("when no compiler is defined for the requested stack in stager configuration", func() {
 		BeforeEach(func() {
-			bbs.GetAvailableFileServerReturns("http://file-server.com/", storeadapter.ErrorKeyNotFound)
+			stagingRequest.Stack = "no_such_stack"
 		})
 
-		It("should return an error", func() {
-			err := stager.Stage(cc_messages.StagingRequestFromCC{
-				AppId:                          "bunny",
-				TaskId:                         "hop",
-				AppBitsDownloadUri:             "http://example-uri.com/bunny",
-				BuildArtifactsCacheDownloadUri: "http://example-uri.com/bunny-droppings",
-				Stack:    "rabbit_hole",
-				MemoryMB: 256,
-				DiskMB:   1024,
-			})
+		It("returns an error", func() {
+			err := stager.Stage(stagingRequest)
 
 			Ω(err).Should(HaveOccurred())
-			Ω(err.Error()).Should(Equal("no available file server present"))
+			Ω(err.Error()).Should(Equal("no compiler defined for requested stack"))
+		})
+	})
+
+	Context("when the compiler for the requested stack is specified as a full URL", func() {
+		BeforeEach(func() {
+			stagingRequest.Stack = "compiler_with_full_url"
+		})
+
+		It("uses the full URL in the download tailor action", func() {
+			err := stager.Stage(stagingRequest)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
+
+			downloadAction := desiredTask.Actions[0].Action.(models.EmitProgressAction).Action.Action.(models.ParallelAction).Actions[0].Action.(models.EmitProgressAction).Action.Action.(models.DownloadAction)
+			Ω(downloadAction.From).Should(Equal("http://the-full-compiler-url"))
+		})
+	})
+
+	Context("when the compiler for the requested stack is specified as a full URL with an unexpected scheme", func() {
+		BeforeEach(func() {
+			stagingRequest.Stack = "compiler_with_bad_url"
+		})
+
+		It("returns an error", func() {
+			err := stager.Stage(stagingRequest)
+			Ω(err).Should(HaveOccurred())
+		})
+	})
+
+	Context("when build artifacts download url is not a valid url", func() {
+		BeforeEach(func() {
+			stagingRequest.BuildArtifactsCacheDownloadUri = "not-a-uri"
+		})
+
+		It("return a url parsing error", func() {
+			err := stager.Stage(stagingRequest)
+
+			Ω(err).Should(HaveOccurred())
+			Ω(err.Error()).Should(ContainSubstring("invalid URI"))
+		})
+	})
+
+	Context("when the task has already been created", func() {
+		BeforeEach(func() {
+			fakeDiegoAPIClient.CreateTaskReturns(receptor.Error{
+				Type:    receptor.TaskGuidAlreadyExists,
+				Message: "ok, this task already exists",
+			})
+		})
+
+		It("does not raise an error", func() {
+			err := stager.Stage(stagingRequest)
+			Ω(err).ShouldNot(HaveOccurred())
+		})
+	})
+
+	Context("when the API call fails", func() {
+		desireErr := errors.New("Could not connect!")
+
+		BeforeEach(func() {
+			fakeDiegoAPIClient.CreateTaskReturns(desireErr)
+		})
+
+		It("returns an error", func() {
+			err := stager.Stage(stagingRequest)
+			Ω(err).Should(Equal(desireErr))
 		})
 	})
 })

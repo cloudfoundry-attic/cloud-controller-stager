@@ -11,7 +11,6 @@ import (
 	"github.com/pivotal-golang/lager"
 
 	"github.com/cloudfoundry-incubator/receptor"
-	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
@@ -27,36 +26,26 @@ type DockerStager interface {
 }
 
 type stager_docker struct {
-	stagerBBS      bbs.StagerBBS
 	logger         lager.Logger
 	config         stager.Config
 	diegoAPIClient receptor.Client
-	callbackURL    string
 }
 
 var TailorExecutablePath = "/tmp/docker-circus/tailor"
 var TailorOutputPath = "/tmp/docker-result/result.json"
 
-var ErrNoFileServerPresent = errors.New("no available file server present")
 var ErrNoCompilerDefined = errors.New("no compiler defined for requested stack")
 
-func New(stagerBBS bbs.StagerBBS, callbackURL string, diegoAPIClient receptor.Client, logger lager.Logger, config stager.Config) DockerStager {
+func New(diegoAPIClient receptor.Client, logger lager.Logger, config stager.Config) DockerStager {
 	return &stager_docker{
-		stagerBBS:      stagerBBS,
 		logger:         logger,
 		config:         config,
 		diegoAPIClient: diegoAPIClient,
-		callbackURL:    callbackURL,
 	}
 }
 
 func (stager *stager_docker) Stage(request cc_messages.DockerStagingRequestFromCC) error {
-	fileServerURL, err := stager.stagerBBS.GetAvailableFileServer()
-	if err != nil {
-		return ErrNoFileServerPresent
-	}
-
-	compilerURL, err := stager.compilerDownloadURL(request, fileServerURL)
+	compilerURL, err := stager.compilerDownloadURL(request)
 	if err != nil {
 		return err
 	}
@@ -120,7 +109,7 @@ func (stager *stager_docker) Stage(request cc_messages.DockerStagingRequestFromC
 		MemoryMB:              int(max(uint64(request.MemoryMB), uint64(stager.config.MinMemoryMB))),
 		DiskMB:                int(max(uint64(request.DiskMB), uint64(stager.config.MinDiskMB))),
 		Actions:               actions,
-		CompletionCallbackURL: stager.callbackURL,
+		CompletionCallbackURL: stager.config.CallbackURL,
 		Log: models.LogConfig{
 			Guid:       request.AppId,
 			SourceName: "STG",
@@ -130,7 +119,7 @@ func (stager *stager_docker) Stage(request cc_messages.DockerStagingRequestFromC
 
 	stager.logger.Info("desiring-docker-task", lager.Data{
 		"task_guid":    task.TaskGuid,
-		"callback_url": stager.callbackURL,
+		"callback_url": stager.config.CallbackURL,
 	})
 
 	err = stager.diegoAPIClient.CreateTask(task)
@@ -143,7 +132,7 @@ func (stager *stager_docker) Stage(request cc_messages.DockerStagingRequestFromC
 	return err
 }
 
-func (stager *stager_docker) compilerDownloadURL(request cc_messages.DockerStagingRequestFromCC, fileServerURL string) (*url.URL, error) {
+func (stager *stager_docker) compilerDownloadURL(request cc_messages.DockerStagingRequestFromCC) (*url.URL, error) {
 
 	var circusFilename string
 	if len(stager.config.DockerCircusPath) > 0 {
@@ -170,7 +159,7 @@ func (stager *stager_docker) compilerDownloadURL(request cc_messages.DockerStagi
 		return nil, errors.New("couldn't generate the compiler download path")
 	}
 
-	urlString := urljoiner.Join(fileServerURL, staticRoute.Path, circusFilename)
+	urlString := urljoiner.Join(stager.config.FileServerURL, staticRoute.Path, circusFilename)
 
 	url, err := url.ParseRequestURI(urlString)
 	if err != nil {

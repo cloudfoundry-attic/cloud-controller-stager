@@ -5,12 +5,10 @@ import (
 	"errors"
 	"time"
 
-	"github.com/cloudfoundry/storeadapter"
 	"github.com/pivotal-golang/lager"
 
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/receptor/fake_receptor"
-	"github.com/cloudfoundry-incubator/runtime-schema/bbs/fake_bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/stager/stager"
@@ -21,7 +19,6 @@ import (
 
 var _ = Describe("StagerDocker", func() {
 	var (
-		bbs                  *fake_bbs.FakeStagerBBS
 		stagingRequest       cc_messages.DockerStagingRequestFromCC
 		downloadTailorAction models.ExecutorAction
 		runAction            models.ExecutorAction
@@ -33,12 +30,13 @@ var _ = Describe("StagerDocker", func() {
 
 	BeforeEach(func() {
 		fakeDiegoAPIClient = new(fake_receptor.FakeClient)
-		bbs = &fake_bbs.FakeStagerBBS{}
 		logger := lager.NewLogger("fakelogger")
 
 		callbackURL = "http://the-stager.example.com"
 
 		config = stager.Config{
+			CallbackURL:   callbackURL,
+			FileServerURL: "http://file-server.com",
 			Circuses: map[string]string{
 				"penguin":                "penguin-compiler",
 				"rabbit_hole":            "rabbit-hole-compiler",
@@ -50,7 +48,7 @@ var _ = Describe("StagerDocker", func() {
 			MinFileDescriptors: 256,
 		}
 
-		dockerStager = New(bbs, callbackURL, fakeDiegoAPIClient, logger, config)
+		dockerStager = New(fakeDiegoAPIClient, logger, config)
 
 		stagingRequest = cc_messages.DockerStagingRequestFromCC{
 			AppId:           "bunny",
@@ -113,161 +111,135 @@ var _ = Describe("StagerDocker", func() {
 		)
 	})
 
-	Context("when file the server is available", func() {
-		BeforeEach(func() {
-			bbs.GetAvailableFileServerReturns("http://file-server.com/", nil)
-		})
+	It("creates a cf-app-docker-staging Task with staging instructions", func() {
+		err := dockerStager.Stage(stagingRequest)
+		Ω(err).ShouldNot(HaveOccurred())
 
-		It("creates a cf-app-docker-staging Task with staging instructions", func() {
-			err := dockerStager.Stage(stagingRequest)
-			Ω(err).ShouldNot(HaveOccurred())
+		desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
 
-			desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
+		Ω(desiredTask.Domain).To(Equal("cf-app-docker-staging"))
+		Ω(desiredTask.TaskGuid).To(Equal("bunny-hop"))
+		Ω(desiredTask.Stack).To(Equal("rabbit_hole"))
+		Ω(desiredTask.Log.Guid).To(Equal("bunny"))
+		Ω(desiredTask.Log.SourceName).To(Equal("STG"))
+		Ω(desiredTask.ResultFile).To(Equal("/tmp/docker-result/result.json"))
 
-			Ω(desiredTask.Domain).To(Equal("cf-app-docker-staging"))
-			Ω(desiredTask.TaskGuid).To(Equal("bunny-hop"))
-			Ω(desiredTask.Stack).To(Equal("rabbit_hole"))
-			Ω(desiredTask.Log.Guid).To(Equal("bunny"))
-			Ω(desiredTask.Log.SourceName).To(Equal("STG"))
-			Ω(desiredTask.ResultFile).To(Equal("/tmp/docker-result/result.json"))
+		var annotation models.StagingTaskAnnotation
 
-			var annotation models.StagingTaskAnnotation
+		err = json.Unmarshal([]byte(desiredTask.Annotation), &annotation)
+		Ω(err).ShouldNot(HaveOccurred())
 
-			err = json.Unmarshal([]byte(desiredTask.Annotation), &annotation)
-			Ω(err).ShouldNot(HaveOccurred())
+		Ω(annotation).Should(Equal(models.StagingTaskAnnotation{
+			AppId:  "bunny",
+			TaskId: "hop",
+		}))
 
-			Ω(annotation).Should(Equal(models.StagingTaskAnnotation{
-				AppId:  "bunny",
-				TaskId: "hop",
-			}))
+		Ω(desiredTask.Actions).Should(HaveLen(2))
 
-			Ω(desiredTask.Actions).Should(HaveLen(2))
+		Ω(desiredTask.Actions[0]).Should(Equal(downloadTailorAction))
 
-			Ω(desiredTask.Actions[0]).Should(Equal(downloadTailorAction))
+		Ω(desiredTask.Actions[1]).Should(Equal(runAction))
 
-			Ω(desiredTask.Actions[1]).Should(Equal(runAction))
+		Ω(desiredTask.MemoryMB).To(Equal(2048))
+		Ω(desiredTask.DiskMB).To(Equal(3072))
+	})
 
-			Ω(desiredTask.MemoryMB).To(Equal(2048))
-			Ω(desiredTask.DiskMB).To(Equal(3072))
-		})
+	It("gives the task a callback URL to call it back", func() {
+		err := dockerStager.Stage(stagingRequest)
+		Ω(err).ShouldNot(HaveOccurred())
 
-		It("gives the task a callback URL to call it back", func() {
-			err := dockerStager.Stage(stagingRequest)
-			Ω(err).ShouldNot(HaveOccurred())
+		desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
+		Ω(desiredTask.CompletionCallbackURL).Should(Equal(callbackURL))
+	})
 
-			desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
-			Ω(desiredTask.CompletionCallbackURL).Should(Equal(callbackURL))
-		})
-
-		Describe("resource limits", func() {
-			Context("when the app's memory limit is less than the minimum memory", func() {
-				BeforeEach(func() {
-					stagingRequest.MemoryMB = 256
-				})
-
-				It("uses the minimum memory", func() {
-					err := dockerStager.Stage(stagingRequest)
-					Ω(err).ShouldNot(HaveOccurred())
-
-					desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
-					Ω(desiredTask.MemoryMB).Should(BeNumerically("==", config.MinMemoryMB))
-				})
-			})
-
-			Context("when the app's disk limit is less than the minimum disk", func() {
-				BeforeEach(func() {
-					stagingRequest.DiskMB = 256
-				})
-
-				It("uses the minimum disk", func() {
-					err := dockerStager.Stage(stagingRequest)
-					Ω(err).ShouldNot(HaveOccurred())
-
-					desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
-					Ω(desiredTask.DiskMB).Should(BeNumerically("==", config.MinDiskMB))
-				})
-			})
-
-			Context("when the app's memory limit is less than the minimum memory", func() {
-				BeforeEach(func() {
-					stagingRequest.FileDescriptors = 17
-				})
-
-				It("uses the minimum file descriptors", func() {
-					err := dockerStager.Stage(stagingRequest)
-					Ω(err).ShouldNot(HaveOccurred())
-
-					desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
-
-					Ω(desiredTask.Actions[1]).Should(Equal(models.EmitProgressFor(
-						models.ExecutorAction{
-							models.RunAction{
-								Path: "/tmp/docker-circus/tailor",
-								Args: []string{
-									"-outputMetadataJSONFilename", "/tmp/docker-result/result.json",
-									"-dockerRef", "busybox",
-								},
-								Env: []models.EnvironmentVariable{
-									{"VCAP_APPLICATION", "foo"},
-									{"VCAP_SERVICES", "bar"},
-								},
-								Timeout:        15 * time.Minute,
-								ResourceLimits: models.ResourceLimits{Nofile: &config.MinFileDescriptors},
-							},
-						},
-						"Staging...",
-						"Staging Complete",
-						"Staging Failed",
-					)))
-				})
-			})
-		})
-
-		Context("when the task has already been created", func() {
+	Describe("resource limits", func() {
+		Context("when the app's memory limit is less than the minimum memory", func() {
 			BeforeEach(func() {
-				fakeDiegoAPIClient.CreateTaskReturns(receptor.Error{
-					Type:    receptor.TaskGuidAlreadyExists,
-					Message: "ok, this task already exists",
-				})
+				stagingRequest.MemoryMB = 256
 			})
 
-			It("does not raise an error", func() {
+			It("uses the minimum memory", func() {
 				err := dockerStager.Stage(stagingRequest)
 				Ω(err).ShouldNot(HaveOccurred())
+
+				desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
+				Ω(desiredTask.MemoryMB).Should(BeNumerically("==", config.MinMemoryMB))
 			})
 		})
 
-		Context("when the API call fails", func() {
-			desireErr := errors.New("Could not connect!")
-
+		Context("when the app's disk limit is less than the minimum disk", func() {
 			BeforeEach(func() {
-				fakeDiegoAPIClient.CreateTaskReturns(desireErr)
+				stagingRequest.DiskMB = 256
 			})
 
-			It("returns an error", func() {
+			It("uses the minimum disk", func() {
 				err := dockerStager.Stage(stagingRequest)
-				Ω(err).Should(Equal(desireErr))
+				Ω(err).ShouldNot(HaveOccurred())
+
+				desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
+				Ω(desiredTask.DiskMB).Should(BeNumerically("==", config.MinDiskMB))
+			})
+		})
+
+		Context("when the app's memory limit is less than the minimum memory", func() {
+			BeforeEach(func() {
+				stagingRequest.FileDescriptors = 17
+			})
+
+			It("uses the minimum file descriptors", func() {
+				err := dockerStager.Stage(stagingRequest)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
+
+				Ω(desiredTask.Actions[1]).Should(Equal(models.EmitProgressFor(
+					models.ExecutorAction{
+						models.RunAction{
+							Path: "/tmp/docker-circus/tailor",
+							Args: []string{
+								"-outputMetadataJSONFilename", "/tmp/docker-result/result.json",
+								"-dockerRef", "busybox",
+							},
+							Env: []models.EnvironmentVariable{
+								{"VCAP_APPLICATION", "foo"},
+								{"VCAP_SERVICES", "bar"},
+							},
+							Timeout:        15 * time.Minute,
+							ResourceLimits: models.ResourceLimits{Nofile: &config.MinFileDescriptors},
+						},
+					},
+					"Staging...",
+					"Staging Complete",
+					"Staging Failed",
+				)))
 			})
 		})
 	})
 
-	Context("when file server is not available", func() {
+	Context("when the task has already been created", func() {
 		BeforeEach(func() {
-			bbs.GetAvailableFileServerReturns("http://file-server.com/", storeadapter.ErrorKeyNotFound)
+			fakeDiegoAPIClient.CreateTaskReturns(receptor.Error{
+				Type:    receptor.TaskGuidAlreadyExists,
+				Message: "ok, this task already exists",
+			})
 		})
 
-		It("should return an error", func() {
-			err := dockerStager.Stage(cc_messages.DockerStagingRequestFromCC{
-				AppId:          "bunny",
-				TaskId:         "hop",
-				DockerImageUrl: "the-image",
-				Stack:          "rabbit_hole",
-				MemoryMB:       256,
-				DiskMB:         1024,
-			})
+		It("does not raise an error", func() {
+			err := dockerStager.Stage(stagingRequest)
+			Ω(err).ShouldNot(HaveOccurred())
+		})
+	})
 
-			Ω(err).Should(HaveOccurred())
-			Ω(err.Error()).Should(Equal("no available file server present"))
+	Context("when the API call fails", func() {
+		desireErr := errors.New("Could not connect!")
+
+		BeforeEach(func() {
+			fakeDiegoAPIClient.CreateTaskReturns(desireErr)
+		})
+
+		It("returns an error", func() {
+			err := dockerStager.Stage(stagingRequest)
+			Ω(err).Should(Equal(desireErr))
 		})
 	})
 })

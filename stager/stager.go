@@ -12,7 +12,6 @@ import (
 	"github.com/pivotal-golang/lager"
 
 	"github.com/cloudfoundry-incubator/receptor"
-	"github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -28,6 +27,8 @@ const (
 )
 
 type Config struct {
+	CallbackURL        string
+	FileServerURL      string
 	Circuses           map[string]string
 	DockerCircusPath   string
 	MinMemoryMB        uint
@@ -40,35 +41,25 @@ type Stager interface {
 }
 
 type stager struct {
-	stagerBBS      bbs.StagerBBS
 	logger         lager.Logger
 	config         Config
 	diegoAPIClient receptor.Client
-	callbackURL    string
 }
 
-func New(stagerBBS bbs.StagerBBS, callbackURL string, diegoAPIClient receptor.Client, logger lager.Logger, config Config) Stager {
+func New(diegoAPIClient receptor.Client, logger lager.Logger, config Config) Stager {
 	return &stager{
-		stagerBBS:      stagerBBS,
 		logger:         logger,
 		config:         config,
 		diegoAPIClient: diegoAPIClient,
-		callbackURL:    callbackURL,
 	}
 }
 
-var ErrNoFileServerPresent = errors.New("no available file server present")
 var ErrNoCompilerDefined = errors.New("no compiler defined for requested stack")
 
 func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 	stagingRequestArrivedCounter.Increment()
 
-	fileServerURL, err := stager.stagerBBS.GetAvailableFileServer()
-	if err != nil {
-		return ErrNoFileServerPresent
-	}
-
-	compilerURL, err := stager.compilerDownloadURL(request, fileServerURL)
+	compilerURL, err := stager.compilerDownloadURL(request)
 	if err != nil {
 		return err
 	}
@@ -201,7 +192,7 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 	uploadActions := []models.ExecutorAction{}
 	uploadNames := []string{}
 	//Upload Droplet
-	uploadURL, err := stager.dropletUploadURL(request, fileServerURL)
+	uploadURL, err := stager.dropletUploadURL(request)
 	if err != nil {
 		return err
 	}
@@ -223,7 +214,7 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 	uploadNames = append(uploadNames, "droplet")
 
 	//Upload Buildpack Artifacts Cache
-	uploadURL, err = stager.buildArtifactsUploadURL(request, fileServerURL)
+	uploadURL, err = stager.buildArtifactsUploadURL(request)
 	if err != nil {
 		return err
 	}
@@ -266,13 +257,13 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 			Guid:       request.AppId,
 			SourceName: "STG",
 		},
-		CompletionCallbackURL: stager.callbackURL,
+		CompletionCallbackURL: stager.config.CallbackURL,
 		Annotation:            string(annotationJson),
 	}
 
 	stager.logger.Info("desiring-task", lager.Data{
 		"task_guid":    task.TaskGuid,
-		"callback_url": stager.callbackURL,
+		"callback_url": stager.config.CallbackURL,
 	})
 
 	err = stager.diegoAPIClient.CreateTask(task)
@@ -297,7 +288,7 @@ func taskGuid(request cc_messages.StagingRequestFromCC) string {
 	return fmt.Sprintf("%s-%s", request.AppId, request.TaskId)
 }
 
-func (stager *stager) compilerDownloadURL(request cc_messages.StagingRequestFromCC, fileServerURL string) (*url.URL, error) {
+func (stager *stager) compilerDownloadURL(request cc_messages.StagingRequestFromCC) (*url.URL, error) {
 	compilerPath, ok := stager.config.Circuses[request.Stack]
 	if !ok {
 		return nil, ErrNoCompilerDefined
@@ -322,7 +313,7 @@ func (stager *stager) compilerDownloadURL(request cc_messages.StagingRequestFrom
 		return nil, errors.New("couldn't generate the compiler download path")
 	}
 
-	urlString := urljoiner.Join(fileServerURL, staticRoute.Path, compilerPath)
+	urlString := urljoiner.Join(stager.config.FileServerURL, staticRoute.Path, compilerPath)
 
 	url, err := url.ParseRequestURI(urlString)
 	if err != nil {
@@ -332,7 +323,7 @@ func (stager *stager) compilerDownloadURL(request cc_messages.StagingRequestFrom
 	return url, nil
 }
 
-func (stager *stager) dropletUploadURL(request cc_messages.StagingRequestFromCC, fileServerURL string) (*url.URL, error) {
+func (stager *stager) dropletUploadURL(request cc_messages.StagingRequestFromCC) (*url.URL, error) {
 	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_UPLOAD_DROPLET)
 	if !ok {
 		return nil, errors.New("couldn't generate the droplet upload path")
@@ -346,7 +337,7 @@ func (stager *stager) dropletUploadURL(request cc_messages.StagingRequestFromCC,
 		return nil, fmt.Errorf("failed to build droplet upload URL: %s", err)
 	}
 
-	urlString := urljoiner.Join(fileServerURL, path)
+	urlString := urljoiner.Join(stager.config.FileServerURL, path)
 
 	u, err := url.ParseRequestURI(urlString)
 	if err != nil {
@@ -360,7 +351,7 @@ func (stager *stager) dropletUploadURL(request cc_messages.StagingRequestFromCC,
 	return u, nil
 }
 
-func (stager *stager) buildArtifactsUploadURL(request cc_messages.StagingRequestFromCC, fileServerURL string) (*url.URL, error) {
+func (stager *stager) buildArtifactsUploadURL(request cc_messages.StagingRequestFromCC) (*url.URL, error) {
 	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_UPLOAD_BUILD_ARTIFACTS)
 	if !ok {
 		return nil, errors.New("couldn't generate the build artifacts cache upload path")
@@ -374,7 +365,7 @@ func (stager *stager) buildArtifactsUploadURL(request cc_messages.StagingRequest
 		return nil, fmt.Errorf("failed to build build artifacts cache upload URL: %s", err)
 	}
 
-	urlString := urljoiner.Join(fileServerURL, path)
+	urlString := urljoiner.Join(stager.config.FileServerURL, path)
 
 	u, err := url.ParseRequestURI(urlString)
 	if err != nil {

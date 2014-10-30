@@ -6,19 +6,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/cloudfoundry/gunk/diegonats"
-	"github.com/cloudfoundry/gunk/timeprovider"
-	"github.com/pivotal-golang/lager/lagertest"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/ginkgomon"
 
 	"github.com/cloudfoundry-incubator/receptor"
-	Bbs "github.com/cloudfoundry-incubator/runtime-schema/bbs"
 	"github.com/cloudfoundry-incubator/stager/cmd/stager/testrunner"
 	"github.com/cloudfoundry-incubator/stager/stager"
-	"github.com/cloudfoundry/storeadapter/storerunner/etcdstorerunner"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -27,17 +22,14 @@ import (
 
 var _ = Describe("Stager", func() {
 	var (
-		stagerPort        int
-		gnatsdRunner      ifrit.Process
-		natsClient        diegonats.NATSClient
-		fakeServer        *ghttp.Server
-		fakeCC            *ghttp.Server
-		bbs               *Bbs.BBS
-		fileServerProcess ifrit.Process
+		stagerPort   int
+		gnatsdRunner ifrit.Process
+		natsClient   diegonats.NATSClient
+		fakeServer   *ghttp.Server
+		fakeCC       *ghttp.Server
 	)
 
 	BeforeEach(func() {
-		etcdPort := 5001 + GinkgoParallelNode()
 		natsPort := 4001 + GinkgoParallelNode()
 		stagerPort = 8888 + GinkgoParallelNode()
 
@@ -45,21 +37,13 @@ var _ = Describe("Stager", func() {
 		fakeServerURL, err := url.Parse(fakeServer.URL())
 		Ω(err).ShouldNot(HaveOccurred())
 
-		etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1)
-		etcdRunner.Start()
-
 		gnatsdRunner, natsClient = diegonats.StartGnatsd(natsPort)
-
-		bbs = Bbs.NewBBS(etcdRunner.Adapter(), timeprovider.NewTimeProvider(), lagertest.NewTestLogger("test"))
-
-		fileServerProcess = ifrit.Envoke(bbs.NewFileServerHeartbeat("http://example.com", "file-server-id", time.Second))
 
 		fakeCC = ghttp.NewServer()
 
 		runner = testrunner.New(testrunner.Config{
 			StagerBin:     stagerPath,
 			StagerURL:     fmt.Sprintf("http://127.0.0.1:%d", stagerPort),
-			EtcdCluster:   []string{fmt.Sprintf("http://127.0.0.1:%d", etcdPort)},
 			NatsAddresses: []string{fmt.Sprintf("127.0.0.1:%d", natsPort)},
 			DiegoAPIURL:   fakeServerURL.Host,
 			CCBaseURL:     fakeCC.URL(),
@@ -68,8 +52,6 @@ var _ = Describe("Stager", func() {
 
 	AfterEach(func() {
 		runner.Stop()
-		etcdRunner.Stop()
-		ginkgomon.Kill(fileServerProcess)
 		ginkgomon.Kill(gnatsdRunner)
 	})
 
@@ -78,7 +60,7 @@ var _ = Describe("Stager", func() {
 			runner.Start("--circuses", `{"lucid64":"lifecycle.zip"}`, "--minDiskMB", "2048", "--minMemoryMB", "256", "--minFileDescriptors", "2")
 		})
 
-		Describe("when a 'diego.staging.start' message is recieved", func() {
+		Describe("when a 'diego.staging.start' message is received", func() {
 			It("desires a staging task via the API", func() {
 				fakeServer.RouteToHandler("POST", "/tasks", func(w http.ResponseWriter, req *http.Request) {
 					var taskRequest receptor.CreateTaskRequest

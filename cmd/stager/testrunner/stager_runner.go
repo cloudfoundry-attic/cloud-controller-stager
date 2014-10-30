@@ -20,7 +20,6 @@ type StagerRunner struct {
 type Config struct {
 	StagerBin     string
 	StagerURL     string
-	EtcdCluster   []string
 	NatsAddresses []string
 	DiegoAPIURL   string
 	CCBaseURL     string
@@ -41,7 +40,6 @@ func (r *StagerRunner) Start(args ...string) {
 		exec.Command(
 			r.Config.StagerBin,
 			append([]string{
-				"-etcdCluster", strings.Join(r.Config.EtcdCluster, ","),
 				"-natsAddresses", strings.Join(r.Config.NatsAddresses, ","),
 				"-diegoAPIURL", r.Config.DiegoAPIURL,
 				"-stagerURL", r.Config.StagerURL,
