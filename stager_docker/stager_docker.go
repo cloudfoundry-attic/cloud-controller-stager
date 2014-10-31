@@ -110,7 +110,7 @@ func (stager *stager_docker) Stage(request cc_messages.DockerStagingRequestFromC
 		DiskMB:                int(max(uint64(request.DiskMB), uint64(stager.config.MinDiskMB))),
 		Actions:               actions,
 		CompletionCallbackURL: stager.config.CallbackURL,
-		Log: models.LogConfig{
+		Log: receptor.LogConfig{
 			Guid:       request.AppId,
 			SourceName: "STG",
 		},

@@ -253,7 +253,7 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 		DiskMB:     int(max(uint64(request.DiskMB), uint64(stager.config.MinDiskMB))),
 		CPUWeight:  StagingTaskCpuWeight,
 		Actions:    actions,
-		Log: models.LogConfig{
+		Log: receptor.LogConfig{
 			Guid:       request.AppId,
 			SourceName: "STG",
 		},
