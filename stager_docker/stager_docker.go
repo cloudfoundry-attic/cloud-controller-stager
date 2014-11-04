@@ -101,7 +101,7 @@ func (stager *stager_docker) Stage(request cc_messages.DockerStagingRequestFromC
 		TaskId: request.TaskId,
 	})
 
-	task := receptor.CreateTaskRequest{
+	task := receptor.TaskCreateRequest{
 		ResultFile:            TailorOutputPath,
 		TaskGuid:              taskGuid(request),
 		Domain:                TaskDomain,

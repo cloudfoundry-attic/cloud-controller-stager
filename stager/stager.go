@@ -244,7 +244,7 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 		TaskId: request.TaskId,
 	})
 
-	task := receptor.CreateTaskRequest{
+	task := receptor.TaskCreateRequest{
 		TaskGuid:   taskGuid(request),
 		Domain:     TaskDomain,
 		Stack:      request.Stack,

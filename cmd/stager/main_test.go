@@ -63,7 +63,7 @@ var _ = Describe("Stager", func() {
 		Describe("when a 'diego.staging.start' message is received", func() {
 			It("desires a staging task via the API", func() {
 				fakeServer.RouteToHandler("POST", "/tasks", func(w http.ResponseWriter, req *http.Request) {
-					var taskRequest receptor.CreateTaskRequest
+					var taskRequest receptor.TaskCreateRequest
 					err := json.NewDecoder(req.Body).Decode(&taskRequest)
 					Ω(err).ShouldNot(HaveOccurred())
 
@@ -92,7 +92,7 @@ var _ = Describe("Stager", func() {
 		Describe("when a 'diego.docker.staging.start' message is recieved", func() {
 			It("desires a staging task via the API", func() {
 				fakeServer.RouteToHandler("POST", "/tasks", func(w http.ResponseWriter, req *http.Request) {
-					var taskRequest receptor.CreateTaskRequest
+					var taskRequest receptor.TaskCreateRequest
 					err := json.NewDecoder(req.Body).Decode(&taskRequest)
 					Ω(err).ShouldNot(HaveOccurred())
 
