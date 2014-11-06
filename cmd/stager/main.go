@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/cloudfoundry/dropsonde"
 	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/pivotal-golang/lager"
@@ -22,7 +23,6 @@ import (
 	"github.com/cloudfoundry-incubator/stager/outbox"
 	"github.com/cloudfoundry-incubator/stager/stager"
 	"github.com/cloudfoundry-incubator/stager/stager_docker"
-	_ "github.com/cloudfoundry/dropsonde/autowire"
 )
 
 var natsAddresses = flag.String(
@@ -115,10 +115,23 @@ var fileServerURL = flag.String(
 	"URL of the file server",
 )
 
+var dropsondeOrigin = flag.String(
+	"dropsondeOrigin",
+	"stager",
+	"Origin identifier for dropsonde-emitted metrics.",
+)
+
+var dropsondeDestination = flag.String(
+	"dropsondeDestination",
+	"localhost:3457",
+	"Destination for dropsonde-emitted metrics.",
+)
+
 func main() {
 	flag.Parse()
 
 	logger := cf_lager.New("stager")
+	initializeDropsonde(logger)
 	traditionalStager, dockerStager := initializeStagers(logger)
 	ccClient := cc_client.NewCcClient(*ccBaseURL, *ccUsername, *ccPassword, *skipCertVerify)
 
@@ -146,6 +159,13 @@ func main() {
 	err = <-process.Wait()
 	if err != nil {
 		logger.Fatal("Stager exited with error", err)
+	}
+}
+
+func initializeDropsonde(logger lager.Logger) {
+	err := dropsonde.Initialize(*dropsondeOrigin, *dropsondeDestination)
+	if err != nil {
+		logger.Error("failed to initialize dropsonde: %v", err)
 	}
 }
 

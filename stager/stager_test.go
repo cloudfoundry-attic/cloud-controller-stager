@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/cloudfoundry/dropsonde/autowire/metrics"
 	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
+	"github.com/cloudfoundry/dropsonde/metrics"
 	"github.com/pivotal-golang/lager"
 
 	"github.com/cloudfoundry-incubator/receptor"
