@@ -27,6 +27,7 @@ var _ = Describe("TraditionalBackend", func() {
 		uploadBuildArtifactsAction    models.ExecutorAction
 		config                        Config
 		callbackURL                   string
+		buildpackOrder                string
 	)
 
 	BeforeEach(func() {
@@ -134,33 +135,7 @@ var _ = Describe("TraditionalBackend", func() {
 			),
 		)
 
-		fileDescriptorLimit := uint64(512)
-
-		runAction = models.EmitProgressFor(
-			models.ExecutorAction{
-				models.RunAction{
-					Path: "/tmp/circus/tailor",
-					Args: []string{
-						"-appDir=/app",
-						"-buildArtifactsCacheDir=/tmp/cache",
-						"-buildpackOrder=zfirst-buildpack,asecond-buildpack",
-						"-buildpacksDir=/tmp/buildpacks",
-						"-outputBuildArtifactsCache=/tmp/output-cache",
-						"-outputDroplet=/tmp/droplet",
-						"-outputMetadata=/tmp/result.json",
-					},
-					Env: []models.EnvironmentVariable{
-						{"VCAP_APPLICATION", "foo"},
-						{"VCAP_SERVICES", "bar"},
-					},
-					Timeout:        15 * time.Minute,
-					ResourceLimits: models.ResourceLimits{Nofile: &fileDescriptorLimit},
-				},
-			},
-			"Staging...",
-			"Staging Complete",
-			"Staging Failed",
-		)
+		buildpackOrder = "zfirst-buildpack,asecond-buildpack"
 
 		uploadDropletAction = models.EmitProgressFor(
 			models.ExecutorAction{
@@ -190,6 +165,33 @@ var _ = Describe("TraditionalBackend", func() {
 	})
 
 	JustBeforeEach(func() {
+		fileDescriptorLimit := uint64(512)
+		runAction = models.EmitProgressFor(
+			models.ExecutorAction{
+				models.RunAction{
+					Path: "/tmp/circus/tailor",
+					Args: []string{
+						"-appDir=/app",
+						"-buildArtifactsCacheDir=/tmp/cache",
+						"-buildpackOrder=" + buildpackOrder,
+						"-buildpacksDir=/tmp/buildpacks",
+						"-outputBuildArtifactsCache=/tmp/output-cache",
+						"-outputDroplet=/tmp/droplet",
+						"-outputMetadata=/tmp/result.json",
+					},
+					Env: []models.EnvironmentVariable{
+						{"VCAP_APPLICATION", "foo"},
+						{"VCAP_SERVICES", "bar"},
+					},
+					Timeout:        15 * time.Minute,
+					ResourceLimits: models.ResourceLimits{Nofile: &fileDescriptorLimit},
+				},
+			},
+			"Staging...",
+			"Staging Complete",
+			"Staging Failed",
+		)
+
 		var err error
 		stagingRequestJson, err = json.Marshal(stagingRequest)
 		Ω(err).ShouldNot(HaveOccurred())
@@ -286,6 +288,64 @@ var _ = Describe("TraditionalBackend", func() {
 		Ω(desiredTask.MemoryMB).To(Equal(2048))
 		Ω(desiredTask.DiskMB).To(Equal(3072))
 		Ω(desiredTask.CPUWeight).To(Equal(StagingTaskCpuWeight))
+	})
+
+	Context("with a custom buildpack", func() {
+		var customBuildpack = "https://example.com/a/custom-buildpack.git"
+		BeforeEach(func() {
+			stagingRequest.Buildpacks = []cc_messages.Buildpack{
+				{Name: cc_messages.CUSTOM_BUILDPACK, Key: customBuildpack, Url: customBuildpack},
+			}
+			buildpackOrder = customBuildpack
+		})
+
+		It("does not download any buildpacks", func() {
+			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			Ω(desiredTask.Domain).To(Equal("cf-app-staging"))
+			Ω(desiredTask.TaskGuid).To(Equal("bunny-hop"))
+			Ω(desiredTask.Stack).To(Equal("rabbit_hole"))
+			Ω(desiredTask.Log.Guid).To(Equal("bunny"))
+			Ω(desiredTask.Log.SourceName).To(Equal("STG"))
+			Ω(desiredTask.ResultFile).To(Equal("/tmp/result.json"))
+
+			var annotation models.StagingTaskAnnotation
+
+			err = json.Unmarshal([]byte(desiredTask.Annotation), &annotation)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			Ω(annotation).Should(Equal(models.StagingTaskAnnotation{
+				AppId:  "bunny",
+				TaskId: "hop",
+			}))
+
+			Ω(desiredTask.Actions).Should(HaveLen(3))
+			Ω(desiredTask.Actions[0]).Should(Equal(models.EmitProgressFor(
+				models.Parallel(
+					downloadTailorAction,
+					downloadAppAction,
+					downloadBuildArtifactsAction,
+				),
+				"Fetching app, buildpacks ("+customBuildpack+"), artifacts cache...",
+				"Fetching complete",
+				"Fetching failed",
+			)))
+			Ω(desiredTask.Actions[1]).Should(Equal(runAction))
+			Ω(desiredTask.Actions[2]).Should(Equal(models.EmitProgressFor(
+				models.Parallel(
+					uploadDropletAction,
+					uploadBuildArtifactsAction,
+				),
+				"Uploading droplet, artifacts cache...",
+				"Uploading complete",
+				"Uploading failed",
+			)))
+
+			Ω(desiredTask.MemoryMB).To(Equal(2048))
+			Ω(desiredTask.DiskMB).To(Equal(3072))
+			Ω(desiredTask.CPUWeight).To(Equal(StagingTaskCpuWeight))
+		})
 	})
 
 	It("gives the task a callback URL to call it back", func() {

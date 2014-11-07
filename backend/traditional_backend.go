@@ -112,22 +112,26 @@ func (builder *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	//Download Buildpacks
 	buildpackNames := []string{}
 	for _, buildpack := range request.Buildpacks {
-		downloadActions = append(
-			downloadActions,
-			models.EmitProgressFor(
-				models.ExecutorAction{
-					models.DownloadAction{
-						From:     buildpack.Url,
-						To:       tailorConfig.BuildpackPath(buildpack.Key),
-						CacheKey: buildpack.Key,
+		if buildpack.Name == cc_messages.CUSTOM_BUILDPACK {
+			buildpackNames = append(buildpackNames, buildpack.Url)
+		} else {
+			buildpackNames = append(buildpackNames, buildpack.Name)
+			downloadActions = append(
+				downloadActions,
+				models.EmitProgressFor(
+					models.ExecutorAction{
+						models.DownloadAction{
+							From:     buildpack.Url,
+							To:       tailorConfig.BuildpackPath(buildpack.Key),
+							CacheKey: buildpack.Key,
+						},
 					},
-				},
-				"",
-				fmt.Sprintf("Downloaded Buildpack: %s", buildpack.Name),
-				fmt.Sprintf("Failed to Download Buildpack: %s", buildpack.Name),
-			),
-		)
-		buildpackNames = append(buildpackNames, buildpack.Name)
+					"",
+					fmt.Sprintf("Downloaded Buildpack: %s", buildpack.Name),
+					fmt.Sprintf("Failed to Download Buildpack: %s", buildpack.Name),
+				),
+			)
+		}
 	}
 
 	downloadNames = append(downloadNames, fmt.Sprintf("buildpacks (%s)", strings.Join(buildpackNames, ", ")))
