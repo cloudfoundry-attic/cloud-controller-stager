@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"net"
 	"net/url"
 	"os"
@@ -18,11 +19,10 @@ import (
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	"github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/stager/backend"
 	"github.com/cloudfoundry-incubator/stager/cc_client"
 	"github.com/cloudfoundry-incubator/stager/inbox"
 	"github.com/cloudfoundry-incubator/stager/outbox"
-	"github.com/cloudfoundry-incubator/stager/stager"
-	"github.com/cloudfoundry-incubator/stager/stager_docker"
 )
 
 var natsAddresses = flag.String(
@@ -132,8 +132,9 @@ func main() {
 
 	logger := cf_lager.New("stager")
 	initializeDropsonde(logger)
-	traditionalStager, dockerStager := initializeStagers(logger)
+
 	ccClient := cc_client.NewCcClient(*ccBaseURL, *ccUsername, *ccPassword, *skipCertVerify)
+	diegoAPIClient := receptor.NewClient(*diegoAPIURL, "", "")
 
 	cf_debug_server.Run()
 
@@ -144,15 +145,33 @@ func main() {
 		logger.Fatal("Invalid stager URL", err)
 	}
 
-	group := grouper.NewOrdered(os.Interrupt, grouper.Members{
-		{"nats", diegonats.NewClientRunner(*natsAddresses, *natsUsername, *natsPassword, logger, natsClient)},
-		{"inbox", ifrit.RunFunc(func(signals <-chan os.Signal, ready chan<- struct{}) error {
-			return inbox.New(natsClient, ccClient, traditionalStager, dockerStager, inbox.ValidateRequest, logger).Run(signals, ready)
-		})},
-		{"outbox", outbox.New(address, ccClient, logger, timeprovider.NewTimeProvider())},
+	var members grouper.Members
+	members = append(members, grouper.Member{
+		Name:   "nats",
+		Runner: diegonats.NewClientRunner(*natsAddresses, *natsUsername, *natsPassword, logger, natsClient),
 	})
 
-	process := ifrit.Envoke(sigmon.New(group))
+	backends := initializeBackends(logger)
+	for _, backend := range backends {
+		backend := backend
+		members = append(members, grouper.Member{
+			Name: fmt.Sprintf("inbox-%s", backend.TaskDomain()),
+			Runner: ifrit.RunFunc(
+				func(signals <-chan os.Signal, ready chan<- struct{}) error {
+					return inbox.New(natsClient, ccClient, diegoAPIClient, backend, logger).Run(signals, ready)
+				},
+			),
+		})
+	}
+
+	members = append(members, grouper.Member{
+		Name:   "outbox",
+		Runner: outbox.New(address, ccClient, backends, logger, timeprovider.NewTimeProvider()),
+	})
+
+	group := grouper.NewOrdered(os.Interrupt, members)
+
+	process := ifrit.Invoke(sigmon.New(group))
 
 	logger.Info("Listening for staging requests!")
 
@@ -169,13 +188,13 @@ func initializeDropsonde(logger lager.Logger) {
 	}
 }
 
-func initializeStagers(logger lager.Logger) (stager.Stager, stager_docker.DockerStager) {
+func initializeBackends(logger lager.Logger) []backend.Backend {
 	circusesMap := make(map[string]string)
 	err := json.Unmarshal([]byte(*circuses), &circusesMap)
 	if err != nil {
 		logger.Fatal("Error parsing circuses flag", err)
 	}
-	config := stager.Config{
+	config := backend.Config{
 		CallbackURL:        *stagerURL,
 		FileServerURL:      *fileServerURL,
 		Circuses:           circusesMap,
@@ -185,12 +204,10 @@ func initializeStagers(logger lager.Logger) (stager.Stager, stager_docker.Docker
 		MinFileDescriptors: *minFileDescriptors,
 	}
 
-	diegoAPIClient := receptor.NewClient(*diegoAPIURL, "", "")
-
-	bpStager := stager.New(diegoAPIClient, logger, config)
-	dockerStager := stager_docker.New(diegoAPIClient, logger, config)
-
-	return bpStager, dockerStager
+	return []backend.Backend{
+		backend.NewTraditionalBackend(config),
+		backend.NewDockerBackend(config),
+	}
 }
 
 func getStagerAddress() (string, error) {

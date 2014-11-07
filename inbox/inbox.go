@@ -1,7 +1,6 @@
 package inbox
 
 import (
-	"encoding/json"
 	"os"
 	"time"
 
@@ -9,41 +8,32 @@ import (
 	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/pivotal-golang/lager"
 
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
+	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/stager/backend"
 	"github.com/cloudfoundry-incubator/stager/cc_client"
-	"github.com/cloudfoundry-incubator/stager/stager"
-	"github.com/cloudfoundry-incubator/stager/stager_docker"
 )
 
-const DiegoStageStartSubject = "diego.staging.start"
-const DiegoDockerStageStartSubject = "diego.docker.staging.start"
-
 type Inbox struct {
-	natsClient      diegonats.NATSClient
-	stager          stager.Stager
-	ccClient        cc_client.CcClient
-	validateRequest RequestValidator
-	dockerStager    stager_docker.DockerStager
-	logger          lager.Logger
+	natsClient  diegonats.NATSClient
+	ccClient    cc_client.CcClient
+	diegoClient receptor.Client
+	logger      lager.Logger
+	backend     backend.Backend
 }
 
-type RequestValidator func(cc_messages.StagingRequestFromCC) error
-
-func New(natsClient diegonats.NATSClient, ccClient cc_client.CcClient, stager stager.Stager, dockerStager stager_docker.DockerStager, validator RequestValidator, logger lager.Logger) *Inbox {
-	inboxLogger := logger.Session("inbox")
+func New(natsClient diegonats.NATSClient, ccClient cc_client.CcClient, diegoClient receptor.Client, backend backend.Backend, logger lager.Logger) *Inbox {
+	inboxLogger := logger.Session("inbox", lager.Data{"TaskDomain": backend.TaskDomain()})
 	return &Inbox{
-		natsClient:      natsClient,
-		stager:          stager,
-		ccClient:        ccClient,
-		validateRequest: validator,
-		dockerStager:    dockerStager,
-		logger:          inboxLogger,
+		natsClient:  natsClient,
+		ccClient:    ccClient,
+		diegoClient: diegoClient,
+		logger:      inboxLogger,
+		backend:     backend,
 	}
 }
 
 func (inbox *Inbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 	inbox.subscribeStagingStart()
-	inbox.subscribeDockerStagingStart()
 
 	close(ready)
 
@@ -52,48 +42,9 @@ func (inbox *Inbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 	return nil
 }
 
-func (inbox *Inbox) subscribeDockerStagingStart() {
-	for {
-		_, err := inbox.natsClient.Subscribe(DiegoDockerStageStartSubject, inbox.onDockerStagingRequest)
-		if err == nil {
-			break
-		}
-		time.Sleep(500 * time.Millisecond)
-	}
-
-	return
-}
-
-func (inbox *Inbox) onDockerStagingRequest(message *nats.Msg) {
-	requestLogger := inbox.logger.Session("docker-request")
-	stagingRequest := cc_messages.DockerStagingRequestFromCC{}
-
-	err := json.Unmarshal(message.Data, &stagingRequest)
-	if err != nil {
-		requestLogger.Error("malformed docker request", err, lager.Data{"message": message})
-		return
-	}
-
-	requestLogger.Info("received", lager.Data{"message": stagingRequest})
-
-	err = inbox.dockerStager.Stage(stagingRequest)
-
-	if err != nil {
-		response := cc_messages.DockerStagingResponseForCC{
-			AppId:  stagingRequest.AppId,
-			TaskId: stagingRequest.TaskId,
-			Error:  "Staging failed: " + err.Error(),
-		}
-
-		if responseJson, err := json.Marshal(response); err == nil {
-			inbox.ccClient.StagingComplete(responseJson, inbox.logger)
-		}
-	}
-}
-
 func (inbox *Inbox) subscribeStagingStart() {
 	for {
-		_, err := inbox.natsClient.Subscribe(DiegoStageStartSubject, inbox.onStagingRequest)
+		_, err := inbox.natsClient.Subscribe(inbox.backend.StagingRequestsNatsSubject(), inbox.onStagingRequest)
 		if err == nil {
 			break
 		}
@@ -104,40 +55,38 @@ func (inbox *Inbox) subscribeStagingStart() {
 }
 
 func (inbox *Inbox) onStagingRequest(message *nats.Msg) {
-	requestLogger := inbox.logger.Session("request")
-	stagingRequest := cc_messages.StagingRequestFromCC{}
+	requestLogger := inbox.logger.Session("staging-request")
+	inbox.backend.StagingRequestsReceivedCounter().Increment()
 
-	err := json.Unmarshal(message.Data, &stagingRequest)
+	requestLogger.Info("received", lager.Data{"message": message.Data})
+
+	taskRequest, err := inbox.backend.BuildRecipe(message.Data)
 	if err != nil {
-		requestLogger.Error("malformed", err, lager.Data{"message": message})
+		requestLogger.Error("recipe-building-failed", err, lager.Data{"message": message.Data})
+		inbox.sendStagingCompleteError("Recipe building failed: ", err, message.Data)
 		return
 	}
 
-	err = inbox.validateRequest(stagingRequest)
-	if err != nil {
-		requestLogger.Error("invalid", err, lager.Data{"message": message})
-		inbox.sendErrorResponse("Invalid staging request: "+err.Error(), stagingRequest)
-		return
+	requestLogger.Info("desiring-task", lager.Data{
+		"task_guid":    taskRequest.TaskGuid,
+		"callback_url": taskRequest.CompletionCallbackURL,
+	})
+	err = inbox.diegoClient.CreateTask(taskRequest)
+	if receptorErr, ok := err.(receptor.Error); ok {
+		if receptorErr.Type == receptor.TaskGuidAlreadyExists {
+			err = nil
+		}
 	}
 
-	requestLogger.Info("received", lager.Data{"message": stagingRequest})
-
-	err = inbox.stager.Stage(stagingRequest)
 	if err != nil {
-		requestLogger.Error("staging-failed", err, lager.Data{"message": stagingRequest})
-		inbox.sendErrorResponse("Staging failed: "+err.Error(), stagingRequest)
-		return
+		requestLogger.Error("staging-failed", err, lager.Data{"message": message.Data})
+		inbox.sendStagingCompleteError("Staging failed: ", err, message.Data)
 	}
 }
 
-func (inbox *Inbox) sendErrorResponse(errorMessage string, request cc_messages.StagingRequestFromCC) {
-	response := cc_messages.StagingResponseForCC{
-		AppId:  request.AppId,
-		TaskId: request.TaskId,
-		Error:  errorMessage,
-	}
-
-	if responseJson, err := json.Marshal(response); err == nil {
+func (inbox *Inbox) sendStagingCompleteError(messagePrefix string, err error, requestJson []byte) {
+	responseJson, err := inbox.backend.BuildStagingResponseFromRequestError(requestJson, messagePrefix+err.Error())
+	if err == nil {
 		inbox.ccClient.StagingComplete(responseJson, inbox.logger)
 	}
 }

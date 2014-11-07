@@ -13,11 +13,11 @@ import (
 
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry-incubator/stager/backend"
+	"github.com/cloudfoundry-incubator/stager/backend/fake_backend"
 	"github.com/cloudfoundry-incubator/stager/cc_client"
 	"github.com/cloudfoundry-incubator/stager/cc_client/fakes"
 	"github.com/cloudfoundry-incubator/stager/outbox"
-	"github.com/cloudfoundry-incubator/stager/stager"
-	"github.com/cloudfoundry-incubator/stager/stager_docker"
 	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
 	"github.com/cloudfoundry/dropsonde/metrics"
 	"github.com/cloudfoundry/gunk/timeprovider/faketimeprovider"
@@ -37,6 +37,9 @@ var _ = Describe("Outbox", func() {
 		process ifrit.Process
 
 		fakeCCClient        *fakes.FakeCcClient
+		fakeBackend         *fake_backend.FakeBackend
+		backendResponse     []byte
+		backendError        error
 		fakeTimeProvider    *faketimeprovider.FakeTimeProvider
 		metricSender        *fake.FakeMetricSender
 		stagingDurationNano time.Duration
@@ -58,14 +61,19 @@ var _ = Describe("Outbox", func() {
 		metrics.Initialize(metricSender)
 
 		fakeCCClient = &fakes.FakeCcClient{}
+		fakeBackend = &fake_backend.FakeBackend{}
+		fakeBackend.TaskDomainReturns("fake-domain")
+		backendResponse = []byte("fake-response")
+		backendError = nil
 
 		fakeTimeProvider = faketimeprovider.New(time.Now())
 
-		runner = outbox.New(outboxAddress, fakeCCClient, logger, fakeTimeProvider)
+		runner = outbox.New(outboxAddress, fakeCCClient, []backend.Backend{fakeBackend}, logger, fakeTimeProvider)
 	})
 
 	JustBeforeEach(func() {
 		process = ifrit.Invoke(runner)
+		fakeBackend.BuildStagingResponseReturns(backendResponse, backendError)
 	})
 
 	AfterEach(func() {
@@ -85,6 +93,7 @@ var _ = Describe("Outbox", func() {
 
 	Context("when a staging task completes", func() {
 		var resp *http.Response
+		var taskResponse receptor.TaskResponse
 
 		JustBeforeEach(func() {
 			annotationJson, _ := json.Marshal(models.StagingTaskAnnotation{
@@ -95,9 +104,9 @@ var _ = Describe("Outbox", func() {
 			createdAt := fakeTimeProvider.Time().UnixNano()
 			fakeTimeProvider.Increment(stagingDurationNano)
 
-			resp = postTask(receptor.TaskResponse{
+			taskResponse = receptor.TaskResponse{
 				TaskGuid:  "the-task-guid",
-				Domain:    stager.TaskDomain,
+				Domain:    "fake-domain",
 				CreatedAt: createdAt,
 				Result: `{
 					"buildpack_key":"buildpack-key",
@@ -106,72 +115,87 @@ var _ = Describe("Outbox", func() {
 					"detected_start_command":{"web":"./some-start-command"}
 				}`,
 				Annotation: string(annotationJson),
-			})
+			}
+			resp = postTask(taskResponse)
 		})
 
-		It("posts the staging result to CC", func() {
-			Eventually(fakeCCClient.StagingCompleteCallCount).Should(Equal(1))
-			payload, _ := fakeCCClient.StagingCompleteArgsForCall(0)
-			Ω(payload).Should(MatchJSON(fmt.Sprintf(`{
-				"buildpack_key":"buildpack-key",
-				"detected_buildpack":"Some Buildpack",
-				"execution_metadata":"{\"start_command\":\"./some-start-command\"}",
-				"detected_start_command":{"web":"./some-start-command"},
-				"app_id": "%s",
-				"task_id": "%s"
-			}`, appId, taskId)))
+		It("passes the task response to the matching response builder", func() {
+			Eventually(fakeBackend.BuildStagingResponseCallCount).Should(Equal(1))
+			Ω(fakeBackend.BuildStagingResponseArgsForCall(0)).Should(Equal(taskResponse))
 		})
 
-		Context("when the CC request succeeds", func() {
-			It("increments the staging success counter", func() {
-				Eventually(func() uint64 {
-					return metricSender.GetCounter("StagingRequestsSucceeded")
-				}).Should(Equal(uint64(1)))
-			})
-
-			It("emits the time it took to stage succesfully", func() {
-				Eventually(func() fake.Metric {
-					return metricSender.GetValue("StagingRequestSucceededDuration")
-				}).Should(Equal(fake.Metric{
-					Value: float64(stagingDurationNano),
-					Unit:  "nanos",
-				}))
-			})
-
-			It("returns a 200", func() {
-				Ω(resp.StatusCode).Should(Equal(200))
-			})
-		})
-
-		Context("when the CC request fails", func() {
+		Context("when the response builder returns an error", func() {
 			BeforeEach(func() {
-				fakeCCClient.StagingCompleteReturns(&cc_client.BadResponseError{504})
+				backendError = errors.New("build error")
 			})
 
-			It("responds with the status code that the CC returned", func() {
-				Ω(resp.StatusCode).Should(Equal(504))
+			It("returns a 400", func() {
+				Ω(resp.StatusCode).Should(Equal(http.StatusBadRequest))
 			})
 		})
 
-		Context("When an error occurs in making the CC request", func() {
+		Context("when the response builder does not return an error", func() {
 			BeforeEach(func() {
-				fakeCCClient.StagingCompleteReturns(errors.New("whoops"))
+				backendResponse = []byte("fake-response")
 			})
 
-			It("responds with a 503 error", func() {
-				Ω(resp.StatusCode).Should(Equal(503))
+			It("posts the response builder's result to CC", func() {
+				Eventually(fakeCCClient.StagingCompleteCallCount).Should(Equal(1))
+				payload, _ := fakeCCClient.StagingCompleteArgsForCall(0)
+				Ω(payload).Should(Equal([]byte("fake-response")))
 			})
 
-			It("does not update the staging counter", func() {
-				Consistently(func() uint64 {
-					return metricSender.GetCounter("StagingRequestsSucceeded")
-				}).Should(Equal(uint64(0)))
+			Context("when the CC request succeeds", func() {
+				It("increments the staging success counter", func() {
+					Eventually(func() uint64 {
+						return metricSender.GetCounter("StagingRequestsSucceeded")
+					}).Should(Equal(uint64(1)))
+				})
+
+				It("emits the time it took to stage succesfully", func() {
+					Eventually(func() fake.Metric {
+						return metricSender.GetValue("StagingRequestSucceededDuration")
+					}).Should(Equal(fake.Metric{
+						Value: float64(stagingDurationNano),
+						Unit:  "nanos",
+					}))
+				})
+
+				It("returns a 200", func() {
+					Ω(resp.StatusCode).Should(Equal(200))
+				})
 			})
 
-			It("does not update the staging duration", func() {
-				Consistently(func() fake.Metric {
-					return metricSender.GetValue("StagingRequestSucceededDuration")
-				}).Should(Equal(fake.Metric{}))
+			Context("when the CC request fails", func() {
+				BeforeEach(func() {
+					fakeCCClient.StagingCompleteReturns(&cc_client.BadResponseError{504})
+				})
+
+				It("responds with the status code that the CC returned", func() {
+					Ω(resp.StatusCode).Should(Equal(504))
+				})
+			})
+
+			Context("When an error occurs in making the CC request", func() {
+				BeforeEach(func() {
+					fakeCCClient.StagingCompleteReturns(errors.New("whoops"))
+				})
+
+				It("responds with a 503 error", func() {
+					Ω(resp.StatusCode).Should(Equal(503))
+				})
+
+				It("does not update the staging counter", func() {
+					Consistently(func() uint64 {
+						return metricSender.GetCounter("StagingRequestsSucceeded")
+					}).Should(Equal(uint64(0)))
+				})
+
+				It("does not update the staging duration", func() {
+					Consistently(func() fake.Metric {
+						return metricSender.GetValue("StagingRequestSucceededDuration")
+					}).Should(Equal(fake.Metric{}))
+				})
 			})
 		})
 
@@ -181,7 +205,7 @@ var _ = Describe("Outbox", func() {
 					TaskGuid:   fmt.Sprintf("task-guid-%d", i),
 					Annotation: `{}`,
 					Result:     `{}`,
-					Domain:     stager.TaskDomain,
+					Domain:     "fake-domain",
 				})
 			}
 
@@ -189,41 +213,19 @@ var _ = Describe("Outbox", func() {
 		})
 	})
 
-	Context("when a docker staging task completes", func() {
-		JustBeforeEach(func() {
-			postTask(receptor.TaskResponse{
-				TaskGuid: "the-task-guid",
-				Domain:   stager_docker.TaskDomain,
-				Result: `{
-					"execution_metadata": "{\"cmd\":\"./some-start-command\"}",
-					"detected_start_command": {"web": "./some-start-command"}
-				}`,
-				Annotation: `{
-					"app_id": "the-app-id",
-					"task_id": "the-task-id"
-				}`,
-			})
-		})
-
-		It("posts the staging result to CC", func() {
-			Eventually(fakeCCClient.StagingCompleteCallCount).Should(Equal(1))
-			payload, _ := fakeCCClient.StagingCompleteArgsForCall(0)
-			Ω(payload).Should(MatchJSON(`{
-				"app_id": "the-app-id",
-				"task_id": "the-task-id",
-				"execution_metadata": "{\"cmd\":\"./some-start-command\"}",
-				"detected_start_command": {"web": "./some-start-command"}
-			}`))
-		})
-	})
-
 	Context("when a staging task fails", func() {
+		var resp *http.Response
+
+		BeforeEach(func() {
+			backendResponse = []byte("fake-response")
+		})
+
 		JustBeforeEach(func() {
 			createdAt := fakeTimeProvider.Time().UnixNano()
 			fakeTimeProvider.Increment(stagingDurationNano)
 
-			postTask(receptor.TaskResponse{
-				Domain:        stager_docker.TaskDomain,
+			resp = postTask(receptor.TaskResponse{
+				Domain:        "fake-domain",
 				Failed:        true,
 				CreatedAt:     createdAt,
 				FailureReason: "because I said so",
@@ -238,13 +240,11 @@ var _ = Describe("Outbox", func() {
 		It("posts the result to CC as an error", func() {
 			Eventually(fakeCCClient.StagingCompleteCallCount).Should(Equal(1))
 			payload, _ := fakeCCClient.StagingCompleteArgsForCall(0)
-			Ω(payload).Should(MatchJSON(`{
-				"app_id": "the-app-id",
-				"execution_metadata": "",
-				"detected_start_command":null,
-				"error":"because I said so",
-				"task_id":"the-task-id"
-			}`))
+			Ω(payload).Should(Equal([]byte("fake-response")))
+		})
+
+		It("responds with a 200", func() {
+			Ω(resp.StatusCode).Should(Equal(http.StatusOK))
 		})
 
 		It("increments the staging failed counter", func() {

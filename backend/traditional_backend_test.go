@@ -1,27 +1,22 @@
-package stager_test
+package backend_test
 
 import (
 	"encoding/json"
-	"errors"
 	"time"
 
-	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
-	"github.com/cloudfoundry/dropsonde/metrics"
-	"github.com/pivotal-golang/lager"
-
 	"github.com/cloudfoundry-incubator/receptor"
-	"github.com/cloudfoundry-incubator/receptor/fake_receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	. "github.com/cloudfoundry-incubator/stager/stager"
+	. "github.com/cloudfoundry-incubator/stager/backend"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Stage", func() {
+var _ = Describe("TraditionalBackend", func() {
 	var (
-		stager                        Stager
+		backend                       Backend
 		stagingRequest                cc_messages.StagingRequestFromCC
+		stagingRequestJson            []byte
 		downloadTailorAction          models.ExecutorAction
 		downloadAppAction             models.ExecutorAction
 		downloadFirstBuildpackAction  models.ExecutorAction
@@ -31,14 +26,10 @@ var _ = Describe("Stage", func() {
 		uploadDropletAction           models.ExecutorAction
 		uploadBuildArtifactsAction    models.ExecutorAction
 		config                        Config
-		fakeDiegoAPIClient            *fake_receptor.FakeClient
 		callbackURL                   string
 	)
 
 	BeforeEach(func() {
-		fakeDiegoAPIClient = new(fake_receptor.FakeClient)
-		logger := lager.NewLogger("fakelogger")
-
 		callbackURL = "http://the-stager.example.com"
 
 		config = Config{
@@ -55,7 +46,7 @@ var _ = Describe("Stage", func() {
 			MinFileDescriptors: 256,
 		}
 
-		stager = New(fakeDiegoAPIClient, logger, config)
+		backend = NewTraditionalBackend(config)
 
 		stagingRequest = cc_messages.StagingRequestFromCC{
 			AppId:                          "bunny",
@@ -198,19 +189,57 @@ var _ = Describe("Stage", func() {
 		)
 	})
 
-	It("increments the counter to track arriving staging messages", func() {
-		metricSender := fake.NewFakeMetricSender()
-		metrics.Initialize(metricSender)
-		err := stager.Stage(stagingRequest)
+	JustBeforeEach(func() {
+		var err error
+		stagingRequestJson, err = json.Marshal(stagingRequest)
 		Ω(err).ShouldNot(HaveOccurred())
-		Ω(metricSender.GetCounter("StagingRequestsReceived")).Should(Equal(uint64(1)))
+	})
+
+	Describe("request validation", func() {
+		Context("with invalid request JSON", func() {
+			JustBeforeEach(func() {
+				stagingRequestJson = []byte("bad-json")
+			})
+			It("returns an error", func() {
+				_, err := backend.BuildRecipe(stagingRequestJson)
+				Ω(err).Should(HaveOccurred())
+				Ω(err).Should(BeAssignableToTypeOf(&json.SyntaxError{}))
+			})
+		})
+		Context("with a missing app id", func() {
+			BeforeEach(func() {
+				stagingRequest.AppId = ""
+			})
+			It("returns an error", func() {
+				_, err := backend.BuildRecipe(stagingRequestJson)
+				Ω(err).Should(Equal(ErrMissingAppId))
+			})
+		})
+
+		Context("with a missing task id", func() {
+			BeforeEach(func() {
+				stagingRequest.TaskId = ""
+			})
+			It("returns an error", func() {
+				_, err := backend.BuildRecipe(stagingRequestJson)
+				Ω(err).Should(Equal(ErrMissingTaskId))
+			})
+		})
+
+		Context("with a missing app bits download uri", func() {
+			BeforeEach(func() {
+				stagingRequest.AppBitsDownloadUri = ""
+			})
+			It("returns an error", func() {
+				_, err := backend.BuildRecipe(stagingRequestJson)
+				Ω(err).Should(Equal(ErrMissingAppBitsDownloadUri))
+			})
+		})
 	})
 
 	It("creates a cf-app-staging Task with staging instructions", func() {
-		err := stager.Stage(stagingRequest)
+		desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 		Ω(err).ShouldNot(HaveOccurred())
-
-		desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
 
 		Ω(desiredTask.Domain).To(Equal("cf-app-staging"))
 		Ω(desiredTask.TaskGuid).To(Equal("bunny-hop"))
@@ -260,10 +289,8 @@ var _ = Describe("Stage", func() {
 	})
 
 	It("gives the task a callback URL to call it back", func() {
-		err := stager.Stage(stagingRequest)
+		desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 		Ω(err).ShouldNot(HaveOccurred())
-
-		desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
 		Ω(desiredTask.CompletionCallbackURL).Should(Equal(callbackURL))
 	})
 
@@ -274,10 +301,9 @@ var _ = Describe("Stage", func() {
 			})
 
 			It("uses the minimum memory", func() {
-				err := stager.Stage(stagingRequest)
+				desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
 				Ω(desiredTask.MemoryMB).Should(BeNumerically("==", config.MinMemoryMB))
 			})
 		})
@@ -288,10 +314,9 @@ var _ = Describe("Stage", func() {
 			})
 
 			It("uses the minimum disk", func() {
-				err := stager.Stage(stagingRequest)
+				desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
 				Ω(desiredTask.DiskMB).Should(BeNumerically("==", config.MinDiskMB))
 			})
 		})
@@ -302,10 +327,8 @@ var _ = Describe("Stage", func() {
 			})
 
 			It("uses the minimum file descriptors", func() {
-				err := stager.Stage(stagingRequest)
+				desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 				Ω(err).ShouldNot(HaveOccurred())
-
-				desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
 
 				runAction = models.EmitProgressFor(
 					models.ExecutorAction{
@@ -367,10 +390,8 @@ var _ = Describe("Stage", func() {
 		})
 
 		It("does not instruct the executor to download the cache", func() {
-			err := stager.Stage(stagingRequest)
+			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 			Ω(err).ShouldNot(HaveOccurred())
-
-			desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
 
 			Ω(desiredTask.Actions).Should(Equal([]models.ExecutorAction{
 				models.EmitProgressFor(
@@ -398,13 +419,13 @@ var _ = Describe("Stage", func() {
 		})
 	})
 
-	Context("when no compiler is defined for the requested stack in stager configuration", func() {
+	Context("when no compiler is defined for the requested stack in backend configuration", func() {
 		BeforeEach(func() {
 			stagingRequest.Stack = "no_such_stack"
 		})
 
 		It("returns an error", func() {
-			err := stager.Stage(stagingRequest)
+			_, err := backend.BuildRecipe(stagingRequestJson)
 
 			Ω(err).Should(HaveOccurred())
 			Ω(err.Error()).Should(Equal("no compiler defined for requested stack"))
@@ -417,10 +438,8 @@ var _ = Describe("Stage", func() {
 		})
 
 		It("uses the full URL in the download tailor action", func() {
-			err := stager.Stage(stagingRequest)
+			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 			Ω(err).ShouldNot(HaveOccurred())
-
-			desiredTask := fakeDiegoAPIClient.CreateTaskArgsForCall(0)
 
 			downloadAction := desiredTask.Actions[0].Action.(models.EmitProgressAction).Action.Action.(models.ParallelAction).Actions[0].Action.(models.EmitProgressAction).Action.Action.(models.DownloadAction)
 			Ω(downloadAction.From).Should(Equal("http://the-full-compiler-url"))
@@ -433,7 +452,7 @@ var _ = Describe("Stage", func() {
 		})
 
 		It("returns an error", func() {
-			err := stager.Stage(stagingRequest)
+			_, err := backend.BuildRecipe(stagingRequestJson)
 			Ω(err).Should(HaveOccurred())
 		})
 	})
@@ -444,37 +463,169 @@ var _ = Describe("Stage", func() {
 		})
 
 		It("return a url parsing error", func() {
-			err := stager.Stage(stagingRequest)
+			_, err := backend.BuildRecipe(stagingRequestJson)
 
 			Ω(err).Should(HaveOccurred())
 			Ω(err.Error()).Should(ContainSubstring("invalid URI"))
 		})
 	})
 
-	Context("when the task has already been created", func() {
-		BeforeEach(func() {
-			fakeDiegoAPIClient.CreateTaskReturns(receptor.Error{
-				Type:    receptor.TaskGuidAlreadyExists,
-				Message: "ok, this task already exists",
+	Describe("response building", func() {
+		var buildError error
+		var responseJson []byte
+
+		Describe("BuildStagingResponseFromRequestError", func() {
+			var requestJson []byte
+
+			JustBeforeEach(func() {
+				responseJson, buildError = backend.BuildStagingResponseFromRequestError(requestJson, "fake-error-message")
+			})
+
+			Context("with a valid request", func() {
+				BeforeEach(func() {
+					request := cc_messages.StagingRequestFromCC{
+						AppId:  "myapp",
+						TaskId: "mytask",
+					}
+					var err error
+					requestJson, err = json.Marshal(request)
+					Ω(err).ShouldNot(HaveOccurred())
+				})
+
+				It("returns a correctly populated staging response", func() {
+					expectedResponse := cc_messages.StagingResponseForCC{
+						AppId:  "myapp",
+						TaskId: "mytask",
+						Error:  "fake-error-message",
+					}
+					expectedResponseJson, err := json.Marshal(expectedResponse)
+					Ω(err).ShouldNot(HaveOccurred())
+
+					Ω(buildError).ShouldNot(HaveOccurred())
+					Ω(responseJson).Should(MatchJSON(expectedResponseJson))
+				})
+			})
+
+			Context("with an invalid request", func() {
+				BeforeEach(func() {
+					requestJson = []byte("invalid-json")
+				})
+
+				It("returns an error", func() {
+					Ω(buildError).Should(HaveOccurred())
+					Ω(buildError).Should(BeAssignableToTypeOf(&json.SyntaxError{}))
+					Ω(responseJson).Should(BeNil())
+				})
 			})
 		})
 
-		It("does not raise an error", func() {
-			err := stager.Stage(stagingRequest)
-			Ω(err).ShouldNot(HaveOccurred())
-		})
-	})
+		Describe("BuildStagingResponse", func() {
+			var annotationJson []byte
+			var stagingResultJson []byte
+			var taskResponseFailed bool
+			var failureReason string
 
-	Context("when the API call fails", func() {
-		desireErr := errors.New("Could not connect!")
+			JustBeforeEach(func() {
+				taskResponse := receptor.TaskResponse{
+					Annotation:    string(annotationJson),
+					Failed:        taskResponseFailed,
+					FailureReason: failureReason,
+					Result:        string(stagingResultJson),
+				}
+				responseJson, buildError = backend.BuildStagingResponse(taskResponse)
+			})
 
-		BeforeEach(func() {
-			fakeDiegoAPIClient.CreateTaskReturns(desireErr)
-		})
+			Context("with a valid annotation", func() {
+				BeforeEach(func() {
+					annotation := models.StagingTaskAnnotation{
+						AppId:  "app-id",
+						TaskId: "task-id",
+					}
+					var err error
+					annotationJson, err = json.Marshal(annotation)
+					Ω(err).ShouldNot(HaveOccurred())
+				})
 
-		It("returns an error", func() {
-			err := stager.Stage(stagingRequest)
-			Ω(err).Should(Equal(desireErr))
+				Context("with a successful task response", func() {
+					BeforeEach(func() {
+						taskResponseFailed = false
+					})
+
+					Context("with a valid staging result", func() {
+						BeforeEach(func() {
+							stagingResult := models.StagingResult{
+								BuildpackKey:         "buildpack-key",
+								DetectedBuildpack:    "detected-buildpack",
+								ExecutionMetadata:    "metadata",
+								DetectedStartCommand: map[string]string{"a": "b"},
+							}
+							var err error
+							stagingResultJson, err = json.Marshal(stagingResult)
+							Ω(err).ShouldNot(HaveOccurred())
+						})
+
+						It("populates a staging response correctly", func() {
+							expectedResponse := cc_messages.StagingResponseForCC{
+								AppId:                "app-id",
+								TaskId:               "task-id",
+								BuildpackKey:         "buildpack-key",
+								DetectedBuildpack:    "detected-buildpack",
+								ExecutionMetadata:    "metadata",
+								DetectedStartCommand: map[string]string{"a": "b"},
+							}
+							expectedResponseJson, err := json.Marshal(expectedResponse)
+							Ω(err).ShouldNot(HaveOccurred())
+
+							Ω(buildError).ShouldNot(HaveOccurred())
+							Ω(responseJson).Should(MatchJSON(expectedResponseJson))
+						})
+					})
+
+					Context("with an invalid staging result", func() {
+						BeforeEach(func() {
+							stagingResultJson = []byte("invalid-json")
+						})
+
+						It("returns an error", func() {
+							Ω(buildError).Should(HaveOccurred())
+							Ω(buildError).Should(BeAssignableToTypeOf(&json.SyntaxError{}))
+							Ω(responseJson).Should(BeNil())
+						})
+					})
+
+					Context("with a failed task response", func() {
+						BeforeEach(func() {
+							taskResponseFailed = true
+							failureReason = "some-failure-reason"
+						})
+
+						It("populates a staging response correctly", func() {
+							expectedResponse := cc_messages.StagingResponseForCC{
+								AppId:  "app-id",
+								TaskId: "task-id",
+								Error:  "some-failure-reason",
+							}
+							expectedResponseJson, err := json.Marshal(expectedResponse)
+							Ω(err).ShouldNot(HaveOccurred())
+
+							Ω(buildError).ShouldNot(HaveOccurred())
+							Ω(responseJson).Should(MatchJSON(expectedResponseJson))
+						})
+					})
+				})
+			})
+
+			Context("with an invalid annotation", func() {
+				BeforeEach(func() {
+					annotationJson = []byte("invalid-json")
+				})
+
+				It("returns an error", func() {
+					Ω(buildError).Should(HaveOccurred())
+					Ω(buildError).Should(BeAssignableToTypeOf(&json.SyntaxError{}))
+					Ω(responseJson).Should(BeNil())
+				})
+			})
 		})
 	})
 })

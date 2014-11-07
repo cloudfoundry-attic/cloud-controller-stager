@@ -12,8 +12,8 @@ import (
 	"github.com/tedsuo/ifrit/ginkgomon"
 
 	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/stager/backend"
 	"github.com/cloudfoundry-incubator/stager/cmd/stager/testrunner"
-	"github.com/cloudfoundry-incubator/stager/stager"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -105,7 +105,7 @@ var _ = Describe("Stager", func() {
 					"app_id":"my-app-guid",
 					"task_id":"my-task-guid",
 					"stack":"lucid64",
-					"docker_image_url":"http://docker.docker/docker",
+					"docker_image":"http://docker.docker/docker",
 					"file_descriptors":3,
 					"memory_mb" : 1024,
 					"disk_mb" : 128,
@@ -126,7 +126,7 @@ var _ = Describe("Stager", func() {
 
 				taskJSON, err := json.Marshal(receptor.TaskResponse{
 					TaskGuid:   "the-task-guid",
-					Domain:     stager.TaskDomain,
+					Domain:     backend.TraditionalTaskDomain,
 					Annotation: `{}`,
 					Result:     `{}`,
 				})

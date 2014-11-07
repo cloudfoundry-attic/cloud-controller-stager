@@ -13,21 +13,26 @@ import (
 	"github.com/tedsuo/ifrit"
 
 	"github.com/apcera/nats"
+	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/receptor/fake_receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
+	"github.com/cloudfoundry-incubator/runtime-schema/metric"
+	"github.com/cloudfoundry-incubator/stager/backend/fake_backend"
 	"github.com/cloudfoundry-incubator/stager/cc_client/fakes"
 	. "github.com/cloudfoundry-incubator/stager/inbox"
-	"github.com/cloudfoundry-incubator/stager/stager/fake_stager"
+	fake_metric_sender "github.com/cloudfoundry/dropsonde/metric_sender/fake"
+	"github.com/cloudfoundry/dropsonde/metrics"
 	"github.com/cloudfoundry/gunk/diegonats"
 )
 
 var _ = Describe("Inbox", func() {
 	var fakenats *diegonats.FakeNATSClient
 	var fakeCcClient *fakes.FakeCcClient
-	var fauxstager *fake_stager.FakeStager
+	var fakeBackend *fake_backend.FakeBackend
 	var logOutput *gbytes.Buffer
 	var logger lager.Logger
-	var validator RequestValidator
-	var stagingRequest cc_messages.StagingRequestFromCC
+	var stagingRequestJson []byte
+	var fakeDiegoClient *fake_receptor.FakeClient
 
 	var inbox ifrit.Process
 
@@ -36,22 +41,24 @@ var _ = Describe("Inbox", func() {
 		logger = lager.NewLogger("fakelogger")
 		logger.RegisterSink(lager.NewWriterSink(logOutput, lager.INFO))
 
-		stagingRequest = cc_messages.StagingRequestFromCC{
+		stagingRequest := cc_messages.StagingRequestFromCC{
 			AppId:  "myapp",
 			TaskId: "mytask",
 		}
+		var err error
+		stagingRequestJson, err = json.Marshal(stagingRequest)
+		Ω(err).ShouldNot(HaveOccurred())
 
 		fakenats = diegonats.NewFakeClient()
 		fakeCcClient = &fakes.FakeCcClient{}
-		fauxstager = &fake_stager.FakeStager{}
-		validator = func(request cc_messages.StagingRequestFromCC) error {
-			return nil
-		}
+		fakeBackend = &fake_backend.FakeBackend{}
+		fakeBackend.StagingRequestsNatsSubjectReturns("subscription-subject")
+		fakeBackend.StagingRequestsReceivedCounterReturns(metric.Counter("FakeMetricName"))
+		fakeDiegoClient = &fake_receptor.FakeClient{}
 	})
 
 	publishStagingMessage := func() {
-		msg, _ := json.Marshal(stagingRequest)
-		fakenats.Publish(DiegoStageStartSubject, msg)
+		fakenats.Publish("subscription-subject", stagingRequestJson)
 	}
 
 	Context("when subscribing fails", func() {
@@ -59,7 +66,7 @@ var _ = Describe("Inbox", func() {
 		var process chan ifrit.Process
 
 		BeforeEach(func() {
-			fakenats.WhenSubscribing(DiegoStageStartSubject, func(callback nats.MsgHandler) error {
+			fakenats.WhenSubscribing("subscription-subject", func(callback nats.MsgHandler) error {
 				atomic.AddUint32(&attempts, 1)
 				return errors.New("oh no!")
 			})
@@ -68,7 +75,7 @@ var _ = Describe("Inbox", func() {
 		JustBeforeEach(func() {
 			process = make(chan ifrit.Process)
 			go func() {
-				process <- ifrit.Invoke(New(fakenats, fakeCcClient, fauxstager, nil, validator, logger))
+				process <- ifrit.Invoke(New(fakenats, fakeCcClient, fakeDiegoClient, fakeBackend, logger))
 			}()
 		})
 
@@ -89,22 +96,22 @@ var _ = Describe("Inbox", func() {
 			}).Should(BeNumerically(">=", 2))
 
 			Consistently(func() []*nats.Subscription {
-				return fakenats.Subscriptions(DiegoStageStartSubject)
+				return fakenats.Subscriptions("subscription-subject")
 			}).Should(BeEmpty())
 
-			fakenats.WhenSubscribing(DiegoStageStartSubject, func(callback nats.MsgHandler) error {
+			fakenats.WhenSubscribing("subscription-subject", func(callback nats.MsgHandler) error {
 				return nil
 			})
 
 			Eventually(func() []*nats.Subscription {
-				return fakenats.Subscriptions(DiegoStageStartSubject)
+				return fakenats.Subscriptions("subscription-subject")
 			}).ShouldNot(BeEmpty())
 		})
 	})
 
 	Context("when subscribing succeeds", func() {
 		JustBeforeEach(func() {
-			inbox = ifrit.Envoke(New(fakenats, fakeCcClient, fauxstager, nil, validator, logger))
+			inbox = ifrit.Invoke(New(fakenats, fakeCcClient, fakeDiegoClient, fakeBackend, logger))
 		})
 
 		AfterEach(func(done Done) {
@@ -114,23 +121,86 @@ var _ = Describe("Inbox", func() {
 		})
 
 		Context("and it receives a staging request", func() {
-			It("kicks off staging", func() {
+			It("increments the counter to track arriving staging messages", func() {
+				metricSender := fake_metric_sender.NewFakeMetricSender()
+				metrics.Initialize(metricSender)
 				publishStagingMessage()
-
-				Ω(fauxstager.TimesStageInvoked).To(Equal(1))
-				Ω(fauxstager.StagingRequests[0]).To(Equal(stagingRequest))
+				Ω(metricSender.GetCounter("FakeMetricName")).Should(Equal(uint64(1)))
 			})
 
-			Context("when staging finishes successfully", func() {
+			It("builds a staging recipe", func() {
+				publishStagingMessage()
+
+				Ω(fakeBackend.BuildRecipeCallCount()).To(Equal(1))
+				Ω(fakeBackend.BuildRecipeArgsForCall(0)).To(Equal(stagingRequestJson))
+			})
+
+			Context("when the recipe was built successfully", func() {
+				var fakeTaskRequest = receptor.TaskCreateRequest{Annotation: "test annotation"}
+				BeforeEach(func() {
+					fakeBackend.BuildRecipeReturns(fakeTaskRequest, nil)
+				})
+
 				It("does not send a staging complete message", func() {
 					publishStagingMessage()
 					Ω(fakeCcClient.StagingCompleteCallCount()).To(Equal(0))
 				})
+
+				It("creates a task on Diego", func() {
+					publishStagingMessage()
+					Ω(fakeDiegoClient.CreateTaskCallCount()).To(Equal(1))
+					Ω(fakeDiegoClient.CreateTaskArgsForCall(0)).To(Equal(fakeTaskRequest))
+				})
+
+				Context("create task does not fail", func() {
+					It("does not send a staging failure response", func() {
+						publishStagingMessage()
+
+						Ω(fakeCcClient.StagingCompleteCallCount()).To(Equal(0))
+					})
+				})
+
+				Context("when the task has already been created", func() {
+					BeforeEach(func() {
+						fakeDiegoClient.CreateTaskReturns(receptor.Error{
+							Type:    receptor.TaskGuidAlreadyExists,
+							Message: "ok, this task already exists",
+						})
+					})
+
+					It("does not log a failure", func() {
+						Ω(logOutput.Contents()).Should(BeEmpty())
+						publishStagingMessage()
+						Ω(logOutput).ShouldNot(gbytes.Say("staging-failed"))
+					})
+				})
+
+				Context("create task fails for any other reason", func() {
+					BeforeEach(func() {
+						fakeDiegoClient.CreateTaskReturns(errors.New("create task error"))
+					})
+
+					It("logs the failure", func() {
+						Ω(logOutput.Contents()).Should(BeEmpty())
+						publishStagingMessage()
+						Ω(logOutput).Should(gbytes.Say("staging-failed"))
+					})
+
+					It("sends a staging failure response", func() {
+						publishStagingMessage()
+
+						Ω(fakeCcClient.StagingCompleteCallCount()).To(Equal(1))
+					})
+				})
 			})
 
-			Context("when staging finishes unsuccessfully", func() {
+			Context("when the recipe failed to be built", func() {
 				BeforeEach(func() {
-					fauxstager.AlwaysFail = true
+					fakeBackend.BuildRecipeReturns(receptor.TaskCreateRequest{}, errors.New("fake error"))
+					responseForCC := cc_messages.StagingResponseForCC{Error: "some fake error"}
+					responseForCCjson, err := json.Marshal(responseForCC)
+					Ω(err).ShouldNot(HaveOccurred())
+					fakeBackend.BuildStagingResponseFromRequestErrorReturns(responseForCCjson, nil)
 				})
 
 				It("logs the failure", func() {
@@ -138,7 +208,7 @@ var _ = Describe("Inbox", func() {
 
 					publishStagingMessage()
 
-					Ω(logOutput).Should(gbytes.Say("failed"))
+					Ω(logOutput).Should(gbytes.Say("recipe-building-failed"))
 				})
 
 				It("sends a staging failure response", func() {
@@ -149,51 +219,18 @@ var _ = Describe("Inbox", func() {
 
 					stagingResponse := cc_messages.StagingResponseForCC{}
 					json.Unmarshal(response, &stagingResponse)
-					Ω(stagingResponse.Error).Should(Equal("Staging failed: The thingy broke :("))
-				})
-			})
-
-			Context("when the request is invalid", func() {
-				BeforeEach(func() {
-					validator = func(cc_messages.StagingRequestFromCC) error {
-						return errors.New("NO.")
-					}
+					Ω(stagingResponse.Error).Should(Equal("some fake error"))
 				})
 
-				It("logs the failure", func() {
-					publishStagingMessage()
-					Ω(logOutput.Contents()).ShouldNot(BeEmpty())
-				})
+				Context("when the response builder fails", func() {
+					BeforeEach(func() {
+						fakeBackend.BuildStagingResponseFromRequestErrorReturns(nil, errors.New("builder error"))
+					})
 
-				It("sends a staging failure response", func() {
-					publishStagingMessage()
-
-					Ω(fakeCcClient.StagingCompleteCallCount()).To(Equal(1))
-					response, _ := fakeCcClient.StagingCompleteArgsForCall(0)
-
-					stagingResponse := cc_messages.StagingResponseForCC{}
-					json.Unmarshal(response, &stagingResponse)
-
-					Ω(stagingResponse).Should(Equal(cc_messages.StagingResponseForCC{
-						AppId:  "myapp",
-						TaskId: "mytask",
-						Error:  "Invalid staging request: NO.",
-					}))
-				})
-			})
-
-			Context("when unmarshaling fails", func() {
-				It("logs the failure", func() {
-					Ω(logOutput.Contents()).Should(BeEmpty())
-
-					fakenats.Publish(DiegoStageStartSubject, []byte("fdsaljkfdsljkfedsews:/sdfa:''''"))
-
-					Ω(logOutput).Should(gbytes.Say("malformed"))
-				})
-
-				It("does not send a message in response", func() {
-					fakenats.Publish(DiegoStageStartSubject, []byte("fdsaljkfdsljkfedsews:/sdfa:''''"))
-					Ω(fakeCcClient.StagingCompleteCallCount()).To(Equal(0))
+					It("does not send a message in response", func() {
+						publishStagingMessage()
+						Ω(fakeCcClient.StagingCompleteCallCount()).To(Equal(0))
+					})
 				})
 			})
 		})

@@ -1,4 +1,4 @@
-package stager_docker_test
+package backend_test
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestStagerDocker(t *testing.T) {
+func TestBackend(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "StagerDocker Suite")
+	RunSpecs(t, "Backend Suite")
 }

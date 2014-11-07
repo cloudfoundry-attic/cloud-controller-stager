@@ -1,4 +1,4 @@
-package stager
+package backend
 
 import (
 	"encoding/json"
@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pivotal-golang/lager"
-
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
@@ -20,48 +18,49 @@ import (
 )
 
 const (
-	TaskDomain           = "cf-app-staging"
-	StagingTaskCpuWeight = uint(50)
-
-	stagingRequestArrivedCounter = metric.Counter("StagingRequestsReceived")
+	TraditionalTaskDomain                     = "cf-app-staging"
+	TraditionalStagingRequestsNatsSubject     = "diego.staging.start"
+	TraditionalStagingRequestsReceivedCounter = metric.Counter("TraditionalStagingRequestsReceived")
+	StagingTaskCpuWeight                      = uint(50)
 )
 
-type Config struct {
-	CallbackURL        string
-	FileServerURL      string
-	Circuses           map[string]string
-	DockerCircusPath   string
-	MinMemoryMB        uint
-	MinDiskMB          uint
-	MinFileDescriptors uint64
+type traditionalBackend struct {
+	config Config
 }
 
-type Stager interface {
-	Stage(cc_messages.StagingRequestFromCC) error
-}
-
-type stager struct {
-	logger         lager.Logger
-	config         Config
-	diegoAPIClient receptor.Client
-}
-
-func New(diegoAPIClient receptor.Client, logger lager.Logger, config Config) Stager {
-	return &stager{
-		logger:         logger,
-		config:         config,
-		diegoAPIClient: diegoAPIClient,
+func NewTraditionalBackend(config Config) Backend {
+	return &traditionalBackend{
+		config: config,
 	}
 }
 
-var ErrNoCompilerDefined = errors.New("no compiler defined for requested stack")
+func (builder *traditionalBackend) StagingRequestsNatsSubject() string {
+	return TraditionalStagingRequestsNatsSubject
+}
 
-func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
-	stagingRequestArrivedCounter.Increment()
+func (builder *traditionalBackend) StagingRequestsReceivedCounter() metric.Counter {
+	return TraditionalStagingRequestsReceivedCounter
+}
 
-	compilerURL, err := stager.compilerDownloadURL(request)
+func (builder *traditionalBackend) TaskDomain() string {
+	return TraditionalTaskDomain
+}
+
+func (builder *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.TaskCreateRequest, error) {
+	var request cc_messages.StagingRequestFromCC
+	err := json.Unmarshal(requestJson, &request)
 	if err != nil {
-		return err
+		return receptor.TaskCreateRequest{}, err
+	}
+
+	err = builder.validateRequest(request)
+	if err != nil {
+		return receptor.TaskCreateRequest{}, err
+	}
+
+	compilerURL, err := builder.compilerDownloadURL(request)
+	if err != nil {
+		return receptor.TaskCreateRequest{}, err
 	}
 
 	buildpacksOrder := []string{}
@@ -134,9 +133,9 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 	downloadNames = append(downloadNames, fmt.Sprintf("buildpacks (%s)", strings.Join(buildpackNames, ", ")))
 
 	//Download Buildpack Artifacts Cache
-	downloadURL, err := stager.buildArtifactsDownloadURL(request)
+	downloadURL, err := builder.buildArtifactsDownloadURL(request)
 	if err != nil {
-		return err
+		return receptor.TaskCreateRequest{}, err
 	}
 
 	if downloadURL != nil {
@@ -164,7 +163,7 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 
 	var fileDescriptorLimit *uint64
 	if request.FileDescriptors != 0 {
-		fd := max(uint64(request.FileDescriptors), stager.config.MinFileDescriptors)
+		fd := max(uint64(request.FileDescriptors), builder.config.MinFileDescriptors)
 		fileDescriptorLimit = &fd
 	}
 
@@ -192,9 +191,9 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 	uploadActions := []models.ExecutorAction{}
 	uploadNames := []string{}
 	//Upload Droplet
-	uploadURL, err := stager.dropletUploadURL(request)
+	uploadURL, err := builder.dropletUploadURL(request)
 	if err != nil {
-		return err
+		return receptor.TaskCreateRequest{}, err
 	}
 
 	uploadActions = append(
@@ -214,9 +213,9 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 	uploadNames = append(uploadNames, "droplet")
 
 	//Upload Buildpack Artifacts Cache
-	uploadURL, err = stager.buildArtifactsUploadURL(request)
+	uploadURL, err = builder.buildArtifactsUploadURL(request)
 	if err != nil {
-		return err
+		return receptor.TaskCreateRequest{}, err
 	}
 
 	uploadActions = append(uploadActions,
@@ -245,51 +244,78 @@ func (stager *stager) Stage(request cc_messages.StagingRequestFromCC) error {
 	})
 
 	task := receptor.TaskCreateRequest{
-		TaskGuid:   taskGuid(request),
-		Domain:     TaskDomain,
+		TaskGuid:   builder.taskGuid(request),
+		Domain:     TraditionalTaskDomain,
 		Stack:      request.Stack,
 		ResultFile: tailorConfig.OutputMetadata(),
-		MemoryMB:   int(max(uint64(request.MemoryMB), uint64(stager.config.MinMemoryMB))),
-		DiskMB:     int(max(uint64(request.DiskMB), uint64(stager.config.MinDiskMB))),
+		MemoryMB:   int(max(uint64(request.MemoryMB), uint64(builder.config.MinMemoryMB))),
+		DiskMB:     int(max(uint64(request.DiskMB), uint64(builder.config.MinDiskMB))),
 		CPUWeight:  StagingTaskCpuWeight,
 		Actions:    actions,
 		Log: receptor.LogConfig{
 			Guid:       request.AppId,
 			SourceName: "STG",
 		},
-		CompletionCallbackURL: stager.config.CallbackURL,
+		CompletionCallbackURL: builder.config.CallbackURL,
 		Annotation:            string(annotationJson),
 	}
 
-	stager.logger.Info("desiring-task", lager.Data{
-		"task_guid":    task.TaskGuid,
-		"callback_url": stager.config.CallbackURL,
-	})
-
-	err = stager.diegoAPIClient.CreateTask(task)
-	if receptorErr, ok := err.(receptor.Error); ok {
-		if receptorErr.Type == receptor.TaskGuidAlreadyExists {
-			err = nil
-		}
-	}
-
-	return err
+	return task, nil
 }
 
-func max(x, y uint64) uint64 {
-	if x > y {
-		return x
+func (builder *traditionalBackend) BuildStagingResponseFromRequestError(requestJson []byte, errorMessage string) ([]byte, error) {
+	request := cc_messages.StagingRequestFromCC{}
+
+	err := json.Unmarshal(requestJson, &request)
+	if err != nil {
+		return nil, err
+	}
+
+	response := cc_messages.StagingResponseForCC{
+		AppId:  request.AppId,
+		TaskId: request.TaskId,
+		Error:  errorMessage,
+	}
+
+	return json.Marshal(response)
+}
+
+func (builder *traditionalBackend) BuildStagingResponse(taskResponse receptor.TaskResponse) ([]byte, error) {
+	var response cc_messages.StagingResponseForCC
+
+	var annotation models.StagingTaskAnnotation
+	err := json.Unmarshal([]byte(taskResponse.Annotation), &annotation)
+	if err != nil {
+		return nil, err
+	}
+
+	response.AppId = annotation.AppId
+	response.TaskId = annotation.TaskId
+
+	if taskResponse.Failed {
+		response.Error = taskResponse.FailureReason
 	} else {
-		return y
+		var result models.StagingResult
+		err := json.Unmarshal([]byte(taskResponse.Result), &result)
+		if err != nil {
+			return nil, err
+		}
+
+		response.BuildpackKey = result.BuildpackKey
+		response.DetectedBuildpack = result.DetectedBuildpack
+		response.ExecutionMetadata = result.ExecutionMetadata
+		response.DetectedStartCommand = result.DetectedStartCommand
 	}
+
+	return json.Marshal(response)
 }
 
-func taskGuid(request cc_messages.StagingRequestFromCC) string {
+func (builder *traditionalBackend) taskGuid(request cc_messages.StagingRequestFromCC) string {
 	return fmt.Sprintf("%s-%s", request.AppId, request.TaskId)
 }
 
-func (stager *stager) compilerDownloadURL(request cc_messages.StagingRequestFromCC) (*url.URL, error) {
-	compilerPath, ok := stager.config.Circuses[request.Stack]
+func (builder *traditionalBackend) compilerDownloadURL(request cc_messages.StagingRequestFromCC) (*url.URL, error) {
+	compilerPath, ok := builder.config.Circuses[request.Stack]
 	if !ok {
 		return nil, ErrNoCompilerDefined
 	}
@@ -313,7 +339,7 @@ func (stager *stager) compilerDownloadURL(request cc_messages.StagingRequestFrom
 		return nil, errors.New("couldn't generate the compiler download path")
 	}
 
-	urlString := urljoiner.Join(stager.config.FileServerURL, staticRoute.Path, compilerPath)
+	urlString := urljoiner.Join(builder.config.FileServerURL, staticRoute.Path, compilerPath)
 
 	url, err := url.ParseRequestURI(urlString)
 	if err != nil {
@@ -323,7 +349,7 @@ func (stager *stager) compilerDownloadURL(request cc_messages.StagingRequestFrom
 	return url, nil
 }
 
-func (stager *stager) dropletUploadURL(request cc_messages.StagingRequestFromCC) (*url.URL, error) {
+func (builder *traditionalBackend) dropletUploadURL(request cc_messages.StagingRequestFromCC) (*url.URL, error) {
 	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_UPLOAD_DROPLET)
 	if !ok {
 		return nil, errors.New("couldn't generate the droplet upload path")
@@ -337,7 +363,7 @@ func (stager *stager) dropletUploadURL(request cc_messages.StagingRequestFromCC)
 		return nil, fmt.Errorf("failed to build droplet upload URL: %s", err)
 	}
 
-	urlString := urljoiner.Join(stager.config.FileServerURL, path)
+	urlString := urljoiner.Join(builder.config.FileServerURL, path)
 
 	u, err := url.ParseRequestURI(urlString)
 	if err != nil {
@@ -351,7 +377,7 @@ func (stager *stager) dropletUploadURL(request cc_messages.StagingRequestFromCC)
 	return u, nil
 }
 
-func (stager *stager) buildArtifactsUploadURL(request cc_messages.StagingRequestFromCC) (*url.URL, error) {
+func (builder *traditionalBackend) buildArtifactsUploadURL(request cc_messages.StagingRequestFromCC) (*url.URL, error) {
 	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_UPLOAD_BUILD_ARTIFACTS)
 	if !ok {
 		return nil, errors.New("couldn't generate the build artifacts cache upload path")
@@ -365,7 +391,7 @@ func (stager *stager) buildArtifactsUploadURL(request cc_messages.StagingRequest
 		return nil, fmt.Errorf("failed to build build artifacts cache upload URL: %s", err)
 	}
 
-	urlString := urljoiner.Join(stager.config.FileServerURL, path)
+	urlString := urljoiner.Join(builder.config.FileServerURL, path)
 
 	u, err := url.ParseRequestURI(urlString)
 	if err != nil {
@@ -379,7 +405,7 @@ func (stager *stager) buildArtifactsUploadURL(request cc_messages.StagingRequest
 	return u, nil
 }
 
-func (stager *stager) buildArtifactsDownloadURL(request cc_messages.StagingRequestFromCC) (*url.URL, error) {
+func (builder *traditionalBackend) buildArtifactsDownloadURL(request cc_messages.StagingRequestFromCC) (*url.URL, error) {
 	urlString := request.BuildArtifactsCacheDownloadUri
 	if urlString == "" {
 		return nil, nil
@@ -391,4 +417,20 @@ func (stager *stager) buildArtifactsDownloadURL(request cc_messages.StagingReque
 	}
 
 	return url, nil
+}
+
+func (builder *traditionalBackend) validateRequest(stagingRequest cc_messages.StagingRequestFromCC) error {
+	if len(stagingRequest.AppId) == 0 {
+		return ErrMissingAppId
+	}
+
+	if len(stagingRequest.TaskId) == 0 {
+		return ErrMissingTaskId
+	}
+
+	if len(stagingRequest.AppBitsDownloadUri) == 0 {
+		return ErrMissingAppBitsDownloadUri
+	}
+
+	return nil
 }

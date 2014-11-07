@@ -9,12 +9,9 @@ import (
 	"github.com/tedsuo/ifrit/http_server"
 
 	"github.com/cloudfoundry-incubator/receptor"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
+	"github.com/cloudfoundry-incubator/stager/backend"
 	"github.com/cloudfoundry-incubator/stager/cc_client"
-	"github.com/cloudfoundry-incubator/stager/stager"
-	"github.com/cloudfoundry-incubator/stager/stager_docker"
 	"github.com/cloudfoundry/gunk/timeprovider"
 	"github.com/pivotal-golang/lager"
 )
@@ -30,16 +27,18 @@ const (
 type Outbox struct {
 	address      string
 	ccClient     cc_client.CcClient
+	backends     []backend.Backend
 	logger       lager.Logger
 	timeProvider timeprovider.TimeProvider
 }
 
-func New(address string, ccClient cc_client.CcClient, logger lager.Logger, timeProvider timeprovider.TimeProvider) *Outbox {
+func New(address string, ccClient cc_client.CcClient, backends []backend.Backend, logger lager.Logger, timeProvider timeprovider.TimeProvider) *Outbox {
 	outboxLogger := logger.Session("outbox")
 
 	return &Outbox{
 		address:      address,
 		ccClient:     ccClient,
+		backends:     backends,
 		logger:       outboxLogger,
 		timeProvider: timeProvider,
 	}
@@ -63,30 +62,24 @@ func (o *Outbox) handleRequest(res http.ResponseWriter, req *http.Request) {
 		"guid": task.TaskGuid,
 	})
 
-	response, err := o.stagingResponse(task)
+	responseJson, err := o.stagingResponse(task)
 	if err != nil {
+		res.WriteHeader(http.StatusBadRequest)
 		logger.Error("get-staging-response-failed", err)
 		return
 	}
 
-	if response == nil {
+	if responseJson == nil {
 		res.WriteHeader(404)
 		res.Write([]byte("Unknown task domain"))
 		return
 	}
 
-	payload, err := json.Marshal(response)
-	if err != nil {
-		logger.Error("marshal-error", err)
-		res.WriteHeader(http.StatusOK)
-		return
-	}
-
 	logger.Info("posting-staging-complete", lager.Data{
-		"payload": payload,
+		"payload": responseJson,
 	})
 
-	err = o.ccClient.StagingComplete(payload, logger)
+	err = o.ccClient.StagingComplete(responseJson, logger)
 	if err != nil {
 		logger.Error("cc-request-failed", err)
 		if responseErr, ok := err.(*cc_client.BadResponseError); ok {
@@ -114,70 +107,12 @@ func (o *Outbox) reportMetrics(task receptor.TaskResponse) {
 	}
 }
 
-func (o *Outbox) stagingResponse(task receptor.TaskResponse) (interface{}, error) {
-	switch task.Domain {
-	case stager.TaskDomain:
-		return o.buildpackStagingResponse(task)
-	case stager_docker.TaskDomain:
-		return o.dockerStagingResponse(task)
-	default:
-		return nil, nil
-	}
-}
-
-func (o *Outbox) buildpackStagingResponse(task receptor.TaskResponse) (interface{}, error) {
-	var response cc_messages.StagingResponseForCC
-
-	var annotation models.StagingTaskAnnotation
-	err := json.Unmarshal([]byte(task.Annotation), &annotation)
-	if err != nil {
-		return nil, err
-	}
-
-	response.AppId = annotation.AppId
-	response.TaskId = annotation.TaskId
-
-	if task.Failed {
-		response.Error = task.FailureReason
-	} else {
-		var result models.StagingResult
-		err := json.Unmarshal([]byte(task.Result), &result)
-		if err != nil {
-			return nil, err
+func (o *Outbox) stagingResponse(task receptor.TaskResponse) ([]byte, error) {
+	for _, backend := range o.backends {
+		if backend.TaskDomain() == task.Domain {
+			return backend.BuildStagingResponse(task)
 		}
-
-		response.BuildpackKey = result.BuildpackKey
-		response.DetectedBuildpack = result.DetectedBuildpack
-		response.ExecutionMetadata = result.ExecutionMetadata
-		response.DetectedStartCommand = result.DetectedStartCommand
 	}
 
-	return response, nil
-}
-
-func (o *Outbox) dockerStagingResponse(task receptor.TaskResponse) (interface{}, error) {
-	var response cc_messages.DockerStagingResponseForCC
-
-	var annotation models.StagingTaskAnnotation
-	err := json.Unmarshal([]byte(task.Annotation), &annotation)
-	if err != nil {
-		return nil, err
-	}
-
-	response.AppId = annotation.AppId
-	response.TaskId = annotation.TaskId
-
-	if task.Failed {
-		response.Error = task.FailureReason
-	} else {
-		var result models.StagingDockerResult
-		err := json.Unmarshal([]byte(task.Result), &result)
-		if err != nil {
-			return nil, err
-		}
-		response.ExecutionMetadata = result.ExecutionMetadata
-		response.DetectedStartCommand = result.DetectedStartCommand
-	}
-
-	return response, nil
+	return nil, nil
 }
