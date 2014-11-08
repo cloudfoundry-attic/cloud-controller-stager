@@ -58,8 +58,6 @@ func (inbox *Inbox) onStagingRequest(message *nats.Msg) {
 	requestLogger := inbox.logger.Session("staging-request")
 	inbox.backend.StagingRequestsReceivedCounter().Increment()
 
-	requestLogger.Info("received", lager.Data{"message": message.Data})
-
 	taskRequest, err := inbox.backend.BuildRecipe(message.Data)
 	if err != nil {
 		requestLogger.Error("recipe-building-failed", err, lager.Data{"message": message.Data})

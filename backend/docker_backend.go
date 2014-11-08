@@ -14,6 +14,7 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/router"
 	"github.com/cloudfoundry/gunk/urljoiner"
+	"github.com/pivotal-golang/lager"
 )
 
 const (
@@ -29,11 +30,13 @@ var ErrMissingDockerImageUrl = errors.New("missing docker image download url")
 
 type dockerBackend struct {
 	config Config
+	logger lager.Logger
 }
 
-func NewDockerBackend(config Config) Backend {
+func NewDockerBackend(config Config, logger lager.Logger) Backend {
 	return &dockerBackend{
 		config: config,
+		logger: logger.Session("docker"),
 	}
 }
 
@@ -50,11 +53,14 @@ func (backend *dockerBackend) TaskDomain() string {
 }
 
 func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCreateRequest, error) {
+	logger := backend.logger.Session("build-recipe")
+
 	var request cc_messages.DockerStagingRequestFromCC
 	err := json.Unmarshal(requestJson, &request)
 	if err != nil {
 		return receptor.TaskCreateRequest{}, err
 	}
+	logger.Info("staging-request", lager.Data{"Request": request})
 
 	err = backend.validateRequest(request)
 	if err != nil {
@@ -132,6 +138,8 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		},
 		Annotation: string(annotationJson),
 	}
+
+	logger.Debug("staging-task-request", lager.Data{"TaskCreateRequest": task})
 
 	return task, nil
 }

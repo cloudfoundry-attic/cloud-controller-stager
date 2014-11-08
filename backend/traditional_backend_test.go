@@ -10,6 +10,7 @@ import (
 	. "github.com/cloudfoundry-incubator/stager/backend"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/pivotal-golang/lager"
 )
 
 var _ = Describe("TraditionalBackend", func() {
@@ -47,7 +48,10 @@ var _ = Describe("TraditionalBackend", func() {
 			MinFileDescriptors: 256,
 		}
 
-		backend = NewTraditionalBackend(config)
+		logger := lager.NewLogger("fakelogger")
+		logger.RegisterSink(lager.NewWriterSink(GinkgoWriter, lager.DEBUG))
+
+		backend = NewTraditionalBackend(config, logger)
 
 		stagingRequest = cc_messages.StagingRequestFromCC{
 			AppId:                          "bunny",

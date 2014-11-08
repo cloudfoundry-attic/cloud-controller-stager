@@ -205,8 +205,8 @@ func initializeBackends(logger lager.Logger) []backend.Backend {
 	}
 
 	return []backend.Backend{
-		backend.NewTraditionalBackend(config),
-		backend.NewDockerBackend(config),
+		backend.NewTraditionalBackend(config, logger),
+		backend.NewDockerBackend(config, logger),
 	}
 }
 
