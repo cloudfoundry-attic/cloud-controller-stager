@@ -265,7 +265,7 @@ var _ = Describe("TraditionalBackend", func() {
 			TaskId: "hop",
 		}))
 
-		Ω(desiredTask.Actions).Should(Equal([]models.ExecutorAction{
+		Ω(desiredTask.Action.Action.(models.SerialAction).Actions).Should(Equal([]models.ExecutorAction{
 			models.EmitProgressFor(
 				models.Parallel(
 					downloadTailorAction,
@@ -422,7 +422,7 @@ var _ = Describe("TraditionalBackend", func() {
 					"Staging Failed",
 				)
 
-				Ω(desiredTask.Actions).Should(Equal([]models.ExecutorAction{
+				Ω(desiredTask.Action.Action.(models.SerialAction).Actions).Should(Equal([]models.ExecutorAction{
 					models.EmitProgressFor(
 						models.Parallel(
 							downloadTailorAction,
@@ -459,7 +459,7 @@ var _ = Describe("TraditionalBackend", func() {
 			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 			Ω(err).ShouldNot(HaveOccurred())
 
-			Ω(desiredTask.Actions).Should(Equal([]models.ExecutorAction{
+			Ω(desiredTask.Action.Action.(models.SerialAction).Actions).Should(Equal([]models.ExecutorAction{
 				models.EmitProgressFor(
 					models.Parallel(
 						downloadTailorAction,
@@ -507,7 +507,7 @@ var _ = Describe("TraditionalBackend", func() {
 			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 			Ω(err).ShouldNot(HaveOccurred())
 
-			downloadAction := desiredTask.Actions[0].Action.(models.EmitProgressAction).Action.Action.(models.ParallelAction).Actions[0].Action.(models.EmitProgressAction).Action.Action.(models.DownloadAction)
+			downloadAction := desiredTask.Action.Action.(models.SerialAction).Actions[0].Action.(models.EmitProgressAction).Action.Action.(models.ParallelAction).Actions[0].Action.(models.EmitProgressAction).Action.Action.(models.DownloadAction)
 			Ω(downloadAction.From).Should(Equal("http://the-full-compiler-url"))
 		})
 	})

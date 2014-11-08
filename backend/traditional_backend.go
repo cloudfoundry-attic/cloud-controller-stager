@@ -253,6 +253,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 		TaskId: request.TaskId,
 	})
 
+	action := models.Serial(actions...)
 	task := receptor.TaskCreateRequest{
 		TaskGuid:              backend.taskGuid(request),
 		Domain:                TraditionalTaskDomain,
@@ -261,7 +262,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 		MemoryMB:              int(max(uint64(request.MemoryMB), uint64(backend.config.MinMemoryMB))),
 		DiskMB:                int(max(uint64(request.DiskMB), uint64(backend.config.MinDiskMB))),
 		CPUWeight:             StagingTaskCpuWeight,
-		Actions:               actions,
+		Action:                &action,
 		LogGuid:               request.AppId,
 		LogSource:             TaskLogSource,
 		CompletionCallbackURL: backend.config.CallbackURL,

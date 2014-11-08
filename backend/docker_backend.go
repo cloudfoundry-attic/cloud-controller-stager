@@ -123,6 +123,8 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		TaskId: request.TaskId,
 	})
 
+	action := models.Serial(actions...)
+
 	task := receptor.TaskCreateRequest{
 		ResultFile:            DockerTailorOutputPath,
 		TaskGuid:              backend.taskGuid(request),
@@ -130,7 +132,7 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		Stack:                 request.Stack,
 		MemoryMB:              int(max(uint64(request.MemoryMB), uint64(backend.config.MinMemoryMB))),
 		DiskMB:                int(max(uint64(request.DiskMB), uint64(backend.config.MinDiskMB))),
-		Actions:               actions,
+		Action:                &action,
 		CompletionCallbackURL: backend.config.CallbackURL,
 		LogGuid:               request.AppId,
 		LogSource:             TaskLogSource,

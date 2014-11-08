@@ -176,11 +176,10 @@ var _ = Describe("DockerBackend", func() {
 			TaskId: "hop",
 		}))
 
-		Ω(desiredTask.Actions).Should(HaveLen(2))
-
-		Ω(desiredTask.Actions[0]).Should(Equal(downloadTailorAction))
-
-		Ω(desiredTask.Actions[1]).Should(Equal(runAction))
+		actions := desiredTask.Action.Action.(models.SerialAction).Actions
+		Ω(actions).Should(HaveLen(2))
+		Ω(actions[0]).Should(Equal(downloadTailorAction))
+		Ω(actions[1]).Should(Equal(runAction))
 
 		Ω(desiredTask.MemoryMB).To(Equal(2048))
 		Ω(desiredTask.DiskMB).To(Equal(3072))
@@ -229,7 +228,7 @@ var _ = Describe("DockerBackend", func() {
 				desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				Ω(desiredTask.Actions[1]).Should(Equal(models.EmitProgressFor(
+				Ω(desiredTask.Action.Action.(models.SerialAction).Actions[1]).Should(Equal(models.EmitProgressFor(
 					models.ExecutorAction{
 						models.RunAction{
 							Path: "/tmp/docker-circus/tailor",
