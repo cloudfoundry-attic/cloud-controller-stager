@@ -162,8 +162,8 @@ var _ = Describe("DockerBackend", func() {
 		Ω(desiredTask.Domain).To(Equal("cf-app-docker-staging"))
 		Ω(desiredTask.TaskGuid).To(Equal("bunny-hop"))
 		Ω(desiredTask.Stack).To(Equal("rabbit_hole"))
-		Ω(desiredTask.Log.Guid).To(Equal("bunny"))
-		Ω(desiredTask.Log.SourceName).To(Equal("STG"))
+		Ω(desiredTask.LogGuid).To(Equal("bunny"))
+		Ω(desiredTask.LogSource).To(Equal("STG"))
 		Ω(desiredTask.ResultFile).To(Equal("/tmp/docker-result/result.json"))
 
 		var annotation models.StagingTaskAnnotation

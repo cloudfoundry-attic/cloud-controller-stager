@@ -254,18 +254,16 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	})
 
 	task := receptor.TaskCreateRequest{
-		TaskGuid:   backend.taskGuid(request),
-		Domain:     TraditionalTaskDomain,
-		Stack:      request.Stack,
-		ResultFile: tailorConfig.OutputMetadata(),
-		MemoryMB:   int(max(uint64(request.MemoryMB), uint64(backend.config.MinMemoryMB))),
-		DiskMB:     int(max(uint64(request.DiskMB), uint64(backend.config.MinDiskMB))),
-		CPUWeight:  StagingTaskCpuWeight,
-		Actions:    actions,
-		Log: receptor.LogConfig{
-			Guid:       request.AppId,
-			SourceName: "STG",
-		},
+		TaskGuid:              backend.taskGuid(request),
+		Domain:                TraditionalTaskDomain,
+		Stack:                 request.Stack,
+		ResultFile:            tailorConfig.OutputMetadata(),
+		MemoryMB:              int(max(uint64(request.MemoryMB), uint64(backend.config.MinMemoryMB))),
+		DiskMB:                int(max(uint64(request.DiskMB), uint64(backend.config.MinDiskMB))),
+		CPUWeight:             StagingTaskCpuWeight,
+		Actions:               actions,
+		LogGuid:               request.AppId,
+		LogSource:             "STG",
 		CompletionCallbackURL: backend.config.CallbackURL,
 		Annotation:            string(annotationJson),
 	}

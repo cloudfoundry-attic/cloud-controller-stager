@@ -132,11 +132,9 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		DiskMB:                int(max(uint64(request.DiskMB), uint64(backend.config.MinDiskMB))),
 		Actions:               actions,
 		CompletionCallbackURL: backend.config.CallbackURL,
-		Log: receptor.LogConfig{
-			Guid:       request.AppId,
-			SourceName: "STG",
-		},
-		Annotation: string(annotationJson),
+		LogGuid:               request.AppId,
+		LogSource:             "STG",
+		Annotation:            string(annotationJson),
 	}
 
 	logger.Debug("staging-task-request", lager.Data{"TaskCreateRequest": task})
