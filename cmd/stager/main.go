@@ -202,6 +202,7 @@ func initializeBackends(logger lager.Logger) []backend.Backend {
 		MinMemoryMB:        *minMemoryMB,
 		MinDiskMB:          *minDiskMB,
 		MinFileDescriptors: *minFileDescriptors,
+		SkipCertVerify:     *skipCertVerify,
 	}
 
 	return []backend.Backend{

@@ -74,7 +74,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 		buildpacksOrder = append(buildpacksOrder, buildpack.Key)
 	}
 
-	tailorConfig := models.NewCircusTailorConfig(buildpacksOrder)
+	tailorConfig := models.NewCircusTailorConfig(buildpacksOrder, backend.config.SkipCertVerify)
 
 	actions := []models.ExecutorAction{}
 

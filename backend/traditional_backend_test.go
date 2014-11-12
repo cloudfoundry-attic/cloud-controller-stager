@@ -182,6 +182,7 @@ var _ = Describe("TraditionalBackend", func() {
 						"-outputBuildArtifactsCache=/tmp/output-cache",
 						"-outputDroplet=/tmp/droplet",
 						"-outputMetadata=/tmp/result.json",
+						"-skipCertVerify=false",
 					},
 					Env: []models.EnvironmentVariable{
 						{"VCAP_APPLICATION", "foo"},
@@ -407,6 +408,7 @@ var _ = Describe("TraditionalBackend", func() {
 								"-outputBuildArtifactsCache=/tmp/output-cache",
 								"-outputDroplet=/tmp/droplet",
 								"-outputMetadata=/tmp/result.json",
+								"-skipCertVerify=false",
 							},
 							Env: []models.EnvironmentVariable{
 								{"VCAP_APPLICATION", "foo"},
@@ -533,6 +535,36 @@ var _ = Describe("TraditionalBackend", func() {
 
 			Ω(err).Should(HaveOccurred())
 			Ω(err.Error()).Should(ContainSubstring("invalid URI"))
+		})
+	})
+
+	Context("when skipping ssl certificate verification", func() {
+		BeforeEach(func() {
+			config.SkipCertVerify = true
+
+			logger := lager.NewLogger("fakelogger")
+			logger.RegisterSink(lager.NewWriterSink(GinkgoWriter, lager.DEBUG))
+
+			backend = NewTraditionalBackend(config, logger)
+		})
+
+		It("the tailor is told to skip certificate verification", func() {
+			args := []string{
+				"-appDir=/app",
+				"-buildArtifactsCacheDir=/tmp/cache",
+				"-buildpackOrder=zfirst-buildpack,asecond-buildpack",
+				"-buildpacksDir=/tmp/buildpacks",
+				"-outputBuildArtifactsCache=/tmp/output-cache",
+				"-outputDroplet=/tmp/droplet",
+				"-outputMetadata=/tmp/result.json",
+				"-skipCertVerify=true",
+			}
+
+			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
+
+			Ω(err).ShouldNot(HaveOccurred())
+			runAction := desiredTask.Actions[1].Action.(models.EmitProgressAction).Action.Action.(models.RunAction)
+			Ω(runAction.Args).Should(Equal(args))
 		})
 	})
 

@@ -35,6 +35,7 @@ type Config struct {
 	MinMemoryMB        uint
 	MinDiskMB          uint
 	MinFileDescriptors uint64
+	SkipCertVerify     bool
 }
 
 func max(x, y uint64) uint64 {
