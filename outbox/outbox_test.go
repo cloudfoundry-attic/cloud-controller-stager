@@ -114,6 +114,11 @@ var _ = Describe("Outbox", func() {
 					"execution_metadata":"{\"start_command\":\"./some-start-command\"}",
 					"detected_start_command":{"web":"./some-start-command"}
 				}`,
+				Action: models.ExecutorAction{
+					models.RunAction{
+						Path: "ls",
+					},
+				},
 				Annotation: string(annotationJson),
 			}
 			resp = postTask(taskResponse)
@@ -202,6 +207,11 @@ var _ = Describe("Outbox", func() {
 		It("can accept new Completed Tasks before it's done processing existing tasks in the queue", func() {
 			for i := 0; i < 3; i++ {
 				postTask(receptor.TaskResponse{
+					Action: models.ExecutorAction{
+						models.RunAction{
+							Path: "ls",
+						},
+					},
 					TaskGuid:   fmt.Sprintf("task-guid-%d", i),
 					Annotation: `{}`,
 					Result:     `{}`,
@@ -233,6 +243,11 @@ var _ = Describe("Outbox", func() {
 					"task_id": "the-task-id",
 					"app_id": "the-app-id"
 				}`,
+				Action: models.ExecutorAction{
+					models.RunAction{
+						Path: "ls",
+					},
+				},
 				Result: `{}`,
 			})
 		})
@@ -267,6 +282,11 @@ var _ = Describe("Outbox", func() {
 
 		JustBeforeEach(func() {
 			resp = postTask(receptor.TaskResponse{
+				Action: models.ExecutorAction{
+					models.RunAction{
+						Path: "ls",
+					},
+				},
 				Domain:        "some-other-crazy-domain",
 				Failed:        true,
 				FailureReason: "because I said so",

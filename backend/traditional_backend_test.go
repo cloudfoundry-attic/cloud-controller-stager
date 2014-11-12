@@ -265,7 +265,7 @@ var _ = Describe("TraditionalBackend", func() {
 			TaskId: "hop",
 		}))
 
-		Ω(desiredTask.Action.Action.(models.SerialAction).Actions).Should(Equal([]models.ExecutorAction{
+		Ω(actionsFromExecutorSerialAction(desiredTask.Action)).Should(Equal([]models.ExecutorAction{
 			models.EmitProgressFor(
 				models.Parallel(
 					downloadTailorAction,
@@ -325,8 +325,10 @@ var _ = Describe("TraditionalBackend", func() {
 				TaskId: "hop",
 			}))
 
-			Ω(desiredTask.Actions).Should(HaveLen(3))
-			Ω(desiredTask.Actions[0]).Should(Equal(models.EmitProgressFor(
+			actions := actionsFromExecutorSerialAction(desiredTask.Action)
+
+			Ω(actions).Should(HaveLen(3))
+			Ω(actions[0]).Should(Equal(models.EmitProgressFor(
 				models.Parallel(
 					downloadTailorAction,
 					downloadAppAction,
@@ -336,8 +338,8 @@ var _ = Describe("TraditionalBackend", func() {
 				"Fetching complete",
 				"Fetching failed",
 			)))
-			Ω(desiredTask.Actions[1]).Should(Equal(runAction))
-			Ω(desiredTask.Actions[2]).Should(Equal(models.EmitProgressFor(
+			Ω(actions[1]).Should(Equal(runAction))
+			Ω(actions[2]).Should(Equal(models.EmitProgressFor(
 				models.Parallel(
 					uploadDropletAction,
 					uploadBuildArtifactsAction,
@@ -561,7 +563,7 @@ var _ = Describe("TraditionalBackend", func() {
 			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 
 			Ω(err).ShouldNot(HaveOccurred())
-			runAction := desiredTask.Actions[1].Action.(models.EmitProgressAction).Action.Action.(models.RunAction)
+			runAction := desiredTask.Action.Action.(models.SerialAction).Actions[1].Action.(models.EmitProgressAction).Action.Action.(models.RunAction)
 			Ω(runAction.Args).Should(Equal(args))
 		})
 	})
@@ -725,3 +727,7 @@ var _ = Describe("TraditionalBackend", func() {
 		})
 	})
 })
+
+func actionsFromExecutorSerialAction(action models.ExecutorAction) []models.ExecutorAction {
+	return action.Action.(models.SerialAction).Actions
+}

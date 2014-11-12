@@ -12,6 +12,7 @@ import (
 	"github.com/tedsuo/ifrit/ginkgomon"
 
 	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/stager/backend"
 	"github.com/cloudfoundry-incubator/stager/cmd/stager/testrunner"
 	. "github.com/onsi/ginkgo"
@@ -125,7 +126,12 @@ var _ = Describe("Stager", func() {
 				})
 
 				taskJSON, err := json.Marshal(receptor.TaskResponse{
-					TaskGuid:   "the-task-guid",
+					TaskGuid: "the-task-guid",
+					Action: models.ExecutorAction{
+						models.RunAction{
+							Path: "ls",
+						},
+					},
 					Domain:     backend.TraditionalTaskDomain,
 					Annotation: `{}`,
 					Result:     `{}`,
