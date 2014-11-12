@@ -7,6 +7,11 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 )
 
+const (
+	TaskLogSource    = "CELL"
+	StagingLogSource = "STAGING"
+)
+
 type Backend interface {
 	StagingRequestsNatsSubject() string
 	StagingRequestsReceivedCounter() metric.Counter

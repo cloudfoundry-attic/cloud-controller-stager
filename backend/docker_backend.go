@@ -110,6 +110,7 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 					ResourceLimits: models.ResourceLimits{
 						Nofile: fileDescriptorLimit,
 					},
+					LogSource: StagingLogSource,
 				},
 			},
 			"Staging...",
@@ -133,7 +134,7 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		Actions:               actions,
 		CompletionCallbackURL: backend.config.CallbackURL,
 		LogGuid:               request.AppId,
-		LogSource:             "STG",
+		LogSource:             TaskLogSource,
 		Annotation:            string(annotationJson),
 	}
 

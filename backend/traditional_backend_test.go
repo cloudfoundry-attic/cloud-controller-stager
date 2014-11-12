@@ -189,6 +189,7 @@ var _ = Describe("TraditionalBackend", func() {
 					},
 					Timeout:        15 * time.Minute,
 					ResourceLimits: models.ResourceLimits{Nofile: &fileDescriptorLimit},
+					LogSource:      StagingLogSource,
 				},
 			},
 			"Staging...",
@@ -251,7 +252,7 @@ var _ = Describe("TraditionalBackend", func() {
 		Ω(desiredTask.TaskGuid).To(Equal("bunny-hop"))
 		Ω(desiredTask.Stack).To(Equal("rabbit_hole"))
 		Ω(desiredTask.LogGuid).To(Equal("bunny"))
-		Ω(desiredTask.LogSource).To(Equal("STG"))
+		Ω(desiredTask.LogSource).To(Equal(TaskLogSource))
 		Ω(desiredTask.ResultFile).To(Equal("/tmp/result.json"))
 
 		var annotation models.StagingTaskAnnotation
@@ -311,7 +312,7 @@ var _ = Describe("TraditionalBackend", func() {
 			Ω(desiredTask.TaskGuid).To(Equal("bunny-hop"))
 			Ω(desiredTask.Stack).To(Equal("rabbit_hole"))
 			Ω(desiredTask.LogGuid).To(Equal("bunny"))
-			Ω(desiredTask.LogSource).To(Equal("STG"))
+			Ω(desiredTask.LogSource).To(Equal(TaskLogSource))
 			Ω(desiredTask.ResultFile).To(Equal("/tmp/result.json"))
 
 			var annotation models.StagingTaskAnnotation
@@ -413,6 +414,7 @@ var _ = Describe("TraditionalBackend", func() {
 							},
 							Timeout:        15 * time.Minute,
 							ResourceLimits: models.ResourceLimits{Nofile: &config.MinFileDescriptors},
+							LogSource:      StagingLogSource,
 						},
 					},
 					"Staging...",

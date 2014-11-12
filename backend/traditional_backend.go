@@ -190,6 +190,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 					ResourceLimits: models.ResourceLimits{
 						Nofile: fileDescriptorLimit,
 					},
+					LogSource: StagingLogSource,
 				},
 			},
 			"Staging...",
@@ -263,7 +264,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 		CPUWeight:             StagingTaskCpuWeight,
 		Actions:               actions,
 		LogGuid:               request.AppId,
-		LogSource:             "STG",
+		LogSource:             TaskLogSource,
 		CompletionCallbackURL: backend.config.CallbackURL,
 		Annotation:            string(annotationJson),
 	}
