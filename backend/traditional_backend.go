@@ -190,7 +190,6 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 					ResourceLimits: models.ResourceLimits{
 						Nofile: fileDescriptorLimit,
 					},
-					LogSource: StagingLogSource,
 				},
 			},
 			"Staging...",

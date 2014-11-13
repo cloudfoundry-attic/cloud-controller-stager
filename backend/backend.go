@@ -8,8 +8,7 @@ import (
 )
 
 const (
-	TaskLogSource    = "CELL"
-	StagingLogSource = "STAGING"
+	TaskLogSource = "STG"
 )
 
 type Backend interface {

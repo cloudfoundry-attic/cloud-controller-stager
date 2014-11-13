@@ -99,7 +99,6 @@ var _ = Describe("DockerBackend", func() {
 					ResourceLimits: models.ResourceLimits{
 						Nofile: &fileDescriptorLimit,
 					},
-					LogSource: StagingLogSource,
 				},
 			},
 			"Staging...",
@@ -244,7 +243,6 @@ var _ = Describe("DockerBackend", func() {
 							},
 							Timeout:        15 * time.Minute,
 							ResourceLimits: models.ResourceLimits{Nofile: &config.MinFileDescriptors},
-							LogSource:      StagingLogSource,
 						},
 					},
 					"Staging...",
