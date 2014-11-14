@@ -3,6 +3,7 @@ package cc_client_test
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 
@@ -72,6 +73,9 @@ var _ = Describe("CC Client", func() {
 					ghttp.RespondWith(200, `{}`),
 				),
 			)
+
+			// muffle server-side log of certificate error
+			fakeCC.HTTPTestServer.Config.ErrorLog = log.New(ioutil.Discard, "", log.Flags())
 		})
 
 		Context("when certificate verfication is enabled", func() {
