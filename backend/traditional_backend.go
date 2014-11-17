@@ -19,10 +19,12 @@ import (
 )
 
 const (
-	TraditionalTaskDomain                     = "cf-app-staging"
-	TraditionalStagingRequestsNatsSubject     = "diego.staging.start"
-	TraditionalStagingRequestsReceivedCounter = metric.Counter("TraditionalStagingRequestsReceived")
-	StagingTaskCpuWeight                      = uint(50)
+	TraditionalTaskDomain                         = "cf-app-staging"
+	TraditionalStagingRequestsNatsSubject         = "diego.staging.start"
+	TraditionalStagingRequestsReceivedCounter     = metric.Counter("TraditionalStagingRequestsReceived")
+	TraditionalStopStagingRequestsNatsSubject     = "diego.staging.stop"
+	TraditionalStopStagingRequestsReceivedCounter = metric.Counter("TraditionalStopStagingRequestsReceived")
+	StagingTaskCpuWeight                          = uint(50)
 )
 
 type traditionalBackend struct {
@@ -43,6 +45,14 @@ func (backend *traditionalBackend) StagingRequestsNatsSubject() string {
 
 func (backend *traditionalBackend) StagingRequestsReceivedCounter() metric.Counter {
 	return TraditionalStagingRequestsReceivedCounter
+}
+
+func (backend *traditionalBackend) StopStagingRequestsNatsSubject() string {
+	return TraditionalStopStagingRequestsNatsSubject
+}
+
+func (backend *traditionalBackend) StopStagingRequestsReceivedCounter() metric.Counter {
+	return TraditionalStopStagingRequestsReceivedCounter
 }
 
 func (backend *traditionalBackend) TaskDomain() string {
@@ -320,8 +330,26 @@ func (backend *traditionalBackend) BuildStagingResponse(taskResponse receptor.Ta
 	return json.Marshal(response)
 }
 
+func (backend *traditionalBackend) StagingTaskGuid(requestJson []byte) (string, error) {
+	var request cc_messages.StopStagingRequestFromCC
+	err := json.Unmarshal(requestJson, &request)
+	if err != nil {
+		return "", err
+	}
+
+	if request.AppId == "" {
+		return "", ErrMissingAppId
+	}
+
+	if request.TaskId == "" {
+		return "", ErrMissingTaskId
+	}
+
+	return stagingTaskGuid(request.AppId, request.TaskId), nil
+}
+
 func (backend *traditionalBackend) taskGuid(request cc_messages.StagingRequestFromCC) string {
-	return fmt.Sprintf("%s-%s", request.AppId, request.TaskId)
+	return stagingTaskGuid(request.AppId, request.TaskId)
 }
 
 func (backend *traditionalBackend) compilerDownloadURL(request cc_messages.StagingRequestFromCC) (*url.URL, error) {

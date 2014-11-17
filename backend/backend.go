@@ -2,6 +2,7 @@ package backend
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
@@ -13,12 +14,16 @@ const (
 
 type Backend interface {
 	StagingRequestsNatsSubject() string
+	StopStagingRequestsNatsSubject() string
 	StagingRequestsReceivedCounter() metric.Counter
+	StopStagingRequestsReceivedCounter() metric.Counter
 	TaskDomain() string
 
 	BuildRecipe(requestJson []byte) (receptor.TaskCreateRequest, error)
 	BuildStagingResponse(receptor.TaskResponse) ([]byte, error)
 	BuildStagingResponseFromRequestError(requestJson []byte, errorMessage string) ([]byte, error)
+
+	StagingTaskGuid(requestJson []byte) (string, error)
 }
 
 var ErrNoCompilerDefined = errors.New("no compiler defined for requested stack")
@@ -43,4 +48,8 @@ func max(x, y uint64) uint64 {
 	} else {
 		return y
 	}
+}
+
+func stagingTaskGuid(appId, taskId string) string {
+	return fmt.Sprintf("%s-%s", appId, taskId)
 }

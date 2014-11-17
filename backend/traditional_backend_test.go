@@ -726,6 +726,31 @@ var _ = Describe("TraditionalBackend", func() {
 			})
 		})
 	})
+
+	Describe("StagingTaskGuid", func() {
+		It("returns the staging task guid", func() {
+			taskGuid, err := backend.StagingTaskGuid(stagingRequestJson)
+			Ω(err).ShouldNot(HaveOccurred())
+			Ω(taskGuid).Should(Equal("bunny-hop"))
+		})
+
+		It("matches the task guid on the TaskRequest from BuildRecipe", func() {
+			taskGuid, _ := backend.StagingTaskGuid(stagingRequestJson)
+			desiredTask, _ := backend.BuildRecipe(stagingRequestJson)
+
+			Ω(taskGuid).Should(Equal(desiredTask.TaskGuid))
+		})
+
+		It("fails if the AppId is missing", func() {
+			_, err := backend.StagingTaskGuid([]byte(`{"task_id":"hop"}`))
+			Ω(err).Should(Equal(ErrMissingAppId))
+		})
+
+		It("fails if the TaskId is missing", func() {
+			_, err := backend.StagingTaskGuid([]byte(`{"app_id":"bunny"}`))
+			Ω(err).Should(Equal(ErrMissingTaskId))
+		})
+	})
 })
 
 func actionsFromExecutorSerialAction(action models.ExecutorAction) []models.ExecutorAction {

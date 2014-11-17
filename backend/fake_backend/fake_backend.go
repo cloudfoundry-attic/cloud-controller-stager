@@ -13,19 +13,31 @@ type FakeBackend struct {
 	StagingRequestsNatsSubjectStub        func() string
 	stagingRequestsNatsSubjectMutex       sync.RWMutex
 	stagingRequestsNatsSubjectArgsForCall []struct{}
-	stagingRequestsNatsSubjectReturns struct {
+	stagingRequestsNatsSubjectReturns     struct {
+		result1 string
+	}
+	StopStagingRequestsNatsSubjectStub        func() string
+	stopStagingRequestsNatsSubjectMutex       sync.RWMutex
+	stopStagingRequestsNatsSubjectArgsForCall []struct{}
+	stopStagingRequestsNatsSubjectReturns     struct {
 		result1 string
 	}
 	StagingRequestsReceivedCounterStub        func() metric.Counter
 	stagingRequestsReceivedCounterMutex       sync.RWMutex
 	stagingRequestsReceivedCounterArgsForCall []struct{}
-	stagingRequestsReceivedCounterReturns struct {
+	stagingRequestsReceivedCounterReturns     struct {
+		result1 metric.Counter
+	}
+	StopStagingRequestsReceivedCounterStub        func() metric.Counter
+	stopStagingRequestsReceivedCounterMutex       sync.RWMutex
+	stopStagingRequestsReceivedCounterArgsForCall []struct{}
+	stopStagingRequestsReceivedCounterReturns     struct {
 		result1 metric.Counter
 	}
 	TaskDomainStub        func() string
 	taskDomainMutex       sync.RWMutex
 	taskDomainArgsForCall []struct{}
-	taskDomainReturns struct {
+	taskDomainReturns     struct {
 		result1 string
 	}
 	BuildRecipeStub        func(requestJson []byte) (receptor.TaskCreateRequest, error)
@@ -56,6 +68,15 @@ type FakeBackend struct {
 		result1 []byte
 		result2 error
 	}
+	StagingTaskGuidStub        func(requestJson []byte) (string, error)
+	stagingTaskGuidMutex       sync.RWMutex
+	stagingTaskGuidArgsForCall []struct {
+		requestJson []byte
+	}
+	stagingTaskGuidReturns struct {
+		result1 string
+		result2 error
+	}
 }
 
 func (fake *FakeBackend) StagingRequestsNatsSubject() string {
@@ -82,6 +103,30 @@ func (fake *FakeBackend) StagingRequestsNatsSubjectReturns(result1 string) {
 	}{result1}
 }
 
+func (fake *FakeBackend) StopStagingRequestsNatsSubject() string {
+	fake.stopStagingRequestsNatsSubjectMutex.Lock()
+	fake.stopStagingRequestsNatsSubjectArgsForCall = append(fake.stopStagingRequestsNatsSubjectArgsForCall, struct{}{})
+	fake.stopStagingRequestsNatsSubjectMutex.Unlock()
+	if fake.StopStagingRequestsNatsSubjectStub != nil {
+		return fake.StopStagingRequestsNatsSubjectStub()
+	} else {
+		return fake.stopStagingRequestsNatsSubjectReturns.result1
+	}
+}
+
+func (fake *FakeBackend) StopStagingRequestsNatsSubjectCallCount() int {
+	fake.stopStagingRequestsNatsSubjectMutex.RLock()
+	defer fake.stopStagingRequestsNatsSubjectMutex.RUnlock()
+	return len(fake.stopStagingRequestsNatsSubjectArgsForCall)
+}
+
+func (fake *FakeBackend) StopStagingRequestsNatsSubjectReturns(result1 string) {
+	fake.StopStagingRequestsNatsSubjectStub = nil
+	fake.stopStagingRequestsNatsSubjectReturns = struct {
+		result1 string
+	}{result1}
+}
+
 func (fake *FakeBackend) StagingRequestsReceivedCounter() metric.Counter {
 	fake.stagingRequestsReceivedCounterMutex.Lock()
 	fake.stagingRequestsReceivedCounterArgsForCall = append(fake.stagingRequestsReceivedCounterArgsForCall, struct{}{})
@@ -102,6 +147,30 @@ func (fake *FakeBackend) StagingRequestsReceivedCounterCallCount() int {
 func (fake *FakeBackend) StagingRequestsReceivedCounterReturns(result1 metric.Counter) {
 	fake.StagingRequestsReceivedCounterStub = nil
 	fake.stagingRequestsReceivedCounterReturns = struct {
+		result1 metric.Counter
+	}{result1}
+}
+
+func (fake *FakeBackend) StopStagingRequestsReceivedCounter() metric.Counter {
+	fake.stopStagingRequestsReceivedCounterMutex.Lock()
+	fake.stopStagingRequestsReceivedCounterArgsForCall = append(fake.stopStagingRequestsReceivedCounterArgsForCall, struct{}{})
+	fake.stopStagingRequestsReceivedCounterMutex.Unlock()
+	if fake.StopStagingRequestsReceivedCounterStub != nil {
+		return fake.StopStagingRequestsReceivedCounterStub()
+	} else {
+		return fake.stopStagingRequestsReceivedCounterReturns.result1
+	}
+}
+
+func (fake *FakeBackend) StopStagingRequestsReceivedCounterCallCount() int {
+	fake.stopStagingRequestsReceivedCounterMutex.RLock()
+	defer fake.stopStagingRequestsReceivedCounterMutex.RUnlock()
+	return len(fake.stopStagingRequestsReceivedCounterArgsForCall)
+}
+
+func (fake *FakeBackend) StopStagingRequestsReceivedCounterReturns(result1 metric.Counter) {
+	fake.StopStagingRequestsReceivedCounterStub = nil
+	fake.stopStagingRequestsReceivedCounterReturns = struct {
 		result1 metric.Counter
 	}{result1}
 }
@@ -226,6 +295,39 @@ func (fake *FakeBackend) BuildStagingResponseFromRequestErrorReturns(result1 []b
 	fake.BuildStagingResponseFromRequestErrorStub = nil
 	fake.buildStagingResponseFromRequestErrorReturns = struct {
 		result1 []byte
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeBackend) StagingTaskGuid(requestJson []byte) (string, error) {
+	fake.stagingTaskGuidMutex.Lock()
+	fake.stagingTaskGuidArgsForCall = append(fake.stagingTaskGuidArgsForCall, struct {
+		requestJson []byte
+	}{requestJson})
+	fake.stagingTaskGuidMutex.Unlock()
+	if fake.StagingTaskGuidStub != nil {
+		return fake.StagingTaskGuidStub(requestJson)
+	} else {
+		return fake.stagingTaskGuidReturns.result1, fake.stagingTaskGuidReturns.result2
+	}
+}
+
+func (fake *FakeBackend) StagingTaskGuidCallCount() int {
+	fake.stagingTaskGuidMutex.RLock()
+	defer fake.stagingTaskGuidMutex.RUnlock()
+	return len(fake.stagingTaskGuidArgsForCall)
+}
+
+func (fake *FakeBackend) StagingTaskGuidArgsForCall(i int) []byte {
+	fake.stagingTaskGuidMutex.RLock()
+	defer fake.stagingTaskGuidMutex.RUnlock()
+	return fake.stagingTaskGuidArgsForCall[i].requestJson
+}
+
+func (fake *FakeBackend) StagingTaskGuidReturns(result1 string, result2 error) {
+	fake.StagingTaskGuidStub = nil
+	fake.stagingTaskGuidReturns = struct {
+		result1 string
 		result2 error
 	}{result1, result2}
 }

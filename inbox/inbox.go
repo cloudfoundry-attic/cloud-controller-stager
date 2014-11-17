@@ -34,6 +34,7 @@ func New(natsClient diegonats.NATSClient, ccClient cc_client.CcClient, diegoClie
 
 func (inbox *Inbox) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 	inbox.subscribeStagingStart()
+	inbox.subscribeStagingStop()
 
 	close(ready)
 
@@ -50,8 +51,16 @@ func (inbox *Inbox) subscribeStagingStart() {
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
+}
 
-	return
+func (inbox *Inbox) subscribeStagingStop() {
+	for {
+		_, err := inbox.natsClient.Subscribe(inbox.backend.StopStagingRequestsNatsSubject(), inbox.onStopStagingRequest)
+		if err == nil {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
 }
 
 func (inbox *Inbox) onStagingRequest(message *nats.Msg) {
@@ -79,6 +88,24 @@ func (inbox *Inbox) onStagingRequest(message *nats.Msg) {
 	if err != nil {
 		requestLogger.Error("staging-failed", err, lager.Data{"message": message.Data})
 		inbox.sendStagingCompleteError("Staging failed: ", err, message.Data)
+	}
+}
+
+func (inbox *Inbox) onStopStagingRequest(message *nats.Msg) {
+	requestLogger := inbox.logger.Session("stop-staging-request")
+	inbox.backend.StopStagingRequestsReceivedCounter().Increment()
+
+	taskGuid, err := inbox.backend.StagingTaskGuid(message.Data)
+	if err != nil {
+		requestLogger.Error("staging-task-guid-failed", err, lager.Data{"message": message.Data})
+		return
+	}
+
+	requestLogger.Info("cancelling", lager.Data{"task_guid": taskGuid})
+
+	err = inbox.diegoClient.CancelTask(taskGuid)
+	if err != nil {
+		requestLogger.Error("stop-staging-failed", err, lager.Data{"message": message.Data})
 	}
 }
 

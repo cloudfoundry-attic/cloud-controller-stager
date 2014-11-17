@@ -18,12 +18,14 @@ import (
 )
 
 const (
-	DockerTaskDomain                     = "cf-app-docker-staging"
-	DockerCircusFilename                 = "docker-circus.zip"
-	DockerStagingRequestsNatsSubject     = "diego.docker.staging.start"
-	DockerStagingRequestsReceivedCounter = metric.Counter("DockerStagingRequestsReceived")
-	DockerTailorExecutablePath           = "/tmp/docker-circus/tailor"
-	DockerTailorOutputPath               = "/tmp/docker-result/result.json"
+	DockerTaskDomain                         = "cf-app-docker-staging"
+	DockerCircusFilename                     = "docker-circus.zip"
+	DockerStagingRequestsNatsSubject         = "diego.docker.staging.start"
+	DockerStagingRequestsReceivedCounter     = metric.Counter("DockerStagingRequestsReceived")
+	DockerStopStagingRequestsNatsSubject     = "diego.docker.staging.stop"
+	DockerStopStagingRequestsReceivedCounter = metric.Counter("DockerStopStagingRequestsReceived")
+	DockerTailorExecutablePath               = "/tmp/docker-circus/tailor"
+	DockerTailorOutputPath                   = "/tmp/docker-result/result.json"
 )
 
 var ErrMissingDockerImageUrl = errors.New("missing docker image download url")
@@ -46,6 +48,14 @@ func (backend *dockerBackend) StagingRequestsNatsSubject() string {
 
 func (backend *dockerBackend) StagingRequestsReceivedCounter() metric.Counter {
 	return DockerStagingRequestsReceivedCounter
+}
+
+func (backend *dockerBackend) StopStagingRequestsNatsSubject() string {
+	return DockerStopStagingRequestsNatsSubject
+}
+
+func (backend *dockerBackend) StopStagingRequestsReceivedCounter() metric.Counter {
+	return DockerStopStagingRequestsReceivedCounter
 }
 
 func (backend *dockerBackend) TaskDomain() string {
@@ -187,6 +197,24 @@ func (backend *dockerBackend) BuildStagingResponse(taskResponse receptor.TaskRes
 	return json.Marshal(response)
 }
 
+func (backend *dockerBackend) StagingTaskGuid(requestJson []byte) (string, error) {
+	var request cc_messages.StopStagingRequestFromCC
+	err := json.Unmarshal(requestJson, &request)
+	if err != nil {
+		return "", err
+	}
+
+	if request.AppId == "" {
+		return "", ErrMissingAppId
+	}
+
+	if request.TaskId == "" {
+		return "", ErrMissingTaskId
+	}
+
+	return stagingTaskGuid(request.AppId, request.TaskId), nil
+}
+
 func (backend *dockerBackend) compilerDownloadURL(request cc_messages.DockerStagingRequestFromCC) (*url.URL, error) {
 
 	var circusFilename string
@@ -225,7 +253,7 @@ func (backend *dockerBackend) compilerDownloadURL(request cc_messages.DockerStag
 }
 
 func (backend *dockerBackend) taskGuid(request cc_messages.DockerStagingRequestFromCC) string {
-	return fmt.Sprintf("%s-%s", request.AppId, request.TaskId)
+	return stagingTaskGuid(request.AppId, request.TaskId)
 }
 
 func (backend *dockerBackend) validateRequest(stagingRequest cc_messages.DockerStagingRequestFromCC) error {
