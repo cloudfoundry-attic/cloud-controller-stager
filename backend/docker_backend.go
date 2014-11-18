@@ -233,7 +233,7 @@ func (backend *dockerBackend) compilerDownloadURL(request cc_messages.DockerStag
 	case "":
 		break
 	default:
-		return nil, errors.New("wTF")
+		return nil, fmt.Errorf("unknown scheme: '%s'", parsed.Scheme)
 	}
 
 	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_STATIC)
