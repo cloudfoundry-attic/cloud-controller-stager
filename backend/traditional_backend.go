@@ -191,17 +191,19 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	actions = append(
 		actions,
 		models.EmitProgressFor(
-			models.ExecutorAction{
-				models.RunAction{
-					Path:    tailorConfig.Path(),
-					Args:    tailorConfig.Args(),
-					Env:     request.Environment.BBSEnvironment(),
-					Timeout: 15 * time.Minute,
-					ResourceLimits: models.ResourceLimits{
-						Nofile: fileDescriptorLimit,
+			models.Timeout(
+				models.ExecutorAction{
+					models.RunAction{
+						Path:    tailorConfig.Path(),
+						Args:    tailorConfig.Args(),
+						Env:     request.Environment.BBSEnvironment(),
+						ResourceLimits: models.ResourceLimits{
+							Nofile: fileDescriptorLimit,
+						},
 					},
 				},
-			},
+				15 * time.Minute,
+			),
 			"Staging...",
 			"Staging Complete",
 			"Staging Failed",

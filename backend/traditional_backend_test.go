@@ -171,27 +171,29 @@ var _ = Describe("TraditionalBackend", func() {
 	JustBeforeEach(func() {
 		fileDescriptorLimit := uint64(512)
 		runAction = models.EmitProgressFor(
-			models.ExecutorAction{
-				models.RunAction{
-					Path: "/tmp/circus/tailor",
-					Args: []string{
-						"-appDir=/app",
-						"-buildArtifactsCacheDir=/tmp/cache",
-						"-buildpackOrder=" + buildpackOrder,
-						"-buildpacksDir=/tmp/buildpacks",
-						"-outputBuildArtifactsCache=/tmp/output-cache",
-						"-outputDroplet=/tmp/droplet",
-						"-outputMetadata=/tmp/result.json",
-						"-skipCertVerify=false",
+			models.Timeout(
+				models.ExecutorAction{
+					models.RunAction{
+						Path: "/tmp/circus/tailor",
+						Args: []string{
+							"-appDir=/app",
+							"-buildArtifactsCacheDir=/tmp/cache",
+							"-buildpackOrder=" + buildpackOrder,
+							"-buildpacksDir=/tmp/buildpacks",
+							"-outputBuildArtifactsCache=/tmp/output-cache",
+							"-outputDroplet=/tmp/droplet",
+							"-outputMetadata=/tmp/result.json",
+							"-skipCertVerify=false",
+						},
+						Env: []models.EnvironmentVariable{
+							{"VCAP_APPLICATION", "foo"},
+							{"VCAP_SERVICES", "bar"},
+						},
+						ResourceLimits: models.ResourceLimits{Nofile: &fileDescriptorLimit},
 					},
-					Env: []models.EnvironmentVariable{
-						{"VCAP_APPLICATION", "foo"},
-						{"VCAP_SERVICES", "bar"},
-					},
-					Timeout:        15 * time.Minute,
-					ResourceLimits: models.ResourceLimits{Nofile: &fileDescriptorLimit},
 				},
-			},
+				15 * time.Minute,
+			),
 			"Staging...",
 			"Staging Complete",
 			"Staging Failed",
@@ -398,27 +400,29 @@ var _ = Describe("TraditionalBackend", func() {
 				Ω(err).ShouldNot(HaveOccurred())
 
 				runAction = models.EmitProgressFor(
-					models.ExecutorAction{
-						models.RunAction{
-							Path: "/tmp/circus/tailor",
-							Args: []string{
-								"-appDir=/app",
-								"-buildArtifactsCacheDir=/tmp/cache",
-								"-buildpackOrder=zfirst-buildpack,asecond-buildpack",
-								"-buildpacksDir=/tmp/buildpacks",
-								"-outputBuildArtifactsCache=/tmp/output-cache",
-								"-outputDroplet=/tmp/droplet",
-								"-outputMetadata=/tmp/result.json",
-								"-skipCertVerify=false",
+					models.Timeout(
+						models.ExecutorAction{
+							models.RunAction{
+								Path: "/tmp/circus/tailor",
+								Args: []string{
+									"-appDir=/app",
+									"-buildArtifactsCacheDir=/tmp/cache",
+									"-buildpackOrder=zfirst-buildpack,asecond-buildpack",
+									"-buildpacksDir=/tmp/buildpacks",
+									"-outputBuildArtifactsCache=/tmp/output-cache",
+									"-outputDroplet=/tmp/droplet",
+									"-outputMetadata=/tmp/result.json",
+									"-skipCertVerify=false",
+								},
+								Env: []models.EnvironmentVariable{
+									{"VCAP_APPLICATION", "foo"},
+									{"VCAP_SERVICES", "bar"},
+								},
+								ResourceLimits: models.ResourceLimits{Nofile: &config.MinFileDescriptors},
 							},
-							Env: []models.EnvironmentVariable{
-								{"VCAP_APPLICATION", "foo"},
-								{"VCAP_SERVICES", "bar"},
-							},
-							Timeout:        15 * time.Minute,
-							ResourceLimits: models.ResourceLimits{Nofile: &config.MinFileDescriptors},
 						},
-					},
+						15 * time.Minute,
+					),
 					"Staging...",
 					"Staging Complete",
 					"Staging Failed",
@@ -563,8 +567,20 @@ var _ = Describe("TraditionalBackend", func() {
 			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 
 			Ω(err).ShouldNot(HaveOccurred())
-			runAction := desiredTask.Action.Action.(models.SerialAction).Actions[1].Action.(models.EmitProgressAction).Action.Action.(models.RunAction)
-			Ω(runAction.Args).Should(Equal(args))
+
+			serialAction := desiredTask.Action.Action
+			Ω(serialAction).Should(BeAssignableToTypeOf(models.SerialAction{}))
+
+			emitProgressAction := serialAction.(models.SerialAction).Actions[1].Action
+			Ω(emitProgressAction).Should(BeAssignableToTypeOf(models.EmitProgressAction{}))
+
+			timeoutAction := emitProgressAction.(models.EmitProgressAction).Action.Action
+			Ω(timeoutAction).Should(BeAssignableToTypeOf(models.TimeoutAction{}))
+			Ω(timeoutAction.(models.TimeoutAction).Timeout).Should(Equal(15 * time.Minute))
+
+			runAction := timeoutAction.(models.TimeoutAction).Action.Action
+			Ω(runAction).Should(BeAssignableToTypeOf(models.RunAction{}))
+			Ω(runAction.(models.RunAction).Args).Should(Equal(args))
 		})
 	})
 

@@ -76,31 +76,33 @@ var _ = Describe("DockerBackend", func() {
 		fileDescriptorLimit := uint64(512)
 
 		runAction = models.EmitProgressFor(
-			models.ExecutorAction{
-				models.RunAction{
-					Path: "/tmp/docker-circus/tailor",
-					Args: []string{
-						"-outputMetadataJSONFilename",
-						"/tmp/docker-result/result.json",
-						"-dockerRef",
-						"busybox",
-					},
-					Env: []models.EnvironmentVariable{
-						{
-							Name:  "VCAP_APPLICATION",
-							Value: "foo",
+			models.Timeout(
+				models.ExecutorAction{
+					models.RunAction{
+						Path: "/tmp/docker-circus/tailor",
+						Args: []string{
+							"-outputMetadataJSONFilename",
+							"/tmp/docker-result/result.json",
+							"-dockerRef",
+							"busybox",
 						},
-						{
-							Name:  "VCAP_SERVICES",
-							Value: "bar",
+						Env: []models.EnvironmentVariable{
+							{
+								Name:  "VCAP_APPLICATION",
+								Value: "foo",
+							},
+							{
+								Name:  "VCAP_SERVICES",
+								Value: "bar",
+							},
 						},
-					},
-					Timeout: 15 * time.Minute,
-					ResourceLimits: models.ResourceLimits{
-						Nofile: &fileDescriptorLimit,
+						ResourceLimits: models.ResourceLimits{
+							Nofile: &fileDescriptorLimit,
+						},
 					},
 				},
-			},
+				15 * time.Minute,
+			),
 			"Staging...",
 			"Staging Complete",
 			"Staging Failed",
@@ -229,21 +231,23 @@ var _ = Describe("DockerBackend", func() {
 				Ω(err).ShouldNot(HaveOccurred())
 
 				Ω(desiredTask.Action.Action.(models.SerialAction).Actions[1]).Should(Equal(models.EmitProgressFor(
-					models.ExecutorAction{
-						models.RunAction{
-							Path: "/tmp/docker-circus/tailor",
-							Args: []string{
-								"-outputMetadataJSONFilename", "/tmp/docker-result/result.json",
-								"-dockerRef", "busybox",
+					models.Timeout(
+						models.ExecutorAction{
+							models.RunAction{
+								Path: "/tmp/docker-circus/tailor",
+								Args: []string{
+									"-outputMetadataJSONFilename", "/tmp/docker-result/result.json",
+									"-dockerRef", "busybox",
+								},
+								Env: []models.EnvironmentVariable{
+									{"VCAP_APPLICATION", "foo"},
+									{"VCAP_SERVICES", "bar"},
+								},
+								ResourceLimits: models.ResourceLimits{Nofile: &config.MinFileDescriptors},
 							},
-							Env: []models.EnvironmentVariable{
-								{"VCAP_APPLICATION", "foo"},
-								{"VCAP_SERVICES", "bar"},
-							},
-							Timeout:        15 * time.Minute,
-							ResourceLimits: models.ResourceLimits{Nofile: &config.MinFileDescriptors},
 						},
-					},
+						15 * time.Minute,
+					),
 					"Staging...",
 					"Staging Complete",
 					"Staging Failed",

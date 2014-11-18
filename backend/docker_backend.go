@@ -111,17 +111,19 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 	actions = append(
 		actions,
 		models.EmitProgressFor(
-			models.ExecutorAction{
-				models.RunAction{
-					Path:    DockerTailorExecutablePath,
-					Args:    []string{"-outputMetadataJSONFilename", DockerTailorOutputPath, "-dockerRef", request.DockerImageUrl},
-					Env:     request.Environment.BBSEnvironment(),
-					Timeout: 15 * time.Minute,
-					ResourceLimits: models.ResourceLimits{
-						Nofile: fileDescriptorLimit,
+			models.Timeout(
+				models.ExecutorAction{
+					models.RunAction{
+						Path:    DockerTailorExecutablePath,
+						Args:    []string{"-outputMetadataJSONFilename", DockerTailorOutputPath, "-dockerRef", request.DockerImageUrl},
+						Env:     request.Environment.BBSEnvironment(),
+						ResourceLimits: models.ResourceLimits{
+							Nofile: fileDescriptorLimit,
+						},
 					},
 				},
-			},
+				15 * time.Minute,
+			),
 			"Staging...",
 			"Staging Complete",
 			"Staging Failed",
