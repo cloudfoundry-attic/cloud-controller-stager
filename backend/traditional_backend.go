@@ -191,19 +191,16 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	actions = append(
 		actions,
 		models.EmitProgressFor(
-			models.Timeout(
-				models.ExecutorAction{
-					models.RunAction{
-						Path:    tailorConfig.Path(),
-						Args:    tailorConfig.Args(),
-						Env:     request.Environment.BBSEnvironment(),
-						ResourceLimits: models.ResourceLimits{
-							Nofile: fileDescriptorLimit,
-						},
+			models.ExecutorAction{
+				models.RunAction{
+					Path: tailorConfig.Path(),
+					Args: tailorConfig.Args(),
+					Env:  request.Environment.BBSEnvironment(),
+					ResourceLimits: models.ResourceLimits{
+						Nofile: fileDescriptorLimit,
 					},
 				},
-				15 * time.Minute,
-			),
+			},
 			"Staging...",
 			"Staging Complete",
 			"Staging Failed",
@@ -273,7 +270,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 		MemoryMB:              int(max(uint64(request.MemoryMB), uint64(backend.config.MinMemoryMB))),
 		DiskMB:                int(max(uint64(request.DiskMB), uint64(backend.config.MinDiskMB))),
 		CPUWeight:             StagingTaskCpuWeight,
-		Action:                models.Serial(actions...),
+		Action:                models.Timeout(models.Serial(actions...), time.Duration(request.Timeout)*time.Second),
 		LogGuid:               request.AppId,
 		LogSource:             TaskLogSource,
 		CompletionCallbackURL: backend.config.CallbackURL,

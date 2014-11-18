@@ -72,6 +72,7 @@ var _ = Describe("TraditionalBackend", func() {
 				{"VCAP_APPLICATION", "foo"},
 				{"VCAP_SERVICES", "bar"},
 			},
+			Timeout: 900,
 		}
 
 		downloadTailorAction = models.EmitProgressFor(
@@ -171,29 +172,26 @@ var _ = Describe("TraditionalBackend", func() {
 	JustBeforeEach(func() {
 		fileDescriptorLimit := uint64(512)
 		runAction = models.EmitProgressFor(
-			models.Timeout(
-				models.ExecutorAction{
-					models.RunAction{
-						Path: "/tmp/circus/tailor",
-						Args: []string{
-							"-appDir=/app",
-							"-buildArtifactsCacheDir=/tmp/cache",
-							"-buildpackOrder=" + buildpackOrder,
-							"-buildpacksDir=/tmp/buildpacks",
-							"-outputBuildArtifactsCache=/tmp/output-cache",
-							"-outputDroplet=/tmp/droplet",
-							"-outputMetadata=/tmp/result.json",
-							"-skipCertVerify=false",
-						},
-						Env: []models.EnvironmentVariable{
-							{"VCAP_APPLICATION", "foo"},
-							{"VCAP_SERVICES", "bar"},
-						},
-						ResourceLimits: models.ResourceLimits{Nofile: &fileDescriptorLimit},
+			models.ExecutorAction{
+				models.RunAction{
+					Path: "/tmp/circus/tailor",
+					Args: []string{
+						"-appDir=/app",
+						"-buildArtifactsCacheDir=/tmp/cache",
+						"-buildpackOrder=" + buildpackOrder,
+						"-buildpacksDir=/tmp/buildpacks",
+						"-outputBuildArtifactsCache=/tmp/output-cache",
+						"-outputDroplet=/tmp/droplet",
+						"-outputMetadata=/tmp/result.json",
+						"-skipCertVerify=false",
 					},
+					Env: []models.EnvironmentVariable{
+						{"VCAP_APPLICATION", "foo"},
+						{"VCAP_SERVICES", "bar"},
+					},
+					ResourceLimits: models.ResourceLimits{Nofile: &fileDescriptorLimit},
 				},
-				15 * time.Minute,
-			),
+			},
 			"Staging...",
 			"Staging Complete",
 			"Staging Failed",
@@ -267,7 +265,7 @@ var _ = Describe("TraditionalBackend", func() {
 			TaskId: "hop",
 		}))
 
-		Ω(actionsFromExecutorSerialAction(desiredTask.Action)).Should(Equal([]models.ExecutorAction{
+		Ω(actionsFromDesiredTask(desiredTask)).Should(Equal([]models.ExecutorAction{
 			models.EmitProgressFor(
 				models.Parallel(
 					downloadTailorAction,
@@ -327,7 +325,7 @@ var _ = Describe("TraditionalBackend", func() {
 				TaskId: "hop",
 			}))
 
-			actions := actionsFromExecutorSerialAction(desiredTask.Action)
+			actions := actionsFromDesiredTask(desiredTask)
 
 			Ω(actions).Should(HaveLen(3))
 			Ω(actions[0]).Should(Equal(models.EmitProgressFor(
@@ -400,35 +398,32 @@ var _ = Describe("TraditionalBackend", func() {
 				Ω(err).ShouldNot(HaveOccurred())
 
 				runAction = models.EmitProgressFor(
-					models.Timeout(
-						models.ExecutorAction{
-							models.RunAction{
-								Path: "/tmp/circus/tailor",
-								Args: []string{
-									"-appDir=/app",
-									"-buildArtifactsCacheDir=/tmp/cache",
-									"-buildpackOrder=zfirst-buildpack,asecond-buildpack",
-									"-buildpacksDir=/tmp/buildpacks",
-									"-outputBuildArtifactsCache=/tmp/output-cache",
-									"-outputDroplet=/tmp/droplet",
-									"-outputMetadata=/tmp/result.json",
-									"-skipCertVerify=false",
-								},
-								Env: []models.EnvironmentVariable{
-									{"VCAP_APPLICATION", "foo"},
-									{"VCAP_SERVICES", "bar"},
-								},
-								ResourceLimits: models.ResourceLimits{Nofile: &config.MinFileDescriptors},
+					models.ExecutorAction{
+						models.RunAction{
+							Path: "/tmp/circus/tailor",
+							Args: []string{
+								"-appDir=/app",
+								"-buildArtifactsCacheDir=/tmp/cache",
+								"-buildpackOrder=zfirst-buildpack,asecond-buildpack",
+								"-buildpacksDir=/tmp/buildpacks",
+								"-outputBuildArtifactsCache=/tmp/output-cache",
+								"-outputDroplet=/tmp/droplet",
+								"-outputMetadata=/tmp/result.json",
+								"-skipCertVerify=false",
 							},
+							Env: []models.EnvironmentVariable{
+								{"VCAP_APPLICATION", "foo"},
+								{"VCAP_SERVICES", "bar"},
+							},
+							ResourceLimits: models.ResourceLimits{Nofile: &config.MinFileDescriptors},
 						},
-						15 * time.Minute,
-					),
+					},
 					"Staging...",
 					"Staging Complete",
 					"Staging Failed",
 				)
 
-				Ω(desiredTask.Action.Action.(models.SerialAction).Actions).Should(Equal([]models.ExecutorAction{
+				Ω(actionsFromDesiredTask(desiredTask)).Should(Equal([]models.ExecutorAction{
 					models.EmitProgressFor(
 						models.Parallel(
 							downloadTailorAction,
@@ -465,7 +460,14 @@ var _ = Describe("TraditionalBackend", func() {
 			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 			Ω(err).ShouldNot(HaveOccurred())
 
-			Ω(desiredTask.Action.Action.(models.SerialAction).Actions).Should(Equal([]models.ExecutorAction{
+			timeoutAction := desiredTask.Action.Action
+			Ω(timeoutAction).Should(BeAssignableToTypeOf(models.TimeoutAction{}))
+			Ω(timeoutAction.(models.TimeoutAction).Timeout).Should(Equal(15 * time.Minute))
+
+			serialAction := timeoutAction.(models.TimeoutAction).Action.Action
+			Ω(serialAction).Should(BeAssignableToTypeOf(models.SerialAction{}))
+
+			Ω(serialAction.(models.SerialAction).Actions).Should(Equal([]models.ExecutorAction{
 				models.EmitProgressFor(
 					models.Parallel(
 						downloadTailorAction,
@@ -513,8 +515,25 @@ var _ = Describe("TraditionalBackend", func() {
 			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 			Ω(err).ShouldNot(HaveOccurred())
 
-			downloadAction := desiredTask.Action.Action.(models.SerialAction).Actions[0].Action.(models.EmitProgressAction).Action.Action.(models.ParallelAction).Actions[0].Action.(models.EmitProgressAction).Action.Action.(models.DownloadAction)
-			Ω(downloadAction.From).Should(Equal("http://the-full-compiler-url"))
+			timeoutAction := desiredTask.Action.Action
+			Ω(timeoutAction).Should(BeAssignableToTypeOf(models.TimeoutAction{}))
+			Ω(timeoutAction.(models.TimeoutAction).Timeout).Should(Equal(15 * time.Minute))
+
+			serialAction := timeoutAction.(models.TimeoutAction).Action.Action
+			Ω(serialAction).Should(BeAssignableToTypeOf(models.SerialAction{}))
+
+			emitProgressAction := serialAction.(models.SerialAction).Actions[0].Action
+			Ω(emitProgressAction).Should(BeAssignableToTypeOf(models.EmitProgressAction{}))
+
+			parallelAction := emitProgressAction.(models.EmitProgressAction).Action.Action
+			Ω(parallelAction).Should(BeAssignableToTypeOf(models.ParallelAction{}))
+
+			secondEmitProgressAction := parallelAction.(models.ParallelAction).Actions[0].Action
+			Ω(secondEmitProgressAction).Should(BeAssignableToTypeOf(models.EmitProgressAction{}))
+
+			downloadAction := secondEmitProgressAction.(models.EmitProgressAction).Action.Action
+			Ω(downloadAction).Should(BeAssignableToTypeOf(models.DownloadAction{}))
+			Ω(downloadAction.(models.DownloadAction).From).Should(Equal("http://the-full-compiler-url"))
 		})
 	})
 
@@ -568,17 +587,17 @@ var _ = Describe("TraditionalBackend", func() {
 
 			Ω(err).ShouldNot(HaveOccurred())
 
-			serialAction := desiredTask.Action.Action
+			timeoutAction := desiredTask.Action.Action
+			Ω(timeoutAction).Should(BeAssignableToTypeOf(models.TimeoutAction{}))
+			Ω(timeoutAction.(models.TimeoutAction).Timeout).Should(Equal(15 * time.Minute))
+
+			serialAction := timeoutAction.(models.TimeoutAction).Action.Action
 			Ω(serialAction).Should(BeAssignableToTypeOf(models.SerialAction{}))
 
 			emitProgressAction := serialAction.(models.SerialAction).Actions[1].Action
 			Ω(emitProgressAction).Should(BeAssignableToTypeOf(models.EmitProgressAction{}))
 
-			timeoutAction := emitProgressAction.(models.EmitProgressAction).Action.Action
-			Ω(timeoutAction).Should(BeAssignableToTypeOf(models.TimeoutAction{}))
-			Ω(timeoutAction.(models.TimeoutAction).Timeout).Should(Equal(15 * time.Minute))
-
-			runAction := timeoutAction.(models.TimeoutAction).Action.Action
+			runAction := emitProgressAction.(models.EmitProgressAction).Action.Action
 			Ω(runAction).Should(BeAssignableToTypeOf(models.RunAction{}))
 			Ω(runAction.(models.RunAction).Args).Should(Equal(args))
 		})
@@ -769,6 +788,12 @@ var _ = Describe("TraditionalBackend", func() {
 	})
 })
 
-func actionsFromExecutorSerialAction(action models.ExecutorAction) []models.ExecutorAction {
-	return action.Action.(models.SerialAction).Actions
+func actionsFromDesiredTask(desiredTask receptor.TaskCreateRequest) []models.ExecutorAction {
+	timeoutAction := desiredTask.Action.Action
+	Ω(timeoutAction).Should(BeAssignableToTypeOf(models.TimeoutAction{}))
+
+	serialAction := timeoutAction.(models.TimeoutAction).Action.Action
+	Ω(serialAction).Should(BeAssignableToTypeOf(models.SerialAction{}))
+
+	return serialAction.(models.SerialAction).Actions
 }
