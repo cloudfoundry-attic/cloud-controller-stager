@@ -787,13 +787,3 @@ var _ = Describe("TraditionalBackend", func() {
 		})
 	})
 })
-
-func actionsFromDesiredTask(desiredTask receptor.TaskCreateRequest) []models.ExecutorAction {
-	timeoutAction := desiredTask.Action.Action
-	Ω(timeoutAction).Should(BeAssignableToTypeOf(models.TimeoutAction{}))
-
-	serialAction := timeoutAction.(models.TimeoutAction).Action.Action
-	Ω(serialAction).Should(BeAssignableToTypeOf(models.SerialAction{}))
-
-	return serialAction.(models.SerialAction).Actions
-}

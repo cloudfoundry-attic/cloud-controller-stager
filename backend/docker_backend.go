@@ -111,19 +111,16 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 	actions = append(
 		actions,
 		models.EmitProgressFor(
-			models.Timeout(
-				models.ExecutorAction{
-					models.RunAction{
-						Path:    DockerTailorExecutablePath,
-						Args:    []string{"-outputMetadataJSONFilename", DockerTailorOutputPath, "-dockerRef", request.DockerImageUrl},
-						Env:     request.Environment.BBSEnvironment(),
-						ResourceLimits: models.ResourceLimits{
-							Nofile: fileDescriptorLimit,
-						},
+			models.ExecutorAction{
+				models.RunAction{
+					Path: DockerTailorExecutablePath,
+					Args: []string{"-outputMetadataJSONFilename", DockerTailorOutputPath, "-dockerRef", request.DockerImageUrl},
+					Env:  request.Environment.BBSEnvironment(),
+					ResourceLimits: models.ResourceLimits{
+						Nofile: fileDescriptorLimit,
 					},
 				},
-				15 * time.Minute,
-			),
+			},
 			"Staging...",
 			"Staging Complete",
 			"Staging Failed",
@@ -142,7 +139,7 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		Stack:                 request.Stack,
 		MemoryMB:              int(max(uint64(request.MemoryMB), uint64(backend.config.MinMemoryMB))),
 		DiskMB:                int(max(uint64(request.DiskMB), uint64(backend.config.MinDiskMB))),
-		Action:                models.Serial(actions...),
+		Action:                models.Timeout(models.Serial(actions...), time.Duration(request.Timeout)*time.Second),
 		CompletionCallbackURL: backend.config.CallbackURL,
 		LogGuid:               request.AppId,
 		LogSource:             TaskLogSource,

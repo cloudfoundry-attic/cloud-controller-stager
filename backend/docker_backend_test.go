@@ -2,7 +2,6 @@ package backend_test
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
@@ -58,6 +57,7 @@ var _ = Describe("DockerBackend", func() {
 				{"VCAP_APPLICATION", "foo"},
 				{"VCAP_SERVICES", "bar"},
 			},
+			Timeout: 900,
 		}
 
 		downloadTailorAction = models.EmitProgressFor(
@@ -76,33 +76,30 @@ var _ = Describe("DockerBackend", func() {
 		fileDescriptorLimit := uint64(512)
 
 		runAction = models.EmitProgressFor(
-			models.Timeout(
-				models.ExecutorAction{
-					models.RunAction{
-						Path: "/tmp/docker-circus/tailor",
-						Args: []string{
-							"-outputMetadataJSONFilename",
-							"/tmp/docker-result/result.json",
-							"-dockerRef",
-							"busybox",
+			models.ExecutorAction{
+				models.RunAction{
+					Path: "/tmp/docker-circus/tailor",
+					Args: []string{
+						"-outputMetadataJSONFilename",
+						"/tmp/docker-result/result.json",
+						"-dockerRef",
+						"busybox",
+					},
+					Env: []models.EnvironmentVariable{
+						{
+							Name:  "VCAP_APPLICATION",
+							Value: "foo",
 						},
-						Env: []models.EnvironmentVariable{
-							{
-								Name:  "VCAP_APPLICATION",
-								Value: "foo",
-							},
-							{
-								Name:  "VCAP_SERVICES",
-								Value: "bar",
-							},
-						},
-						ResourceLimits: models.ResourceLimits{
-							Nofile: &fileDescriptorLimit,
+						{
+							Name:  "VCAP_SERVICES",
+							Value: "bar",
 						},
 					},
+					ResourceLimits: models.ResourceLimits{
+						Nofile: &fileDescriptorLimit,
+					},
 				},
-				15 * time.Minute,
-			),
+			},
 			"Staging...",
 			"Staging Complete",
 			"Staging Failed",
@@ -178,7 +175,7 @@ var _ = Describe("DockerBackend", func() {
 			TaskId: "hop",
 		}))
 
-		actions := desiredTask.Action.Action.(models.SerialAction).Actions
+		actions := actionsFromDesiredTask(desiredTask)
 		Ω(actions).Should(HaveLen(2))
 		Ω(actions[0]).Should(Equal(downloadTailorAction))
 		Ω(actions[1]).Should(Equal(runAction))
@@ -230,24 +227,21 @@ var _ = Describe("DockerBackend", func() {
 				desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				Ω(desiredTask.Action.Action.(models.SerialAction).Actions[1]).Should(Equal(models.EmitProgressFor(
-					models.Timeout(
-						models.ExecutorAction{
-							models.RunAction{
-								Path: "/tmp/docker-circus/tailor",
-								Args: []string{
-									"-outputMetadataJSONFilename", "/tmp/docker-result/result.json",
-									"-dockerRef", "busybox",
-								},
-								Env: []models.EnvironmentVariable{
-									{"VCAP_APPLICATION", "foo"},
-									{"VCAP_SERVICES", "bar"},
-								},
-								ResourceLimits: models.ResourceLimits{Nofile: &config.MinFileDescriptors},
+				Ω(actionsFromDesiredTask(desiredTask)[1]).Should(Equal(models.EmitProgressFor(
+					models.ExecutorAction{
+						models.RunAction{
+							Path: "/tmp/docker-circus/tailor",
+							Args: []string{
+								"-outputMetadataJSONFilename", "/tmp/docker-result/result.json",
+								"-dockerRef", "busybox",
 							},
+							Env: []models.EnvironmentVariable{
+								{"VCAP_APPLICATION", "foo"},
+								{"VCAP_SERVICES", "bar"},
+							},
+							ResourceLimits: models.ResourceLimits{Nofile: &config.MinFileDescriptors},
 						},
-						15 * time.Minute,
-					),
+					},
 					"Staging...",
 					"Staging Complete",
 					"Staging Failed",
