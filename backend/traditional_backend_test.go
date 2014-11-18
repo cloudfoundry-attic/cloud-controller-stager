@@ -2,7 +2,6 @@ package backend_test
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
@@ -460,14 +459,7 @@ var _ = Describe("TraditionalBackend", func() {
 			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 			Ω(err).ShouldNot(HaveOccurred())
 
-			timeoutAction := desiredTask.Action.Action
-			Ω(timeoutAction).Should(BeAssignableToTypeOf(models.TimeoutAction{}))
-			Ω(timeoutAction.(models.TimeoutAction).Timeout).Should(Equal(15 * time.Minute))
-
-			serialAction := timeoutAction.(models.TimeoutAction).Action.Action
-			Ω(serialAction).Should(BeAssignableToTypeOf(models.SerialAction{}))
-
-			Ω(serialAction.(models.SerialAction).Actions).Should(Equal([]models.ExecutorAction{
+			Ω(actionsFromDesiredTask(desiredTask)).Should(Equal([]models.ExecutorAction{
 				models.EmitProgressFor(
 					models.Parallel(
 						downloadTailorAction,
@@ -515,14 +507,7 @@ var _ = Describe("TraditionalBackend", func() {
 			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 			Ω(err).ShouldNot(HaveOccurred())
 
-			timeoutAction := desiredTask.Action.Action
-			Ω(timeoutAction).Should(BeAssignableToTypeOf(models.TimeoutAction{}))
-			Ω(timeoutAction.(models.TimeoutAction).Timeout).Should(Equal(15 * time.Minute))
-
-			serialAction := timeoutAction.(models.TimeoutAction).Action.Action
-			Ω(serialAction).Should(BeAssignableToTypeOf(models.SerialAction{}))
-
-			emitProgressAction := serialAction.(models.SerialAction).Actions[0].Action
+			emitProgressAction := actionsFromDesiredTask(desiredTask)[0].Action
 			Ω(emitProgressAction).Should(BeAssignableToTypeOf(models.EmitProgressAction{}))
 
 			parallelAction := emitProgressAction.(models.EmitProgressAction).Action.Action
@@ -587,14 +572,7 @@ var _ = Describe("TraditionalBackend", func() {
 
 			Ω(err).ShouldNot(HaveOccurred())
 
-			timeoutAction := desiredTask.Action.Action
-			Ω(timeoutAction).Should(BeAssignableToTypeOf(models.TimeoutAction{}))
-			Ω(timeoutAction.(models.TimeoutAction).Timeout).Should(Equal(15 * time.Minute))
-
-			serialAction := timeoutAction.(models.TimeoutAction).Action.Action
-			Ω(serialAction).Should(BeAssignableToTypeOf(models.SerialAction{}))
-
-			emitProgressAction := serialAction.(models.SerialAction).Actions[1].Action
+			emitProgressAction := actionsFromDesiredTask(desiredTask)[1].Action
 			Ω(emitProgressAction).Should(BeAssignableToTypeOf(models.EmitProgressAction{}))
 
 			runAction := emitProgressAction.(models.EmitProgressAction).Action.Action
