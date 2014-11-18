@@ -2,6 +2,7 @@ package backend_test
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
@@ -21,9 +22,25 @@ var _ = Describe("DockerBackend", func() {
 		config               Config
 		callbackURL          string
 		backend              Backend
+
+		appId           string
+		taskId          string
+		dockerImageUrl  string
+		fileDescriptors int
+		memoryMB        int
+		diskMB          int
+		timeout         int
 	)
 
 	BeforeEach(func() {
+		appId = "bunny"
+		taskId = "hop"
+		dockerImageUrl = "busybox"
+		fileDescriptors = 512
+		memoryMB = 2048
+		diskMB = 3072
+		timeout = 900
+
 		callbackURL = "http://the-stager.example.com"
 
 		config = Config{
@@ -44,21 +61,6 @@ var _ = Describe("DockerBackend", func() {
 		logger.RegisterSink(lager.NewWriterSink(GinkgoWriter, lager.DEBUG))
 
 		backend = NewDockerBackend(config, logger)
-
-		stagingRequest = cc_messages.DockerStagingRequestFromCC{
-			AppId:           "bunny",
-			TaskId:          "hop",
-			DockerImageUrl:  "busybox",
-			Stack:           "rabbit_hole",
-			FileDescriptors: 512,
-			MemoryMB:        2048,
-			DiskMB:          3072,
-			Environment: cc_messages.Environment{
-				{"VCAP_APPLICATION", "foo"},
-				{"VCAP_SERVICES", "bar"},
-			},
-			Timeout: 900,
-		}
 
 		downloadTailorAction = models.EmitProgressFor(
 			models.ExecutorAction{
@@ -107,6 +109,21 @@ var _ = Describe("DockerBackend", func() {
 	})
 
 	JustBeforeEach(func() {
+		stagingRequest = cc_messages.DockerStagingRequestFromCC{
+			AppId:           appId,
+			TaskId:          taskId,
+			DockerImageUrl:  dockerImageUrl,
+			Stack:           "rabbit_hole",
+			FileDescriptors: fileDescriptors,
+			MemoryMB:        memoryMB,
+			DiskMB:          diskMB,
+			Environment: cc_messages.Environment{
+				{"VCAP_APPLICATION", "foo"},
+				{"VCAP_SERVICES", "bar"},
+			},
+			Timeout: timeout,
+		}
+
 		var err error
 		stagingRequestJson, err = json.Marshal(stagingRequest)
 		Ω(err).ShouldNot(HaveOccurred())
@@ -125,8 +142,9 @@ var _ = Describe("DockerBackend", func() {
 		})
 		Context("with a missing app id", func() {
 			BeforeEach(func() {
-				stagingRequest.AppId = ""
+				appId = ""
 			})
+
 			It("returns an error", func() {
 				_, err := backend.BuildRecipe(stagingRequestJson)
 				Ω(err).Should(Equal(ErrMissingAppId))
@@ -135,8 +153,9 @@ var _ = Describe("DockerBackend", func() {
 
 		Context("with a missing task id", func() {
 			BeforeEach(func() {
-				stagingRequest.TaskId = ""
+				taskId = ""
 			})
+
 			It("returns an error", func() {
 				_, err := backend.BuildRecipe(stagingRequestJson)
 				Ω(err).Should(Equal(ErrMissingTaskId))
@@ -145,8 +164,9 @@ var _ = Describe("DockerBackend", func() {
 
 		Context("with a missing docker image url", func() {
 			BeforeEach(func() {
-				stagingRequest.DockerImageUrl = ""
+				dockerImageUrl = ""
 			})
+
 			It("returns an error", func() {
 				_, err := backend.BuildRecipe(stagingRequestJson)
 				Ω(err).Should(Equal(ErrMissingDockerImageUrl))
@@ -191,10 +211,57 @@ var _ = Describe("DockerBackend", func() {
 		Ω(desiredTask.CompletionCallbackURL).Should(Equal(callbackURL))
 	})
 
+	Describe("staging action timeout", func() {
+		Context("when a positive timeout is specified in the staging request from CC", func() {
+			BeforeEach(func() {
+				timeout = 5
+			})
+
+			It("passes the timeout along", func() {
+				desiredTask, err := backend.BuildRecipe(stagingRequestJson)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				timeoutAction := desiredTask.Action.Action
+				Ω(timeoutAction).Should(BeAssignableToTypeOf(models.TimeoutAction{}))
+				Ω(timeoutAction.(models.TimeoutAction).Timeout).Should(Equal(time.Duration(timeout) * time.Second))
+			})
+		})
+
+		Context("when a 0 timeout is specified in the staging request from CC", func() {
+			BeforeEach(func() {
+				timeout = 0
+			})
+
+			It("uses the default timeout", func() {
+				desiredTask, err := backend.BuildRecipe(stagingRequestJson)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				timeoutAction := desiredTask.Action.Action
+				Ω(timeoutAction).Should(BeAssignableToTypeOf(models.TimeoutAction{}))
+				Ω(timeoutAction.(models.TimeoutAction).Timeout).Should(Equal(DefaultStagingTimeout))
+			})
+		})
+
+		Context("when a negative timeout is specified in the staging request from CC", func() {
+			BeforeEach(func() {
+				timeout = -3
+			})
+
+			It("uses the default timeout", func() {
+				desiredTask, err := backend.BuildRecipe(stagingRequestJson)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				timeoutAction := desiredTask.Action.Action
+				Ω(timeoutAction).Should(BeAssignableToTypeOf(models.TimeoutAction{}))
+				Ω(timeoutAction.(models.TimeoutAction).Timeout).Should(Equal(DefaultStagingTimeout))
+			})
+		})
+	})
+
 	Describe("resource limits", func() {
 		Context("when the app's memory limit is less than the minimum memory", func() {
 			BeforeEach(func() {
-				stagingRequest.MemoryMB = 256
+				memoryMB = 256
 			})
 
 			It("uses the minimum memory", func() {
@@ -207,7 +274,7 @@ var _ = Describe("DockerBackend", func() {
 
 		Context("when the app's disk limit is less than the minimum disk", func() {
 			BeforeEach(func() {
-				stagingRequest.DiskMB = 256
+				diskMB = 256
 			})
 
 			It("uses the minimum disk", func() {
@@ -220,7 +287,7 @@ var _ = Describe("DockerBackend", func() {
 
 		Context("when the app's memory limit is less than the minimum memory", func() {
 			BeforeEach(func() {
-				stagingRequest.FileDescriptors = 17
+				fileDescriptors = 17
 			})
 
 			It("uses the minimum file descriptors", func() {

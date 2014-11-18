@@ -2,6 +2,7 @@ package backend_test
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
@@ -14,20 +15,30 @@ import (
 
 var _ = Describe("TraditionalBackend", func() {
 	var (
-		backend                       Backend
-		stagingRequest                cc_messages.StagingRequestFromCC
-		stagingRequestJson            []byte
-		downloadTailorAction          models.ExecutorAction
-		downloadAppAction             models.ExecutorAction
-		downloadFirstBuildpackAction  models.ExecutorAction
-		downloadSecondBuildpackAction models.ExecutorAction
-		downloadBuildArtifactsAction  models.ExecutorAction
-		runAction                     models.ExecutorAction
-		uploadDropletAction           models.ExecutorAction
-		uploadBuildArtifactsAction    models.ExecutorAction
-		config                        Config
-		callbackURL                   string
-		buildpackOrder                string
+		backend                        Backend
+		stagingRequest                 cc_messages.StagingRequestFromCC
+		stagingRequestJson             []byte
+		downloadTailorAction           models.ExecutorAction
+		downloadAppAction              models.ExecutorAction
+		downloadFirstBuildpackAction   models.ExecutorAction
+		downloadSecondBuildpackAction  models.ExecutorAction
+		downloadBuildArtifactsAction   models.ExecutorAction
+		runAction                      models.ExecutorAction
+		uploadDropletAction            models.ExecutorAction
+		uploadBuildArtifactsAction     models.ExecutorAction
+		config                         Config
+		callbackURL                    string
+		buildpackOrder                 string
+		timeout                        int
+		stack                          string
+		memoryMB                       int
+		diskMB                         int
+		fileDescriptors                int
+		buildArtifactsCacheDownloadUri string
+		appId                          string
+		taskId                         string
+		buildpacks                     []cc_messages.Buildpack
+		appBitsDownloadUri             string
 	)
 
 	BeforeEach(func() {
@@ -52,27 +63,19 @@ var _ = Describe("TraditionalBackend", func() {
 
 		backend = NewTraditionalBackend(config, logger)
 
-		stagingRequest = cc_messages.StagingRequestFromCC{
-			AppId:                          "bunny",
-			TaskId:                         "hop",
-			AppBitsDownloadUri:             "http://example-uri.com/bunny",
-			BuildArtifactsCacheDownloadUri: "http://example-uri.com/bunny-droppings",
-			BuildArtifactsCacheUploadUri:   "http://example-uri.com/bunny-uppings",
-			DropletUploadUri:               "http://example-uri.com/droplet-upload",
-			Stack:                          "rabbit_hole",
-			FileDescriptors:                512,
-			MemoryMB:                       2048,
-			DiskMB:                         3072,
-			Buildpacks: []cc_messages.Buildpack{
-				{Name: "zfirst", Key: "zfirst-buildpack", Url: "first-buildpack-url"},
-				{Name: "asecond", Key: "asecond-buildpack", Url: "second-buildpack-url"},
-			},
-			Environment: cc_messages.Environment{
-				{"VCAP_APPLICATION", "foo"},
-				{"VCAP_SERVICES", "bar"},
-			},
-			Timeout: 900,
+		timeout = 900
+		stack = "rabbit_hole"
+		memoryMB = 2048
+		diskMB = 3072
+		fileDescriptors = 512
+		buildArtifactsCacheDownloadUri = "http://example-uri.com/bunny-droppings"
+		appId = "bunny"
+		taskId = "hop"
+		buildpacks = []cc_messages.Buildpack{
+			{Name: "zfirst", Key: "zfirst-buildpack", Url: "first-buildpack-url"},
+			{Name: "asecond", Key: "asecond-buildpack", Url: "second-buildpack-url"},
 		}
+		appBitsDownloadUri = "http://example-uri.com/bunny"
 
 		downloadTailorAction = models.EmitProgressFor(
 			models.ExecutorAction{
@@ -197,6 +200,25 @@ var _ = Describe("TraditionalBackend", func() {
 		)
 
 		var err error
+		stagingRequest = cc_messages.StagingRequestFromCC{
+			AppId:                          appId,
+			TaskId:                         taskId,
+			AppBitsDownloadUri:             appBitsDownloadUri,
+			BuildArtifactsCacheDownloadUri: buildArtifactsCacheDownloadUri,
+			BuildArtifactsCacheUploadUri:   "http://example-uri.com/bunny-uppings",
+			DropletUploadUri:               "http://example-uri.com/droplet-upload",
+			Stack:                          stack,
+			FileDescriptors:                fileDescriptors,
+			MemoryMB:                       memoryMB,
+			DiskMB:                         diskMB,
+			Buildpacks:                     buildpacks,
+			Environment: cc_messages.Environment{
+				{"VCAP_APPLICATION", "foo"},
+				{"VCAP_SERVICES", "bar"},
+			},
+			Timeout: timeout,
+		}
+
 		stagingRequestJson, err = json.Marshal(stagingRequest)
 		Ω(err).ShouldNot(HaveOccurred())
 	})
@@ -214,7 +236,7 @@ var _ = Describe("TraditionalBackend", func() {
 		})
 		Context("with a missing app id", func() {
 			BeforeEach(func() {
-				stagingRequest.AppId = ""
+				appId = ""
 			})
 			It("returns an error", func() {
 				_, err := backend.BuildRecipe(stagingRequestJson)
@@ -224,7 +246,7 @@ var _ = Describe("TraditionalBackend", func() {
 
 		Context("with a missing task id", func() {
 			BeforeEach(func() {
-				stagingRequest.TaskId = ""
+				taskId = ""
 			})
 			It("returns an error", func() {
 				_, err := backend.BuildRecipe(stagingRequestJson)
@@ -234,7 +256,7 @@ var _ = Describe("TraditionalBackend", func() {
 
 		Context("with a missing app bits download uri", func() {
 			BeforeEach(func() {
-				stagingRequest.AppBitsDownloadUri = ""
+				appBitsDownloadUri = ""
 			})
 			It("returns an error", func() {
 				_, err := backend.BuildRecipe(stagingRequestJson)
@@ -297,7 +319,7 @@ var _ = Describe("TraditionalBackend", func() {
 	Context("with a custom buildpack", func() {
 		var customBuildpack = "https://example.com/a/custom-buildpack.git"
 		BeforeEach(func() {
-			stagingRequest.Buildpacks = []cc_messages.Buildpack{
+			buildpacks = []cc_messages.Buildpack{
 				{Name: cc_messages.CUSTOM_BUILDPACK, Key: customBuildpack, Url: customBuildpack},
 			}
 			buildpackOrder = customBuildpack
@@ -360,10 +382,57 @@ var _ = Describe("TraditionalBackend", func() {
 		Ω(desiredTask.CompletionCallbackURL).Should(Equal(callbackURL))
 	})
 
+	Describe("staging action timeout", func() {
+		Context("when a positive timeout is specified in the staging request from CC", func() {
+			BeforeEach(func() {
+				timeout = 5
+			})
+
+			It("passes the timeout along", func() {
+				desiredTask, err := backend.BuildRecipe(stagingRequestJson)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				timeoutAction := desiredTask.Action.Action
+				Ω(timeoutAction).Should(BeAssignableToTypeOf(models.TimeoutAction{}))
+				Ω(timeoutAction.(models.TimeoutAction).Timeout).Should(Equal(time.Duration(timeout) * time.Second))
+			})
+		})
+
+		Context("when a 0 timeout is specified in the staging request from CC", func() {
+			BeforeEach(func() {
+				timeout = 0
+			})
+
+			It("uses the default timeout", func() {
+				desiredTask, err := backend.BuildRecipe(stagingRequestJson)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				timeoutAction := desiredTask.Action.Action
+				Ω(timeoutAction).Should(BeAssignableToTypeOf(models.TimeoutAction{}))
+				Ω(timeoutAction.(models.TimeoutAction).Timeout).Should(Equal(DefaultStagingTimeout))
+			})
+		})
+
+		Context("when a negative timeout is specified in the staging request from CC", func() {
+			BeforeEach(func() {
+				timeout = -3
+			})
+
+			It("uses the default timeout", func() {
+				desiredTask, err := backend.BuildRecipe(stagingRequestJson)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				timeoutAction := desiredTask.Action.Action
+				Ω(timeoutAction).Should(BeAssignableToTypeOf(models.TimeoutAction{}))
+				Ω(timeoutAction.(models.TimeoutAction).Timeout).Should(Equal(DefaultStagingTimeout))
+			})
+		})
+	})
+
 	Describe("resource limits", func() {
 		Context("when the app's memory limit is less than the minimum memory", func() {
 			BeforeEach(func() {
-				stagingRequest.MemoryMB = 256
+				memoryMB = 256
 			})
 
 			It("uses the minimum memory", func() {
@@ -376,7 +445,7 @@ var _ = Describe("TraditionalBackend", func() {
 
 		Context("when the app's disk limit is less than the minimum disk", func() {
 			BeforeEach(func() {
-				stagingRequest.DiskMB = 256
+				diskMB = 256
 			})
 
 			It("uses the minimum disk", func() {
@@ -389,7 +458,7 @@ var _ = Describe("TraditionalBackend", func() {
 
 		Context("when the app's memory limit is less than the minimum memory", func() {
 			BeforeEach(func() {
-				stagingRequest.FileDescriptors = 17
+				fileDescriptors = 17
 			})
 
 			It("uses the minimum file descriptors", func() {
@@ -452,7 +521,7 @@ var _ = Describe("TraditionalBackend", func() {
 
 	Context("when build artifacts download uris are not provided", func() {
 		BeforeEach(func() {
-			stagingRequest.BuildArtifactsCacheDownloadUri = ""
+			buildArtifactsCacheDownloadUri = ""
 		})
 
 		It("does not instruct the executor to download the cache", func() {
@@ -487,7 +556,7 @@ var _ = Describe("TraditionalBackend", func() {
 
 	Context("when no compiler is defined for the requested stack in backend configuration", func() {
 		BeforeEach(func() {
-			stagingRequest.Stack = "no_such_stack"
+			stack = "no_such_stack"
 		})
 
 		It("returns an error", func() {
@@ -500,7 +569,7 @@ var _ = Describe("TraditionalBackend", func() {
 
 	Context("when the compiler for the requested stack is specified as a full URL", func() {
 		BeforeEach(func() {
-			stagingRequest.Stack = "compiler_with_full_url"
+			stack = "compiler_with_full_url"
 		})
 
 		It("uses the full URL in the download tailor action", func() {
@@ -524,7 +593,7 @@ var _ = Describe("TraditionalBackend", func() {
 
 	Context("when the compiler for the requested stack is specified as a full URL with an unexpected scheme", func() {
 		BeforeEach(func() {
-			stagingRequest.Stack = "compiler_with_bad_url"
+			stack = "compiler_with_bad_url"
 		})
 
 		It("returns an error", func() {
@@ -535,7 +604,7 @@ var _ = Describe("TraditionalBackend", func() {
 
 	Context("when build artifacts download url is not a valid url", func() {
 		BeforeEach(func() {
-			stagingRequest.BuildArtifactsCacheDownloadUri = "not-a-uri"
+			buildArtifactsCacheDownloadUri = "not-a-uri"
 		})
 
 		It("return a url parsing error", func() {

@@ -3,13 +3,15 @@ package backend
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 )
 
 const (
-	TaskLogSource = "STG"
+	TaskLogSource         = "STG"
+	DefaultStagingTimeout = 15 * time.Minute
 )
 
 type Backend interface {

@@ -132,6 +132,19 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		TaskId: request.TaskId,
 	})
 
+	var timeout time.Duration
+	if request.Timeout > 0 {
+		timeout = time.Duration(request.Timeout) * time.Second
+	} else {
+		backend.logger.Info("overriding requested timeout", lager.Data{
+			"requested-timeout": request.Timeout,
+			"default-timeout":   DefaultStagingTimeout,
+			"app-id":            request.AppId,
+			"task-id":           request.TaskId,
+		})
+		timeout = DefaultStagingTimeout
+	}
+
 	task := receptor.TaskCreateRequest{
 		ResultFile:            DockerTailorOutputPath,
 		TaskGuid:              backend.taskGuid(request),
@@ -139,7 +152,7 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		Stack:                 request.Stack,
 		MemoryMB:              int(max(uint64(request.MemoryMB), uint64(backend.config.MinMemoryMB))),
 		DiskMB:                int(max(uint64(request.DiskMB), uint64(backend.config.MinDiskMB))),
-		Action:                models.Timeout(models.Serial(actions...), time.Duration(request.Timeout)*time.Second),
+		Action:                models.Timeout(models.Serial(actions...), timeout),
 		CompletionCallbackURL: backend.config.CallbackURL,
 		LogGuid:               request.AppId,
 		LogSource:             TaskLogSource,
