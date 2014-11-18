@@ -82,18 +82,16 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		return receptor.TaskCreateRequest{}, err
 	}
 
-	actions := []models.ExecutorAction{}
+	actions := []models.Action{}
 
 	//Download tailor
 	actions = append(
 		actions,
 		models.EmitProgressFor(
-			models.ExecutorAction{
-				models.DownloadAction{
-					From:     compilerURL.String(),
-					To:       path.Dir(DockerTailorExecutablePath),
-					CacheKey: "tailor-docker",
-				},
+			&models.DownloadAction{
+				From:     compilerURL.String(),
+				To:       path.Dir(DockerTailorExecutablePath),
+				CacheKey: "tailor-docker",
 			},
 			"",
 			"",
@@ -111,14 +109,12 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 	actions = append(
 		actions,
 		models.EmitProgressFor(
-			models.ExecutorAction{
-				models.RunAction{
-					Path: DockerTailorExecutablePath,
-					Args: []string{"-outputMetadataJSONFilename", DockerTailorOutputPath, "-dockerRef", request.DockerImageUrl},
-					Env:  request.Environment.BBSEnvironment(),
-					ResourceLimits: models.ResourceLimits{
-						Nofile: fileDescriptorLimit,
-					},
+			&models.RunAction{
+				Path: DockerTailorExecutablePath,
+				Args: []string{"-outputMetadataJSONFilename", DockerTailorOutputPath, "-dockerRef", request.DockerImageUrl},
+				Env:  request.Environment.BBSEnvironment(),
+				ResourceLimits: models.ResourceLimits{
+					Nofile: fileDescriptorLimit,
 				},
 			},
 			"Staging...",

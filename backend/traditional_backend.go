@@ -88,21 +88,19 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 
 	timeout := traditionalTimeout(request, backend.logger)
 
-	actions := []models.ExecutorAction{}
+	actions := []models.Action{}
 
-	downloadActions := []models.ExecutorAction{}
+	downloadActions := []models.Action{}
 	downloadNames := []string{}
 
 	//Download tailor
 	downloadActions = append(
 		downloadActions,
 		models.EmitProgressFor(
-			models.ExecutorAction{
-				models.DownloadAction{
-					From:     compilerURL.String(),
-					To:       path.Dir(tailorConfig.ExecutablePath),
-					CacheKey: fmt.Sprintf("tailor-%s", request.Stack),
-				},
+			&models.DownloadAction{
+				From:     compilerURL.String(),
+				To:       path.Dir(tailorConfig.ExecutablePath),
+				CacheKey: fmt.Sprintf("tailor-%s", request.Stack),
 			},
 			"",
 			"",
@@ -114,11 +112,9 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	downloadActions = append(
 		downloadActions,
 		models.EmitProgressFor(
-			models.ExecutorAction{
-				models.DownloadAction{
-					From: request.AppBitsDownloadUri,
-					To:   tailorConfig.AppDir(),
-				},
+			&models.DownloadAction{
+				From: request.AppBitsDownloadUri,
+				To:   tailorConfig.AppDir(),
 			},
 			"",
 			"Downloaded App Package",
@@ -137,12 +133,10 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 			downloadActions = append(
 				downloadActions,
 				models.EmitProgressFor(
-					models.ExecutorAction{
-						models.DownloadAction{
-							From:     buildpack.Url,
-							To:       tailorConfig.BuildpackPath(buildpack.Key),
-							CacheKey: buildpack.Key,
-						},
+					&models.DownloadAction{
+						From:     buildpack.Url,
+						To:       tailorConfig.BuildpackPath(buildpack.Key),
+						CacheKey: buildpack.Key,
 					},
 					"",
 					fmt.Sprintf("Downloaded Buildpack: %s", buildpack.Name),
@@ -165,11 +159,9 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 			downloadActions,
 			models.Try(
 				models.EmitProgressFor(
-					models.ExecutorAction{
-						models.DownloadAction{
-							From: downloadURL.String(),
-							To:   tailorConfig.BuildArtifactsCacheDir(),
-						},
+					&models.DownloadAction{
+						From: downloadURL.String(),
+						To:   tailorConfig.BuildArtifactsCacheDir(),
 					},
 					"",
 					"Downloaded Build Artifacts Cache",
@@ -193,14 +185,12 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	actions = append(
 		actions,
 		models.EmitProgressFor(
-			models.ExecutorAction{
-				models.RunAction{
-					Path: tailorConfig.Path(),
-					Args: tailorConfig.Args(),
-					Env:  request.Environment.BBSEnvironment(),
-					ResourceLimits: models.ResourceLimits{
-						Nofile: fileDescriptorLimit,
-					},
+			&models.RunAction{
+				Path: tailorConfig.Path(),
+				Args: tailorConfig.Args(),
+				Env:  request.Environment.BBSEnvironment(),
+				ResourceLimits: models.ResourceLimits{
+					Nofile: fileDescriptorLimit,
 				},
 			},
 			"Staging...",
@@ -209,7 +199,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 		),
 	)
 
-	uploadActions := []models.ExecutorAction{}
+	uploadActions := []models.Action{}
 	uploadNames := []string{}
 	//Upload Droplet
 	uploadURL, err := backend.dropletUploadURL(request)
@@ -220,11 +210,9 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	uploadActions = append(
 		uploadActions,
 		models.EmitProgressFor(
-			models.ExecutorAction{
-				models.UploadAction{
-					From: tailorConfig.OutputDroplet(), // get the droplet
-					To:   addTimeoutParamToURL(*uploadURL, timeout).String(),
-				},
+			&models.UploadAction{
+				From: tailorConfig.OutputDroplet(), // get the droplet
+				To:   addTimeoutParamToURL(*uploadURL, timeout).String(),
 			},
 			"",
 			"Droplet Uploaded",
@@ -242,11 +230,9 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	uploadActions = append(uploadActions,
 		models.Try(
 			models.EmitProgressFor(
-				models.ExecutorAction{
-					models.UploadAction{
-						From: tailorConfig.OutputBuildArtifactsCache(), // get the compressed build artifacts cache
-						To:   addTimeoutParamToURL(*uploadURL, timeout).String(),
-					},
+				&models.UploadAction{
+					From: tailorConfig.OutputBuildArtifactsCache(), // get the compressed build artifacts cache
+					To:   addTimeoutParamToURL(*uploadURL, timeout).String(),
 				},
 				"",
 				"Uploaded Build Artifacts Cache",

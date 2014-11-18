@@ -17,8 +17,8 @@ var _ = Describe("DockerBackend", func() {
 	var (
 		stagingRequest       cc_messages.DockerStagingRequestFromCC
 		stagingRequestJson   []byte
-		downloadTailorAction models.ExecutorAction
-		runAction            models.ExecutorAction
+		downloadTailorAction models.Action
+		runAction            models.Action
 		config               Config
 		callbackURL          string
 		backend              Backend
@@ -63,12 +63,10 @@ var _ = Describe("DockerBackend", func() {
 		backend = NewDockerBackend(config, logger)
 
 		downloadTailorAction = models.EmitProgressFor(
-			models.ExecutorAction{
-				models.DownloadAction{
-					From:     "http://file-server.com/v1/static/docker-circus.zip",
-					To:       "/tmp/docker-circus",
-					CacheKey: "tailor-docker",
-				},
+			&models.DownloadAction{
+				From:     "http://file-server.com/v1/static/docker-circus.zip",
+				To:       "/tmp/docker-circus",
+				CacheKey: "tailor-docker",
 			},
 			"",
 			"",
@@ -78,28 +76,26 @@ var _ = Describe("DockerBackend", func() {
 		fileDescriptorLimit := uint64(512)
 
 		runAction = models.EmitProgressFor(
-			models.ExecutorAction{
-				models.RunAction{
-					Path: "/tmp/docker-circus/tailor",
-					Args: []string{
-						"-outputMetadataJSONFilename",
-						"/tmp/docker-result/result.json",
-						"-dockerRef",
-						"busybox",
+			&models.RunAction{
+				Path: "/tmp/docker-circus/tailor",
+				Args: []string{
+					"-outputMetadataJSONFilename",
+					"/tmp/docker-result/result.json",
+					"-dockerRef",
+					"busybox",
+				},
+				Env: []models.EnvironmentVariable{
+					{
+						Name:  "VCAP_APPLICATION",
+						Value: "foo",
 					},
-					Env: []models.EnvironmentVariable{
-						{
-							Name:  "VCAP_APPLICATION",
-							Value: "foo",
-						},
-						{
-							Name:  "VCAP_SERVICES",
-							Value: "bar",
-						},
+					{
+						Name:  "VCAP_SERVICES",
+						Value: "bar",
 					},
-					ResourceLimits: models.ResourceLimits{
-						Nofile: &fileDescriptorLimit,
-					},
+				},
+				ResourceLimits: models.ResourceLimits{
+					Nofile: &fileDescriptorLimit,
 				},
 			},
 			"Staging...",
@@ -221,9 +217,9 @@ var _ = Describe("DockerBackend", func() {
 				desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				timeoutAction := desiredTask.Action.Action
-				Ω(timeoutAction).Should(BeAssignableToTypeOf(models.TimeoutAction{}))
-				Ω(timeoutAction.(models.TimeoutAction).Timeout).Should(Equal(time.Duration(timeout) * time.Second))
+				timeoutAction := desiredTask.Action
+				Ω(timeoutAction).Should(BeAssignableToTypeOf(&models.TimeoutAction{}))
+				Ω(timeoutAction.(*models.TimeoutAction).Timeout).Should(Equal(time.Duration(timeout) * time.Second))
 			})
 		})
 
@@ -236,9 +232,9 @@ var _ = Describe("DockerBackend", func() {
 				desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				timeoutAction := desiredTask.Action.Action
-				Ω(timeoutAction).Should(BeAssignableToTypeOf(models.TimeoutAction{}))
-				Ω(timeoutAction.(models.TimeoutAction).Timeout).Should(Equal(DefaultStagingTimeout))
+				timeoutAction := desiredTask.Action
+				Ω(timeoutAction).Should(BeAssignableToTypeOf(&models.TimeoutAction{}))
+				Ω(timeoutAction.(*models.TimeoutAction).Timeout).Should(Equal(DefaultStagingTimeout))
 			})
 		})
 
@@ -251,9 +247,9 @@ var _ = Describe("DockerBackend", func() {
 				desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				timeoutAction := desiredTask.Action.Action
-				Ω(timeoutAction).Should(BeAssignableToTypeOf(models.TimeoutAction{}))
-				Ω(timeoutAction.(models.TimeoutAction).Timeout).Should(Equal(DefaultStagingTimeout))
+				timeoutAction := desiredTask.Action
+				Ω(timeoutAction).Should(BeAssignableToTypeOf(&models.TimeoutAction{}))
+				Ω(timeoutAction.(*models.TimeoutAction).Timeout).Should(Equal(DefaultStagingTimeout))
 			})
 		})
 	})
@@ -295,19 +291,17 @@ var _ = Describe("DockerBackend", func() {
 				Ω(err).ShouldNot(HaveOccurred())
 
 				Ω(actionsFromDesiredTask(desiredTask)[1]).Should(Equal(models.EmitProgressFor(
-					models.ExecutorAction{
-						models.RunAction{
-							Path: "/tmp/docker-circus/tailor",
-							Args: []string{
-								"-outputMetadataJSONFilename", "/tmp/docker-result/result.json",
-								"-dockerRef", "busybox",
-							},
-							Env: []models.EnvironmentVariable{
-								{"VCAP_APPLICATION", "foo"},
-								{"VCAP_SERVICES", "bar"},
-							},
-							ResourceLimits: models.ResourceLimits{Nofile: &config.MinFileDescriptors},
+					&models.RunAction{
+						Path: "/tmp/docker-circus/tailor",
+						Args: []string{
+							"-outputMetadataJSONFilename", "/tmp/docker-result/result.json",
+							"-dockerRef", "busybox",
 						},
+						Env: []models.EnvironmentVariable{
+							{"VCAP_APPLICATION", "foo"},
+							{"VCAP_SERVICES", "bar"},
+						},
+						ResourceLimits: models.ResourceLimits{Nofile: &config.MinFileDescriptors},
 					},
 					"Staging...",
 					"Staging Complete",

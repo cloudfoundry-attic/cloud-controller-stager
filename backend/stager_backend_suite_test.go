@@ -9,14 +9,14 @@ import (
 	"testing"
 )
 
-func actionsFromDesiredTask(desiredTask receptor.TaskCreateRequest) []models.ExecutorAction {
-	timeoutAction := desiredTask.Action.Action
-	Ω(timeoutAction).Should(BeAssignableToTypeOf(models.TimeoutAction{}))
+func actionsFromDesiredTask(desiredTask receptor.TaskCreateRequest) []models.Action {
+	timeoutAction := desiredTask.Action
+	Ω(timeoutAction).Should(BeAssignableToTypeOf(&models.TimeoutAction{}))
 
-	serialAction := timeoutAction.(models.TimeoutAction).Action.Action
-	Ω(serialAction).Should(BeAssignableToTypeOf(models.SerialAction{}))
+	serialAction := timeoutAction.(*models.TimeoutAction).Action
+	Ω(serialAction).Should(BeAssignableToTypeOf(&models.SerialAction{}))
 
-	return serialAction.(models.SerialAction).Actions
+	return serialAction.(*models.SerialAction).Actions
 }
 
 func TestBackend(t *testing.T) {

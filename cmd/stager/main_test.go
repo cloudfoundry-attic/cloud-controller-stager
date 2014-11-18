@@ -127,10 +127,8 @@ var _ = Describe("Stager", func() {
 
 				taskJSON, err := json.Marshal(receptor.TaskResponse{
 					TaskGuid: "the-task-guid",
-					Action: models.ExecutorAction{
-						models.RunAction{
-							Path: "ls",
-						},
+					Action: &models.RunAction{
+						Path: "ls",
 					},
 					Domain:     backend.TraditionalTaskDomain,
 					Annotation: `{}`,
