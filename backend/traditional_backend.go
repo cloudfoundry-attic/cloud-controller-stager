@@ -86,6 +86,8 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 
 	tailorConfig := models.NewCircusTailorConfig(buildpacksOrder, backend.config.SkipCertVerify)
 
+	timeout := traditionalTimeout(request, backend.logger)
+
 	actions := []models.ExecutorAction{}
 
 	downloadActions := []models.ExecutorAction{}
@@ -221,7 +223,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 			models.ExecutorAction{
 				models.UploadAction{
 					From: tailorConfig.OutputDroplet(), // get the droplet
-					To:   uploadURL.String(),
+					To:   addTimeoutParamToURL(*uploadURL, timeout).String(),
 				},
 			},
 			"",
@@ -243,7 +245,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 				models.ExecutorAction{
 					models.UploadAction{
 						From: tailorConfig.OutputBuildArtifactsCache(), // get the compressed build artifacts cache
-						To:   uploadURL.String(),
+						To:   addTimeoutParamToURL(*uploadURL, timeout).String(),
 					},
 				},
 				"",
@@ -261,19 +263,6 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 		AppId:  request.AppId,
 		TaskId: request.TaskId,
 	})
-
-	var timeout time.Duration
-	if request.Timeout > 0 {
-		timeout = time.Duration(request.Timeout) * time.Second
-	} else {
-		backend.logger.Info("overriding requested timeout", lager.Data{
-			"requested-timeout": request.Timeout,
-			"default-timeout":   DefaultStagingTimeout,
-			"app-id":            request.AppId,
-			"task-id":           request.TaskId,
-		})
-		timeout = DefaultStagingTimeout
-	}
 
 	task := receptor.TaskCreateRequest{
 		TaskGuid:              backend.taskGuid(request),
@@ -483,4 +472,18 @@ func (backend *traditionalBackend) validateRequest(stagingRequest cc_messages.St
 	}
 
 	return nil
+}
+
+func traditionalTimeout(request cc_messages.StagingRequestFromCC, logger lager.Logger) time.Duration {
+	if request.Timeout > 0 {
+		return time.Duration(request.Timeout) * time.Second
+	} else {
+		logger.Info("overriding requested timeout", lager.Data{
+			"requested-timeout": request.Timeout,
+			"default-timeout":   DefaultStagingTimeout,
+			"app-id":            request.AppId,
+			"task-id":           request.TaskId,
+		})
+		return DefaultStagingTimeout
+	}
 }

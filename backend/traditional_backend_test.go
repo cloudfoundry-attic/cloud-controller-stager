@@ -2,6 +2,7 @@ package backend_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/cloudfoundry-incubator/receptor"
@@ -148,7 +149,7 @@ var _ = Describe("TraditionalBackend", func() {
 			models.ExecutorAction{
 				models.UploadAction{
 					From: "/tmp/droplet",
-					To:   "http://file-server.com/v1/droplet/bunny?" + models.CcDropletUploadUriKey + "=http%3A%2F%2Fexample-uri.com%2Fdroplet-upload",
+					To:   "http://file-server.com/v1/droplet/bunny?" + models.CcDropletUploadUriKey + "=http%3A%2F%2Fexample-uri.com%2Fdroplet-upload" + "&" + models.CcTimeoutKey + "=" + fmt.Sprintf("%d", timeout),
 				},
 			},
 			"",
@@ -161,7 +162,7 @@ var _ = Describe("TraditionalBackend", func() {
 				models.ExecutorAction{
 					models.UploadAction{
 						From: "/tmp/output-cache",
-						To:   "http://file-server.com/v1/build_artifacts/bunny?" + models.CcBuildArtifactsUploadUriKey + "=http%3A%2F%2Fexample-uri.com%2Fbunny-uppings",
+						To:   "http://file-server.com/v1/build_artifacts/bunny?" + models.CcBuildArtifactsUploadUriKey + "=http%3A%2F%2Fexample-uri.com%2Fbunny-uppings" + "&" + models.CcTimeoutKey + "=" + fmt.Sprintf("%d", timeout),
 					},
 				},
 				"",
