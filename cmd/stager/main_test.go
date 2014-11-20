@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 
 	"github.com/cloudfoundry/gunk/diegonats"
 	"github.com/tedsuo/ifrit"
@@ -35,8 +34,6 @@ var _ = Describe("Stager", func() {
 		stagerPort = 8888 + GinkgoParallelNode()
 
 		fakeServer = ghttp.NewServer()
-		fakeServerURL, err := url.Parse(fakeServer.URL())
-		Ω(err).ShouldNot(HaveOccurred())
 
 		gnatsdRunner, natsClient = diegonats.StartGnatsd(natsPort)
 
@@ -46,7 +43,7 @@ var _ = Describe("Stager", func() {
 			StagerBin:     stagerPath,
 			StagerURL:     fmt.Sprintf("http://127.0.0.1:%d", stagerPort),
 			NatsAddresses: []string{fmt.Sprintf("127.0.0.1:%d", natsPort)},
-			DiegoAPIURL:   fakeServerURL.Host,
+			DiegoAPIURL:   fakeServer.URL(),
 			CCBaseURL:     fakeCC.URL(),
 		})
 	})

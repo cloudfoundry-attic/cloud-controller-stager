@@ -134,7 +134,7 @@ func main() {
 	initializeDropsonde(logger)
 
 	ccClient := cc_client.NewCcClient(*ccBaseURL, *ccUsername, *ccPassword, *skipCertVerify)
-	diegoAPIClient := receptor.NewClient(*diegoAPIURL, "", "")
+	diegoAPIClient := receptor.NewClient(*diegoAPIURL)
 
 	cf_debug_server.Run()
 
