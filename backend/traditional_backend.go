@@ -90,6 +90,19 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 
 	actions := []models.Action{}
 
+	//Download App Package
+	appDownloadAction := models.EmitProgressFor(
+		&models.DownloadAction{
+			From: request.AppBitsDownloadUri,
+			To:   tailorConfig.AppDir(),
+		},
+		"Downloading App Package...",
+		"Downloaded App Package",
+		"Failed to Download App Package",
+	)
+
+	actions = append(actions, appDownloadAction)
+
 	downloadActions := []models.Action{}
 	downloadNames := []string{}
 
@@ -107,21 +120,6 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 			"Failed to Download Tailor",
 		),
 	)
-
-	//Download App Package
-	downloadActions = append(
-		downloadActions,
-		models.EmitProgressFor(
-			&models.DownloadAction{
-				From: request.AppBitsDownloadUri,
-				To:   tailorConfig.AppDir(),
-			},
-			"",
-			"Downloaded App Package",
-			"Failed to Download App Package",
-		),
-	)
-	downloadNames = append(downloadNames, "app")
 
 	//Download Buildpacks
 	buildpackNames := []string{}
@@ -150,7 +148,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 		}
 	}
 
-	downloadNames = append(downloadNames, fmt.Sprintf("buildpacks (%s)", strings.Join(buildpackNames, ", ")))
+	downloadNames = append(downloadNames, fmt.Sprintf("Buildpacks (%s)", strings.Join(buildpackNames, ", ")))
 
 	//Download Buildpack Artifacts Cache
 	downloadURL, err := backend.buildArtifactsDownloadURL(request)
@@ -173,11 +171,11 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 				),
 			),
 		)
-		downloadNames = append(downloadNames, "artifacts cache")
+		downloadNames = append(downloadNames, "Artifacts Cache")
 	}
 
-	downloadMsg := downloadMsgPrefix + fmt.Sprintf("Fetching %s...", strings.Join(downloadNames, ", "))
-	actions = append(actions, models.EmitProgressFor(models.Parallel(downloadActions...), downloadMsg, "Fetching complete", "Fetching failed"))
+	downloadMsg := downloadMsgPrefix + fmt.Sprintf("Downloading %s...", strings.Join(downloadNames, ", "))
+	actions = append(actions, models.EmitProgressFor(models.Parallel(downloadActions...), downloadMsg, "Downloaded Buildpacks", "Downloading Buildpacks Failed"))
 
 	var fileDescriptorLimit *uint64
 	if request.FileDescriptors != 0 {

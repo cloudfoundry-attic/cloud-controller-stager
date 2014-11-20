@@ -94,7 +94,7 @@ var _ = Describe("TraditionalBackend", func() {
 				From: "http://example-uri.com/bunny",
 				To:   "/app",
 			},
-			"",
+			"Downloading App Package...",
 			"Downloaded App Package",
 			"Failed to Download App Package",
 		)
@@ -273,18 +273,18 @@ var _ = Describe("TraditionalBackend", func() {
 
 		actions := actionsFromDesiredTask(desiredTask)
 		Ω(actions).Should(Equal([]models.Action{
+			downloadAppAction,
 			models.EmitProgressFor(
 				models.Parallel(
 					downloadTailorAction,
-					downloadAppAction,
 					downloadFirstBuildpackAction,
 					downloadSecondBuildpackAction,
 					downloadBuildArtifactsAction,
 				),
 				"No buildpack specified; fetching standard buildpacks to detect and build your application.\n"+
-					"Fetching app, buildpacks (zfirst, asecond), artifacts cache...",
-				"Fetching complete",
-				"Fetching failed",
+					"Downloading Buildpacks (zfirst, asecond), Artifacts Cache...",
+				"Downloaded Buildpacks",
+				"Downloading Buildpacks Failed",
 			),
 			runAction,
 			models.EmitProgressFor(
@@ -335,19 +335,19 @@ var _ = Describe("TraditionalBackend", func() {
 
 			actions := actionsFromDesiredTask(desiredTask)
 
-			Ω(actions).Should(HaveLen(3))
-			Ω(actions[0]).Should(Equal(models.EmitProgressFor(
+			Ω(actions).Should(HaveLen(4))
+			Ω(actions[0]).Should(Equal(downloadAppAction))
+			Ω(actions[1]).Should(Equal(models.EmitProgressFor(
 				models.Parallel(
 					downloadTailorAction,
-					downloadAppAction,
 					downloadBuildArtifactsAction,
 				),
-				"Fetching app, buildpacks ("+customBuildpack+"), artifacts cache...",
-				"Fetching complete",
-				"Fetching failed",
+				"Downloading Buildpacks ("+customBuildpack+"), Artifacts Cache...",
+				"Downloaded Buildpacks",
+				"Downloading Buildpacks Failed",
 			)))
-			Ω(actions[1]).Should(Equal(runAction))
-			Ω(actions[2]).Should(Equal(models.EmitProgressFor(
+			Ω(actions[2]).Should(Equal(runAction))
+			Ω(actions[3]).Should(Equal(models.EmitProgressFor(
 				models.Parallel(
 					uploadDropletAction,
 					uploadBuildArtifactsAction,
@@ -477,18 +477,18 @@ var _ = Describe("TraditionalBackend", func() {
 				)
 
 				Ω(actionsFromDesiredTask(desiredTask)).Should(Equal([]models.Action{
+					downloadAppAction,
 					models.EmitProgressFor(
 						models.Parallel(
 							downloadTailorAction,
-							downloadAppAction,
 							downloadFirstBuildpackAction,
 							downloadSecondBuildpackAction,
 							downloadBuildArtifactsAction,
 						),
 						"No buildpack specified; fetching standard buildpacks to detect and build your application.\n"+
-							"Fetching app, buildpacks (zfirst, asecond), artifacts cache...",
-						"Fetching complete",
-						"Fetching failed",
+							"Downloading Buildpacks (zfirst, asecond), Artifacts Cache...",
+						"Downloaded Buildpacks",
+						"Downloading Buildpacks Failed",
 					),
 					runAction,
 					models.EmitProgressFor(
@@ -515,17 +515,17 @@ var _ = Describe("TraditionalBackend", func() {
 			Ω(err).ShouldNot(HaveOccurred())
 
 			Ω(actionsFromDesiredTask(desiredTask)).Should(Equal([]models.Action{
+				downloadAppAction,
 				models.EmitProgressFor(
 					models.Parallel(
 						downloadTailorAction,
-						downloadAppAction,
 						downloadFirstBuildpackAction,
 						downloadSecondBuildpackAction,
 					),
 					"No buildpack specified; fetching standard buildpacks to detect and build your application.\n"+
-						"Fetching app, buildpacks (zfirst, asecond)...",
-					"Fetching complete",
-					"Fetching failed",
+						"Downloading Buildpacks (zfirst, asecond)...",
+					"Downloaded Buildpacks",
+					"Downloading Buildpacks Failed",
 				),
 				runAction,
 				models.EmitProgressFor(
@@ -564,7 +564,7 @@ var _ = Describe("TraditionalBackend", func() {
 			Ω(err).ShouldNot(HaveOccurred())
 
 			actions := actionsFromDesiredTask(desiredTask)
-			downloadAction := actions[0].(*models.EmitProgressAction).Action.(*models.ParallelAction).Actions[0].(*models.EmitProgressAction).Action.(*models.DownloadAction)
+			downloadAction := actions[1].(*models.EmitProgressAction).Action.(*models.ParallelAction).Actions[0].(*models.EmitProgressAction).Action.(*models.DownloadAction)
 			Ω(downloadAction.From).Should(Equal("http://the-full-compiler-url"))
 		})
 	})
@@ -626,7 +626,7 @@ var _ = Describe("TraditionalBackend", func() {
 			serialAction := timeoutAction.(*models.TimeoutAction).Action
 			Ω(serialAction).Should(BeAssignableToTypeOf(&models.SerialAction{}))
 
-			emitProgressAction := serialAction.(*models.SerialAction).Actions[1]
+			emitProgressAction := serialAction.(*models.SerialAction).Actions[2]
 			Ω(emitProgressAction).Should(BeAssignableToTypeOf(&models.EmitProgressAction{}))
 
 			runAction := emitProgressAction.(*models.EmitProgressAction).Action
