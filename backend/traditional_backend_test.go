@@ -281,7 +281,8 @@ var _ = Describe("TraditionalBackend", func() {
 					downloadSecondBuildpackAction,
 					downloadBuildArtifactsAction,
 				),
-				"Fetching app, buildpacks (zfirst, asecond), artifacts cache...",
+				"No buildpack specified; fetching standard buildpacks to detect and build your application.\n"+
+					"Fetching app, buildpacks (zfirst, asecond), artifacts cache...",
 				"Fetching complete",
 				"Fetching failed",
 			),
@@ -484,7 +485,8 @@ var _ = Describe("TraditionalBackend", func() {
 							downloadSecondBuildpackAction,
 							downloadBuildArtifactsAction,
 						),
-						"Fetching app, buildpacks (zfirst, asecond), artifacts cache...",
+						"No buildpack specified; fetching standard buildpacks to detect and build your application.\n"+
+							"Fetching app, buildpacks (zfirst, asecond), artifacts cache...",
 						"Fetching complete",
 						"Fetching failed",
 					),
@@ -520,7 +522,8 @@ var _ = Describe("TraditionalBackend", func() {
 						downloadFirstBuildpackAction,
 						downloadSecondBuildpackAction,
 					),
-					"Fetching app, buildpacks (zfirst, asecond)...",
+					"No buildpack specified; fetching standard buildpacks to detect and build your application.\n"+
+						"Fetching app, buildpacks (zfirst, asecond)...",
 					"Fetching complete",
 					"Fetching failed",
 				),

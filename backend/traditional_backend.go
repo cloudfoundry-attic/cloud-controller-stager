@@ -125,6 +125,10 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 
 	//Download Buildpacks
 	buildpackNames := []string{}
+	downloadMsgPrefix := ""
+	if len(request.Buildpacks) > 1 {
+		downloadMsgPrefix = "No buildpack specified; fetching standard buildpacks to detect and build your application.\n"
+	}
 	for _, buildpack := range request.Buildpacks {
 		if buildpack.Name == cc_messages.CUSTOM_BUILDPACK {
 			buildpackNames = append(buildpackNames, buildpack.Url)
@@ -172,7 +176,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 		downloadNames = append(downloadNames, "artifacts cache")
 	}
 
-	downloadMsg := fmt.Sprintf("Fetching %s...", strings.Join(downloadNames, ", "))
+	downloadMsg := downloadMsgPrefix + fmt.Sprintf("Fetching %s...", strings.Join(downloadNames, ", "))
 	actions = append(actions, models.EmitProgressFor(models.Parallel(downloadActions...), downloadMsg, "Fetching complete", "Fetching failed"))
 
 	var fileDescriptorLimit *uint64
