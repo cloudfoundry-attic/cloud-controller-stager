@@ -86,7 +86,7 @@ var _ = Describe("TraditionalBackend", func() {
 			},
 			"",
 			"",
-			"Failed to Download Tailor",
+			"Failed to set up staging environment",
 		)
 
 		downloadAppAction = models.EmitProgressFor(
@@ -94,9 +94,9 @@ var _ = Describe("TraditionalBackend", func() {
 				From: "http://example-uri.com/bunny",
 				To:   "/app",
 			},
-			"Downloading App Package...",
-			"Downloaded App Package",
-			"Failed to Download App Package",
+			"Downloading app package...",
+			"Downloaded app package",
+			"Failed to download app package",
 		)
 
 		downloadFirstBuildpackAction = models.EmitProgressFor(
@@ -106,8 +106,8 @@ var _ = Describe("TraditionalBackend", func() {
 				CacheKey: "zfirst-buildpack",
 			},
 			"",
-			"Downloaded Buildpack: zfirst",
-			"Failed to Download Buildpack: zfirst",
+			"Downloaded buildpack: zfirst",
+			"Failed to download buildpack: zfirst",
 		)
 
 		downloadSecondBuildpackAction = models.EmitProgressFor(
@@ -117,8 +117,8 @@ var _ = Describe("TraditionalBackend", func() {
 				CacheKey: "asecond-buildpack",
 			},
 			"",
-			"Downloaded Buildpack: asecond",
-			"Failed to Download Buildpack: asecond",
+			"Downloaded buildpack: asecond",
+			"Failed to download buildpack: asecond",
 		)
 
 		downloadBuildArtifactsAction = models.Try(
@@ -128,8 +128,8 @@ var _ = Describe("TraditionalBackend", func() {
 					To:   "/tmp/cache",
 				},
 				"",
-				"Downloaded Build Artifacts Cache",
-				"No Build Artifacts Cache Found.  Proceeding...",
+				"Downloaded build artifacts cache",
+				"No build artifacts cache found. Proceeding...",
 			),
 		)
 
@@ -141,8 +141,8 @@ var _ = Describe("TraditionalBackend", func() {
 				To:   "http://file-server.com/v1/droplet/bunny?" + models.CcDropletUploadUriKey + "=http%3A%2F%2Fexample-uri.com%2Fdroplet-upload" + "&" + models.CcTimeoutKey + "=" + fmt.Sprintf("%d", timeout),
 			},
 			"",
-			"Droplet Uploaded",
-			"Failed to Upload Droplet",
+			"Droplet uploaded",
+			"Failed to upload droplet",
 		)
 
 		uploadBuildArtifactsAction = models.Try(
@@ -152,8 +152,8 @@ var _ = Describe("TraditionalBackend", func() {
 					To:   "http://file-server.com/v1/build_artifacts/bunny?" + models.CcBuildArtifactsUploadUriKey + "=http%3A%2F%2Fexample-uri.com%2Fbunny-uppings" + "&" + models.CcTimeoutKey + "=" + fmt.Sprintf("%d", timeout),
 				},
 				"",
-				"Uploaded Build Artifacts Cache",
-				"Failed to Upload Build Artifacts Cache.  Proceeding...",
+				"Uploaded build artifacts cache",
+				"Failed to upload build artifacts cache. Proceeding...",
 			),
 		)
 	})
@@ -180,8 +180,8 @@ var _ = Describe("TraditionalBackend", func() {
 				ResourceLimits: models.ResourceLimits{Nofile: &fileDescriptorLimit},
 			},
 			"Staging...",
-			"Staging Complete",
-			"Staging Failed",
+			"Staging complete",
+			"Staging failed",
 		)
 
 		var err error
@@ -282,9 +282,9 @@ var _ = Describe("TraditionalBackend", func() {
 					downloadBuildArtifactsAction,
 				),
 				"No buildpack specified; fetching standard buildpacks to detect and build your application.\n"+
-					"Downloading Buildpacks (zfirst, asecond), Artifacts Cache...",
-				"Downloaded Buildpacks",
-				"Downloading Buildpacks Failed",
+					"Downloading buildpacks (zfirst, asecond), artifacts cache...",
+				"Downloaded buildpacks",
+				"Downloading buildpacks failed",
 			),
 			runAction,
 			models.EmitProgressFor(
@@ -342,9 +342,9 @@ var _ = Describe("TraditionalBackend", func() {
 					downloadTailorAction,
 					downloadBuildArtifactsAction,
 				),
-				"Downloading Buildpacks ("+customBuildpack+"), Artifacts Cache...",
-				"Downloaded Buildpacks",
-				"Downloading Buildpacks Failed",
+				"Downloading buildpacks ("+customBuildpack+"), artifacts cache...",
+				"Downloaded buildpacks",
+				"Downloading buildpacks failed",
 			)))
 			Ω(actions[2]).Should(Equal(runAction))
 			Ω(actions[3]).Should(Equal(models.EmitProgressFor(
@@ -472,8 +472,8 @@ var _ = Describe("TraditionalBackend", func() {
 						ResourceLimits: models.ResourceLimits{Nofile: &config.MinFileDescriptors},
 					},
 					"Staging...",
-					"Staging Complete",
-					"Staging Failed",
+					"Staging complete",
+					"Staging failed",
 				)
 
 				Ω(actionsFromDesiredTask(desiredTask)).Should(Equal([]models.Action{
@@ -486,9 +486,9 @@ var _ = Describe("TraditionalBackend", func() {
 							downloadBuildArtifactsAction,
 						),
 						"No buildpack specified; fetching standard buildpacks to detect and build your application.\n"+
-							"Downloading Buildpacks (zfirst, asecond), Artifacts Cache...",
-						"Downloaded Buildpacks",
-						"Downloading Buildpacks Failed",
+							"Downloading buildpacks (zfirst, asecond), artifacts cache...",
+						"Downloaded buildpacks",
+						"Downloading buildpacks failed",
 					),
 					runAction,
 					models.EmitProgressFor(
@@ -523,9 +523,9 @@ var _ = Describe("TraditionalBackend", func() {
 						downloadSecondBuildpackAction,
 					),
 					"No buildpack specified; fetching standard buildpacks to detect and build your application.\n"+
-						"Downloading Buildpacks (zfirst, asecond)...",
-					"Downloaded Buildpacks",
-					"Downloading Buildpacks Failed",
+						"Downloading buildpacks (zfirst, asecond)...",
+					"Downloaded buildpacks",
+					"Downloading buildpacks failed",
 				),
 				runAction,
 				models.EmitProgressFor(

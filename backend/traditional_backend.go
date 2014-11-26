@@ -90,15 +90,15 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 
 	actions := []models.Action{}
 
-	//Download App Package
+	//Download app package
 	appDownloadAction := models.EmitProgressFor(
 		&models.DownloadAction{
 			From: request.AppBitsDownloadUri,
 			To:   tailorConfig.AppDir(),
 		},
-		"Downloading App Package...",
-		"Downloaded App Package",
-		"Failed to Download App Package",
+		"Downloading app package...",
+		"Downloaded app package",
+		"Failed to download app package",
 	)
 
 	actions = append(actions, appDownloadAction)
@@ -117,11 +117,11 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 			},
 			"",
 			"",
-			"Failed to Download Tailor",
+			"Failed to set up staging environment",
 		),
 	)
 
-	//Download Buildpacks
+	//Download buildpacks
 	buildpackNames := []string{}
 	downloadMsgPrefix := ""
 	if len(request.Buildpacks) > 1 {
@@ -141,16 +141,16 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 						CacheKey: buildpack.Key,
 					},
 					"",
-					fmt.Sprintf("Downloaded Buildpack: %s", buildpack.Name),
-					fmt.Sprintf("Failed to Download Buildpack: %s", buildpack.Name),
+					fmt.Sprintf("Downloaded buildpack: %s", buildpack.Name),
+					fmt.Sprintf("Failed to download buildpack: %s", buildpack.Name),
 				),
 			)
 		}
 	}
 
-	downloadNames = append(downloadNames, fmt.Sprintf("Buildpacks (%s)", strings.Join(buildpackNames, ", ")))
+	downloadNames = append(downloadNames, fmt.Sprintf("buildpacks (%s)", strings.Join(buildpackNames, ", ")))
 
-	//Download Buildpack Artifacts Cache
+	//Download buildpack artifacts cache
 	downloadURL, err := backend.buildArtifactsDownloadURL(request)
 	if err != nil {
 		return receptor.TaskCreateRequest{}, err
@@ -166,16 +166,16 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 						To:   tailorConfig.BuildArtifactsCacheDir(),
 					},
 					"",
-					"Downloaded Build Artifacts Cache",
-					"No Build Artifacts Cache Found.  Proceeding...",
+					"Downloaded build artifacts cache",
+					"No build artifacts cache found. Proceeding...",
 				),
 			),
 		)
-		downloadNames = append(downloadNames, "Artifacts Cache")
+		downloadNames = append(downloadNames, "artifacts cache")
 	}
 
 	downloadMsg := downloadMsgPrefix + fmt.Sprintf("Downloading %s...", strings.Join(downloadNames, ", "))
-	actions = append(actions, models.EmitProgressFor(models.Parallel(downloadActions...), downloadMsg, "Downloaded Buildpacks", "Downloading Buildpacks Failed"))
+	actions = append(actions, models.EmitProgressFor(models.Parallel(downloadActions...), downloadMsg, "Downloaded buildpacks", "Downloading buildpacks failed"))
 
 	var fileDescriptorLimit *uint64
 	if request.FileDescriptors != 0 {
@@ -196,8 +196,8 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 				},
 			},
 			"Staging...",
-			"Staging Complete",
-			"Staging Failed",
+			"Staging complete",
+			"Staging failed",
 		),
 	)
 
@@ -217,8 +217,8 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 				To:   addTimeoutParamToURL(*uploadURL, timeout).String(),
 			},
 			"",
-			"Droplet Uploaded",
-			"Failed to Upload Droplet",
+			"Droplet uploaded",
+			"Failed to upload droplet",
 		),
 	)
 	uploadNames = append(uploadNames, "droplet")
@@ -237,8 +237,8 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 					To:   addTimeoutParamToURL(*uploadURL, timeout).String(),
 				},
 				"",
-				"Uploaded Build Artifacts Cache",
-				"Failed to Upload Build Artifacts Cache.  Proceeding...",
+				"Uploaded build artifacts cache",
+				"Failed to upload build artifacts cache. Proceeding...",
 			),
 		),
 	)
