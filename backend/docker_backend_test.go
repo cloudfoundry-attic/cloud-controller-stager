@@ -70,7 +70,7 @@ var _ = Describe("DockerBackend", func() {
 			},
 			"",
 			"",
-			"Failed to Download Tailor",
+			"Failed to set up docker environment",
 		)
 
 		fileDescriptorLimit := uint64(512)

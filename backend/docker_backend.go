@@ -95,7 +95,7 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 			},
 			"",
 			"",
-			"Failed to Download Tailor",
+			"Failed to set up docker environment",
 		),
 	)
 

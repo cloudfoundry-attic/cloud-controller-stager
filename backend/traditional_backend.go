@@ -91,15 +91,11 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	actions := []models.Action{}
 
 	//Download app package
-	appDownloadAction := models.EmitProgressFor(
-		&models.DownloadAction{
-			From: request.AppBitsDownloadUri,
-			To:   tailorConfig.AppDir(),
-		},
-		"Downloading app package...",
-		"Downloaded app package",
-		"Failed to download app package",
-	)
+	appDownloadAction := &models.DownloadAction{
+		Artifact: "app package",
+		From:     request.AppBitsDownloadUri,
+		To:       tailorConfig.AppDir(),
+	}
 
 	actions = append(actions, appDownloadAction)
 
@@ -134,16 +130,12 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 			buildpackNames = append(buildpackNames, buildpack.Name)
 			downloadActions = append(
 				downloadActions,
-				models.EmitProgressFor(
-					&models.DownloadAction{
-						From:     buildpack.Url,
-						To:       tailorConfig.BuildpackPath(buildpack.Key),
-						CacheKey: buildpack.Key,
-					},
-					"",
-					fmt.Sprintf("Downloaded buildpack: %s", buildpack.Name),
-					fmt.Sprintf("Failed to download buildpack: %s", buildpack.Name),
-				),
+				&models.DownloadAction{
+					Artifact: buildpack.Name,
+					From:     buildpack.Url,
+					To:       tailorConfig.BuildpackPath(buildpack.Key),
+					CacheKey: buildpack.Key,
+				},
 			)
 		}
 	}
@@ -160,18 +152,14 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 		downloadActions = append(
 			downloadActions,
 			models.Try(
-				models.EmitProgressFor(
-					&models.DownloadAction{
-						From: downloadURL.String(),
-						To:   tailorConfig.BuildArtifactsCacheDir(),
-					},
-					"",
-					"Downloaded build artifacts cache",
-					"No build artifacts cache found. Proceeding...",
-				),
+				&models.DownloadAction{
+					Artifact: "build artifacts cache",
+					From:     downloadURL.String(),
+					To:       tailorConfig.BuildArtifactsCacheDir(),
+				},
 			),
 		)
-		downloadNames = append(downloadNames, "artifacts cache")
+		downloadNames = append(downloadNames, "build artifacts cache")
 	}
 
 	downloadMsg := downloadMsgPrefix + fmt.Sprintf("Downloading %s...", strings.Join(downloadNames, ", "))
@@ -211,15 +199,11 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 
 	uploadActions = append(
 		uploadActions,
-		models.EmitProgressFor(
-			&models.UploadAction{
-				From: tailorConfig.OutputDroplet(), // get the droplet
-				To:   addTimeoutParamToURL(*uploadURL, timeout).String(),
-			},
-			"",
-			"Droplet uploaded",
-			"Failed to upload droplet",
-		),
+		&models.UploadAction{
+			Artifact: "droplet",
+			From:     tailorConfig.OutputDroplet(), // get the droplet
+			To:       addTimeoutParamToURL(*uploadURL, timeout).String(),
+		},
 	)
 	uploadNames = append(uploadNames, "droplet")
 
@@ -231,18 +215,14 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 
 	uploadActions = append(uploadActions,
 		models.Try(
-			models.EmitProgressFor(
-				&models.UploadAction{
-					From: tailorConfig.OutputBuildArtifactsCache(), // get the compressed build artifacts cache
-					To:   addTimeoutParamToURL(*uploadURL, timeout).String(),
-				},
-				"",
-				"Uploaded build artifacts cache",
-				"Failed to upload build artifacts cache. Proceeding...",
-			),
+			&models.UploadAction{
+				Artifact: "build artifacts cache",
+				From:     tailorConfig.OutputBuildArtifactsCache(), // get the compressed build artifacts cache
+				To:       addTimeoutParamToURL(*uploadURL, timeout).String(),
+			},
 		),
 	)
-	uploadNames = append(uploadNames, "artifacts cache")
+	uploadNames = append(uploadNames, "build artifacts cache")
 
 	uploadMsg := fmt.Sprintf("Uploading %s...", strings.Join(uploadNames, ", "))
 	actions = append(actions, models.EmitProgressFor(models.Parallel(uploadActions...), uploadMsg, "Uploading complete", "Uploading failed"))
