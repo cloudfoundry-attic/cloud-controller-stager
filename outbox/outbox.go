@@ -97,7 +97,7 @@ func (o *Outbox) handleRequest(res http.ResponseWriter, req *http.Request) {
 }
 
 func (o *Outbox) reportMetrics(task receptor.TaskResponse) {
-	duration := o.timeProvider.Time().Sub(time.Unix(0, task.CreatedAt))
+	duration := o.timeProvider.Now().Sub(time.Unix(0, task.CreatedAt))
 	if task.Failed {
 		stagingFailureCounter.Increment()
 		stagingFailureDuration.Send(duration)

@@ -101,7 +101,7 @@ var _ = Describe("Outbox", func() {
 				TaskId: taskId,
 			})
 
-			createdAt := fakeTimeProvider.Time().UnixNano()
+			createdAt := fakeTimeProvider.Now().UnixNano()
 			fakeTimeProvider.Increment(stagingDurationNano)
 
 			taskResponse = receptor.TaskResponse{
@@ -227,7 +227,7 @@ var _ = Describe("Outbox", func() {
 		})
 
 		JustBeforeEach(func() {
-			createdAt := fakeTimeProvider.Time().UnixNano()
+			createdAt := fakeTimeProvider.Now().UnixNano()
 			fakeTimeProvider.Increment(stagingDurationNano)
 
 			resp = postTask(receptor.TaskResponse{
