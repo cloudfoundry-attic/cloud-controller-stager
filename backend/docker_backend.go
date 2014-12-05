@@ -12,7 +12,7 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	"github.com/cloudfoundry-incubator/runtime-schema/router"
+	"github.com/cloudfoundry-incubator/runtime-schema/routes"
 	"github.com/cloudfoundry/gunk/urljoiner"
 	"github.com/pivotal-golang/lager"
 )
@@ -232,12 +232,12 @@ func (backend *dockerBackend) compilerDownloadURL(request cc_messages.DockerStag
 		return nil, fmt.Errorf("unknown scheme: '%s'", parsed.Scheme)
 	}
 
-	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_STATIC)
-	if !ok {
-		return nil, errors.New("couldn't generate the compiler download path")
+	staticPath, err := routes.FileServerRoutes.CreatePathForRoute(routes.FS_STATIC, nil)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't generate the compiler download path: %s", err)
 	}
 
-	urlString := urljoiner.Join(backend.config.FileServerURL, staticRoute.Path, circusFilename)
+	urlString := urljoiner.Join(backend.config.FileServerURL, staticPath, circusFilename)
 
 	url, err := url.ParseRequestURI(urlString)
 	if err != nil {

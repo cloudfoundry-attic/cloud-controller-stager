@@ -13,9 +13,10 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	"github.com/cloudfoundry-incubator/runtime-schema/router"
+	"github.com/cloudfoundry-incubator/runtime-schema/routes"
 	"github.com/cloudfoundry/gunk/urljoiner"
 	"github.com/pivotal-golang/lager"
+	"github.com/tedsuo/rata"
 )
 
 const (
@@ -341,12 +342,12 @@ func (backend *traditionalBackend) compilerDownloadURL(request cc_messages.Stagi
 		return nil, errors.New("wTF")
 	}
 
-	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_STATIC)
-	if !ok {
-		return nil, errors.New("couldn't generate the compiler download path")
+	staticPath, err := routes.FileServerRoutes.CreatePathForRoute(routes.FS_STATIC, nil)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't generate the compiler download path: %s", err)
 	}
 
-	urlString := urljoiner.Join(backend.config.FileServerURL, staticRoute.Path, compilerPath)
+	urlString := urljoiner.Join(backend.config.FileServerURL, staticPath, compilerPath)
 
 	url, err := url.ParseRequestURI(urlString)
 	if err != nil {
@@ -357,17 +358,11 @@ func (backend *traditionalBackend) compilerDownloadURL(request cc_messages.Stagi
 }
 
 func (backend *traditionalBackend) dropletUploadURL(request cc_messages.StagingRequestFromCC) (*url.URL, error) {
-	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_UPLOAD_DROPLET)
-	if !ok {
-		return nil, errors.New("couldn't generate the droplet upload path")
-	}
-
-	path, err := staticRoute.PathWithParams(map[string]string{
+	path, err := routes.FileServerRoutes.CreatePathForRoute(routes.FS_UPLOAD_DROPLET, rata.Params{
 		"guid": request.AppId,
 	})
-
 	if err != nil {
-		return nil, fmt.Errorf("failed to build droplet upload URL: %s", err)
+		return nil, fmt.Errorf("couldn't generate droplet upload URL: %s", err)
 	}
 
 	urlString := urljoiner.Join(backend.config.FileServerURL, path)
@@ -385,17 +380,11 @@ func (backend *traditionalBackend) dropletUploadURL(request cc_messages.StagingR
 }
 
 func (backend *traditionalBackend) buildArtifactsUploadURL(request cc_messages.StagingRequestFromCC) (*url.URL, error) {
-	staticRoute, ok := router.NewFileServerRoutes().RouteForHandler(router.FS_UPLOAD_BUILD_ARTIFACTS)
-	if !ok {
-		return nil, errors.New("couldn't generate the build artifacts cache upload path")
-	}
-
-	path, err := staticRoute.PathWithParams(map[string]string{
+	path, err := routes.FileServerRoutes.CreatePathForRoute(routes.FS_UPLOAD_BUILD_ARTIFACTS, rata.Params{
 		"app_guid": request.AppId,
 	})
-
 	if err != nil {
-		return nil, fmt.Errorf("failed to build build artifacts cache upload URL: %s", err)
+		return nil, fmt.Errorf("couldn't generate build artifacts cache upload URL: %s", err)
 	}
 
 	urlString := urljoiner.Join(backend.config.FileServerURL, path)
