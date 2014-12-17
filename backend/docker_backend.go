@@ -158,7 +158,7 @@ func (backend *dockerBackend) BuildStagingResponseFromRequestError(requestJson [
 	response := cc_messages.DockerStagingResponseForCC{
 		AppId:  request.AppId,
 		TaskId: request.TaskId,
-		Error:  errorMessage,
+		Error:  backend.config.Sanitizer(errorMessage),
 	}
 
 	return json.Marshal(response)
@@ -177,7 +177,7 @@ func (backend *dockerBackend) BuildStagingResponse(taskResponse receptor.TaskRes
 	response.TaskId = annotation.TaskId
 
 	if taskResponse.Failed {
-		response.Error = taskResponse.FailureReason
+		response.Error = backend.config.Sanitizer(taskResponse.FailureReason)
 	} else {
 		var result models.StagingDockerResult
 		err := json.Unmarshal([]byte(taskResponse.Result), &result)

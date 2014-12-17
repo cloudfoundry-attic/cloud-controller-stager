@@ -19,6 +19,7 @@ import (
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	"github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/runtime-schema/diego_errors"
 	"github.com/cloudfoundry-incubator/stager/backend"
 	"github.com/cloudfoundry-incubator/stager/cc_client"
 	"github.com/cloudfoundry-incubator/stager/inbox"
@@ -203,6 +204,7 @@ func initializeBackends(logger lager.Logger) []backend.Backend {
 		MinDiskMB:          *minDiskMB,
 		MinFileDescriptors: *minFileDescriptors,
 		SkipCertVerify:     *skipCertVerify,
+		Sanitizer:          diego_errors.SanitizeErrorMessage,
 	}
 
 	return []backend.Backend{

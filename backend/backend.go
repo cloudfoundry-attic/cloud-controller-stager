@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/runtime-schema/diego_errors"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 )
@@ -15,6 +16,8 @@ const (
 	TaskLogSource         = "STG"
 	DefaultStagingTimeout = 15 * time.Minute
 )
+
+type FailureReasonSanitizer func(string) string
 
 type Backend interface {
 	StagingRequestsNatsSubject() string
@@ -30,10 +33,10 @@ type Backend interface {
 	StagingTaskGuid(requestJson []byte) (string, error)
 }
 
-var ErrNoCompilerDefined = errors.New("no compiler defined for requested stack")
-var ErrMissingAppId = errors.New("missing app id")
-var ErrMissingTaskId = errors.New("missing task id")
-var ErrMissingAppBitsDownloadUri = errors.New("missing app bits download uri")
+var ErrNoCompilerDefined = errors.New(diego_errors.NO_COMPILER_DEFINED_MESSAGE)
+var ErrMissingAppId = errors.New(diego_errors.MISSING_APP_ID_MESSAGE)
+var ErrMissingTaskId = errors.New(diego_errors.MISSING_TASK_ID_MESSAGE)
+var ErrMissingAppBitsDownloadUri = errors.New(diego_errors.MISSING_APP_BITS_DOWNLOAD_URI_MESSAGE)
 
 type Config struct {
 	CallbackURL        string
@@ -44,6 +47,7 @@ type Config struct {
 	MinDiskMB          uint
 	MinFileDescriptors uint64
 	SkipCertVerify     bool
+	Sanitizer          FailureReasonSanitizer
 }
 
 func max(x, y uint64) uint64 {

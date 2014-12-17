@@ -55,6 +55,7 @@ var _ = Describe("DockerBackend", func() {
 			MinDiskMB:          2048,
 			MinMemoryMB:        1024,
 			MinFileDescriptors: 256,
+			Sanitizer:          func(msg string) string { return msg + " was totally sanitized" },
 		}
 
 		logger := lager.NewLogger("fakelogger")
@@ -337,7 +338,7 @@ var _ = Describe("DockerBackend", func() {
 					expectedResponse := cc_messages.DockerStagingResponseForCC{
 						AppId:  "myapp",
 						TaskId: "mytask",
-						Error:  "fake-error-message",
+						Error:  "fake-error-message was totally sanitized",
 					}
 					expectedResponseJson, err := json.Marshal(expectedResponse)
 					Ω(err).ShouldNot(HaveOccurred())
@@ -440,7 +441,7 @@ var _ = Describe("DockerBackend", func() {
 							expectedResponse := cc_messages.DockerStagingResponseForCC{
 								AppId:  "app-id",
 								TaskId: "task-id",
-								Error:  "some-failure-reason",
+								Error:  "some-failure-reason was totally sanitized",
 							}
 							expectedResponseJson, err := json.Marshal(expectedResponse)
 							Ω(err).ShouldNot(HaveOccurred())
