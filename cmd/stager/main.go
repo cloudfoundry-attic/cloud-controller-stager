@@ -156,12 +156,8 @@ func main() {
 	for _, backend := range backends {
 		backend := backend
 		members = append(members, grouper.Member{
-			Name: fmt.Sprintf("inbox-%s", backend.TaskDomain()),
-			Runner: ifrit.RunFunc(
-				func(signals <-chan os.Signal, ready chan<- struct{}) error {
-					return inbox.New(natsClient, ccClient, diegoAPIClient, backend, logger).Run(signals, ready)
-				},
-			),
+			Name:   fmt.Sprintf("inbox-%s", backend.TaskDomain()),
+			Runner: inbox.New(natsClient, ccClient, diegoAPIClient, backend, logger),
 		})
 	}
 
