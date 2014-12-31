@@ -116,16 +116,9 @@ var fileServerURL = flag.String(
 	"URL of the file server",
 )
 
-var dropsondeOrigin = flag.String(
-	"dropsondeOrigin",
-	"stager",
-	"Origin identifier for dropsonde-emitted metrics.",
-)
-
-var dropsondeDestination = flag.String(
-	"dropsondeDestination",
-	"localhost:3457",
-	"Destination for dropsonde-emitted metrics.",
+const (
+	dropsondeDestination = "localhost:3457"
+	dropsondeOrigin      = "stager"
 )
 
 func main() {
@@ -179,7 +172,7 @@ func main() {
 }
 
 func initializeDropsonde(logger lager.Logger) {
-	err := dropsonde.Initialize(*dropsondeDestination, *dropsondeOrigin)
+	err := dropsonde.Initialize(dropsondeDestination, dropsondeOrigin)
 	if err != nil {
 		logger.Error("failed to initialize dropsonde: %v", err)
 	}
