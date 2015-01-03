@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"net"
 	"net/url"
 	"os"
@@ -122,6 +121,7 @@ const (
 )
 
 func main() {
+	cf_debug_server.AddFlags(flag.CommandLine)
 	flag.Parse()
 
 	logger := cf_lager.New("stager")
@@ -130,8 +130,6 @@ func main() {
 	ccClient := cc_client.NewCcClient(*ccBaseURL, *ccUsername, *ccPassword, *skipCertVerify)
 	diegoAPIClient := receptor.NewClient(*diegoAPIURL)
 
-	cf_debug_server.Run()
-
 	natsClient := diegonats.NewClient()
 
 	address, err := getStagerAddress()
@@ -139,25 +137,29 @@ func main() {
 		logger.Fatal("Invalid stager URL", err)
 	}
 
-	var members grouper.Members
-	members = append(members, grouper.Member{
-		Name:   "nats",
-		Runner: diegonats.NewClientRunner(*natsAddresses, *natsUsername, *natsPassword, logger, natsClient),
-	})
+	natsRunner := diegonats.NewClientRunner(*natsAddresses, *natsUsername, *natsPassword, logger, natsClient)
+
+	members := grouper.Members{
+		{"nats", natsRunner},
+	}
 
 	backends := initializeBackends(logger)
 	for _, backend := range backends {
 		backend := backend
 		members = append(members, grouper.Member{
-			Name:   fmt.Sprintf("inbox-%s", backend.TaskDomain()),
-			Runner: inbox.New(natsClient, ccClient, diegoAPIClient, backend, logger),
+			"inbox-" + backend.TaskDomain(), inbox.New(natsClient, ccClient, diegoAPIClient, backend, logger),
 		})
 	}
 
 	members = append(members, grouper.Member{
-		Name:   "outbox",
-		Runner: outbox.New(address, ccClient, backends, logger, timeprovider.NewTimeProvider()),
+		"outbox", outbox.New(address, ccClient, backends, logger, timeprovider.NewTimeProvider()),
 	})
+
+	if dbgAddr := cf_debug_server.DebugAddress(flag.CommandLine); dbgAddr != "" {
+		members = append(grouper.Members{
+			{"debug-server", cf_debug_server.Runner(dbgAddr)},
+		}, members...)
+	}
 
 	group := grouper.NewOrdered(os.Interrupt, members)
 
