@@ -95,7 +95,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	appDownloadAction := &models.DownloadAction{
 		Artifact: "app package",
 		From:     request.AppBitsDownloadUri,
-		To:       tailorConfig.AppDir(),
+		To:       tailorConfig.BuildDir(),
 	}
 
 	actions = append(actions, appDownloadAction)

@@ -93,7 +93,7 @@ var _ = Describe("TraditionalBackend", func() {
 		downloadAppAction = &models.DownloadAction{
 			Artifact: "app package",
 			From:     "http://example-uri.com/bunny",
-			To:       "/app",
+			To:       "/tmp/app",
 		}
 
 		downloadFirstBuildpackAction = &models.DownloadAction{
@@ -141,8 +141,8 @@ var _ = Describe("TraditionalBackend", func() {
 			&models.RunAction{
 				Path: "/tmp/circus/tailor",
 				Args: []string{
-					"-appDir=/app",
 					"-buildArtifactsCacheDir=/tmp/cache",
+					"-buildDir=/tmp/app",
 					"-buildpackOrder=" + buildpackOrder,
 					"-buildpacksDir=/tmp/buildpacks",
 					"-outputBuildArtifactsCache=/tmp/output-cache",
@@ -433,8 +433,8 @@ var _ = Describe("TraditionalBackend", func() {
 					&models.RunAction{
 						Path: "/tmp/circus/tailor",
 						Args: []string{
-							"-appDir=/app",
 							"-buildArtifactsCacheDir=/tmp/cache",
+							"-buildDir=/tmp/app",
 							"-buildpackOrder=zfirst-buildpack,asecond-buildpack",
 							"-buildpacksDir=/tmp/buildpacks",
 							"-outputBuildArtifactsCache=/tmp/output-cache",
@@ -582,8 +582,8 @@ var _ = Describe("TraditionalBackend", func() {
 
 		It("the tailor is told to skip certificate verification", func() {
 			args := []string{
-				"-appDir=/app",
 				"-buildArtifactsCacheDir=/tmp/cache",
+				"-buildDir=/tmp/app",
 				"-buildpackOrder=zfirst-buildpack,asecond-buildpack",
 				"-buildpacksDir=/tmp/buildpacks",
 				"-outputBuildArtifactsCache=/tmp/output-cache",
