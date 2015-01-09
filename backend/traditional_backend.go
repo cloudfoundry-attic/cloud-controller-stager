@@ -246,6 +246,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 		LogSource:             TaskLogSource,
 		CompletionCallbackURL: backend.config.CallbackURL,
 		Annotation:            string(annotationJson),
+		Privileged:            true,
 	}
 
 	logger.Debug("staging-task-request", lager.Data{"TaskCreateRequest": task})

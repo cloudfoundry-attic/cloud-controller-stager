@@ -237,6 +237,7 @@ var _ = Describe("TraditionalBackend", func() {
 		Ω(desiredTask.LogGuid).To(Equal("bunny"))
 		Ω(desiredTask.LogSource).To(Equal(TaskLogSource))
 		Ω(desiredTask.ResultFile).To(Equal("/tmp/result.json"))
+		Ω(desiredTask.Privileged).Should(BeTrue())
 
 		var annotation models.StagingTaskAnnotation
 

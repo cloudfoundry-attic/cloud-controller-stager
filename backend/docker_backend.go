@@ -140,6 +140,7 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		LogGuid:               request.AppId,
 		LogSource:             TaskLogSource,
 		Annotation:            string(annotationJson),
+		Privileged:            true,
 	}
 
 	logger.Debug("staging-task-request", lager.Data{"TaskCreateRequest": task})
