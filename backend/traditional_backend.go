@@ -245,6 +245,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 		LogGuid:               request.AppId,
 		LogSource:             TaskLogSource,
 		CompletionCallbackURL: backend.config.CallbackURL,
+		EgressRules:           request.EgressRules,
 		Annotation:            string(annotationJson),
 		Privileged:            true,
 	}

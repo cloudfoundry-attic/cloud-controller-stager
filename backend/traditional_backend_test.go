@@ -40,6 +40,7 @@ var _ = Describe("TraditionalBackend", func() {
 		runAction                      models.Action
 		uploadDropletAction            models.Action
 		uploadBuildArtifactsAction     models.Action
+		egressRules                    []models.SecurityGroupRule
 	)
 
 	BeforeEach(func() {
@@ -133,6 +134,14 @@ var _ = Describe("TraditionalBackend", func() {
 				To:       "http://file-server.com/v1/build_artifacts/bunny?" + models.CcBuildArtifactsUploadUriKey + "=http%3A%2F%2Fexample-uri.com%2Fbunny-uppings" + "&" + models.CcTimeoutKey + "=" + fmt.Sprintf("%d", timeout),
 			},
 		)
+
+		egressRules = []models.SecurityGroupRule{
+			{
+				Protocol:    "TCP",
+				Destination: "0.0.0.0/0",
+				PortRange:   &models.PortRange{Start: 80, End: 443},
+			},
+		}
 	})
 
 	JustBeforeEach(func() {
@@ -178,7 +187,8 @@ var _ = Describe("TraditionalBackend", func() {
 				{"VCAP_APPLICATION", "foo"},
 				{"VCAP_SERVICES", "bar"},
 			},
-			Timeout: timeout,
+			EgressRules: egressRules,
+			Timeout:     timeout,
 		}
 
 		stagingRequestJson, err = json.Marshal(stagingRequest)
@@ -279,6 +289,7 @@ var _ = Describe("TraditionalBackend", func() {
 		Ω(desiredTask.MemoryMB).To(Equal(2048))
 		Ω(desiredTask.DiskMB).To(Equal(3072))
 		Ω(desiredTask.CPUWeight).To(Equal(StagingTaskCpuWeight))
+		Ω(desiredTask.EgressRules).Should(ConsistOf(egressRules))
 	})
 
 	Context("with a custom buildpack", func() {

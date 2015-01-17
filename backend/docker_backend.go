@@ -140,6 +140,7 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		LogGuid:               request.AppId,
 		LogSource:             TaskLogSource,
 		Annotation:            string(annotationJson),
+		EgressRules:           request.EgressRules,
 		Privileged:            false,
 	}
 

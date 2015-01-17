@@ -30,6 +30,7 @@ var _ = Describe("DockerBackend", func() {
 		memoryMB        int
 		diskMB          int
 		timeout         int
+		egressRules     []models.SecurityGroupRule
 	)
 
 	BeforeEach(func() {
@@ -103,6 +104,14 @@ var _ = Describe("DockerBackend", func() {
 			"Staging Complete",
 			"Staging Failed",
 		)
+
+		egressRules = []models.SecurityGroupRule{
+			{
+				Protocol:    "TCP",
+				Destination: "0.0.0.0/0",
+				PortRange:   &models.PortRange{Start: 80, End: 443},
+			},
+		}
 	})
 
 	JustBeforeEach(func() {
@@ -118,7 +127,8 @@ var _ = Describe("DockerBackend", func() {
 				{"VCAP_APPLICATION", "foo"},
 				{"VCAP_SERVICES", "bar"},
 			},
-			Timeout: timeout,
+			EgressRules: egressRules,
+			Timeout:     timeout,
 		}
 
 		var err error
@@ -200,6 +210,7 @@ var _ = Describe("DockerBackend", func() {
 
 		Ω(desiredTask.MemoryMB).To(Equal(2048))
 		Ω(desiredTask.DiskMB).To(Equal(3072))
+		Ω(desiredTask.EgressRules).Should(ConsistOf(egressRules))
 	})
 
 	Context("when the file descriptor limit isn't set", func() {
