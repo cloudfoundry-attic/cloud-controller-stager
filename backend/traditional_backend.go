@@ -166,10 +166,10 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	downloadMsg := downloadMsgPrefix + fmt.Sprintf("Downloading %s...", strings.Join(downloadNames, ", "))
 	actions = append(actions, models.EmitProgressFor(models.Parallel(downloadActions...), downloadMsg, "Downloaded buildpacks", "Downloading buildpacks failed"))
 
-	var fileDescriptorLimit *uint64
+	fileDescriptorLimit := max(DefaultFileDescriptorLimit, backend.config.MinFileDescriptors)
 	if request.FileDescriptors != 0 {
 		fd := max(uint64(request.FileDescriptors), backend.config.MinFileDescriptors)
-		fileDescriptorLimit = &fd
+		fileDescriptorLimit = fd
 	}
 
 	//Run Tailor
@@ -181,7 +181,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 				Args: tailorConfig.Args(),
 				Env:  request.Environment.BBSEnvironment(),
 				ResourceLimits: models.ResourceLimits{
-					Nofile: fileDescriptorLimit,
+					Nofile: &fileDescriptorLimit,
 				},
 			},
 			"Staging...",

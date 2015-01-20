@@ -136,7 +136,7 @@ var _ = Describe("TraditionalBackend", func() {
 	})
 
 	JustBeforeEach(func() {
-		fileDescriptorLimit := uint64(512)
+		fileDescriptorLimit := uint64(fileDescriptors)
 		runAction = models.EmitProgressFor(
 			&models.RunAction{
 				Path: "/tmp/circus/tailor",
@@ -341,6 +341,25 @@ var _ = Describe("TraditionalBackend", func() {
 		})
 	})
 
+	Context("when the file descriptor limit isn't set", func() {
+		BeforeEach(func() {
+			fileDescriptors = 0
+		})
+
+		It("uses the default file descriptor limit for the backend", func() {
+			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			actions := actionsFromDesiredTask(desiredTask)
+			tailorProgressAction, ok := actions[2].(*models.EmitProgressAction)
+			Ω(ok).Should(BeTrue())
+			tailorRunAction, ok := tailorProgressAction.Action.(*models.RunAction)
+			Ω(ok).Should(BeTrue())
+
+			Ω(*tailorRunAction.ResourceLimits.Nofile).Should(Equal(DefaultFileDescriptorLimit))
+		})
+	})
+
 	It("gives the task a callback URL to call it back", func() {
 		desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 		Ω(err).ShouldNot(HaveOccurred())
@@ -421,7 +440,7 @@ var _ = Describe("TraditionalBackend", func() {
 			})
 		})
 
-		Context("when the app's memory limit is less than the minimum memory", func() {
+		Context("when the app's file descriptor limit is less than the minimum memory", func() {
 			BeforeEach(func() {
 				fileDescriptors = 17
 			})

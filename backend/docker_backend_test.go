@@ -202,6 +202,25 @@ var _ = Describe("DockerBackend", func() {
 		Ω(desiredTask.DiskMB).To(Equal(3072))
 	})
 
+	Context("when the file descriptor limit isn't set", func() {
+		BeforeEach(func() {
+			fileDescriptors = 0
+		})
+
+		It("uses the default file descriptor limit for the backend", func() {
+			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			actions := actionsFromDesiredTask(desiredTask)
+			tailorProgressAction, ok := actions[1].(*models.EmitProgressAction)
+			Ω(ok).Should(BeTrue())
+			tailorRunAction, ok := tailorProgressAction.Action.(*models.RunAction)
+			Ω(ok).Should(BeTrue())
+
+			Ω(*tailorRunAction.ResourceLimits.Nofile).Should(Equal(DefaultFileDescriptorLimit))
+		})
+	})
+
 	It("gives the task a callback URL to call it back", func() {
 		desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 		Ω(err).ShouldNot(HaveOccurred())

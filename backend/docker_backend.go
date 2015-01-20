@@ -99,10 +99,10 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		),
 	)
 
-	var fileDescriptorLimit *uint64
+	fileDescriptorLimit := max(DefaultFileDescriptorLimit, backend.config.MinFileDescriptors)
 	if request.FileDescriptors != 0 {
 		fd := max(uint64(request.FileDescriptors), backend.config.MinFileDescriptors)
-		fileDescriptorLimit = &fd
+		fileDescriptorLimit = fd
 	}
 
 	//Run Smelter
@@ -114,7 +114,7 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 				Args: []string{"-outputMetadataJSONFilename", DockerTailorOutputPath, "-dockerRef", request.DockerImageUrl},
 				Env:  request.Environment.BBSEnvironment(),
 				ResourceLimits: models.ResourceLimits{
-					Nofile: fileDescriptorLimit,
+					Nofile: &fileDescriptorLimit,
 				},
 			},
 			"Staging...",

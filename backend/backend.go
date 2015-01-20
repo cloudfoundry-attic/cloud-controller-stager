@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	TaskLogSource         = "STG"
-	DefaultStagingTimeout = 15 * time.Minute
+	TaskLogSource              = "STG"
+	DefaultStagingTimeout      = 15 * time.Minute
+	DefaultFileDescriptorLimit = uint64(1024)
 )
 
 type FailureReasonSanitizer func(string) string
