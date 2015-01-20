@@ -107,9 +107,9 @@ var _ = Describe("DockerBackend", func() {
 
 		egressRules = []models.SecurityGroupRule{
 			{
-				Protocol:    "TCP",
-				Destination: "0.0.0.0/0",
-				PortRange:   &models.PortRange{Start: 80, End: 443},
+				Protocol:     "TCP",
+				Destinations: []string{"0.0.0.0/0"},
+				PortRange:    &models.PortRange{Start: 80, End: 443},
 			},
 		}
 	})
