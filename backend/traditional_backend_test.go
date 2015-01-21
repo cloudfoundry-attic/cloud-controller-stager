@@ -56,10 +56,7 @@ var _ = Describe("TraditionalBackend", func() {
 				"compiler_with_full_url": "http://the-full-compiler-url",
 				"compiler_with_bad_url":  "ftp://the-bad-compiler-url",
 			},
-			MinDiskMB:          2048,
-			MinMemoryMB:        1024,
-			MinFileDescriptors: 256,
-			Sanitizer:          func(msg string) string { return msg + " was totally sanitized" },
+			Sanitizer: func(msg string) string { return msg + " was totally sanitized" },
 		}
 
 		logger := lager.NewLogger("fakelogger")
@@ -287,8 +284,8 @@ var _ = Describe("TraditionalBackend", func() {
 			),
 		}))
 
-		Ω(desiredTask.MemoryMB).To(Equal(2048))
-		Ω(desiredTask.DiskMB).To(Equal(3072))
+		Ω(desiredTask.MemoryMB).To(Equal(memoryMB))
+		Ω(desiredTask.DiskMB).To(Equal(diskMB))
 		Ω(desiredTask.CPUWeight).To(Equal(StagingTaskCpuWeight))
 		Ω(desiredTask.EgressRules).Should(ConsistOf(egressRules))
 	})
@@ -347,28 +344,9 @@ var _ = Describe("TraditionalBackend", func() {
 				"Uploading failed",
 			)))
 
-			Ω(desiredTask.MemoryMB).To(Equal(2048))
-			Ω(desiredTask.DiskMB).To(Equal(3072))
+			Ω(desiredTask.MemoryMB).To(Equal(memoryMB))
+			Ω(desiredTask.DiskMB).To(Equal(diskMB))
 			Ω(desiredTask.CPUWeight).To(Equal(StagingTaskCpuWeight))
-		})
-	})
-
-	Context("when the file descriptor limit isn't set", func() {
-		BeforeEach(func() {
-			fileDescriptors = 0
-		})
-
-		It("uses the default file descriptor limit for the backend", func() {
-			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
-			Ω(err).ShouldNot(HaveOccurred())
-
-			actions := actionsFromDesiredTask(desiredTask)
-			tailorProgressAction, ok := actions[2].(*models.EmitProgressAction)
-			Ω(ok).Should(BeTrue())
-			tailorRunAction, ok := tailorProgressAction.Action.(*models.RunAction)
-			Ω(ok).Should(BeTrue())
-
-			Ω(*tailorRunAction.ResourceLimits.Nofile).Should(Equal(DefaultFileDescriptorLimit))
 		})
 	})
 
@@ -421,95 +399,6 @@ var _ = Describe("TraditionalBackend", func() {
 				timeoutAction := desiredTask.Action
 				Ω(timeoutAction).Should(BeAssignableToTypeOf(&models.TimeoutAction{}))
 				Ω(timeoutAction.(*models.TimeoutAction).Timeout).Should(Equal(DefaultStagingTimeout))
-			})
-		})
-	})
-
-	Describe("resource limits", func() {
-		Context("when the app's memory limit is less than the minimum memory", func() {
-			BeforeEach(func() {
-				memoryMB = 256
-			})
-
-			It("uses the minimum memory", func() {
-				desiredTask, err := backend.BuildRecipe(stagingRequestJson)
-				Ω(err).ShouldNot(HaveOccurred())
-
-				Ω(desiredTask.MemoryMB).Should(BeNumerically("==", config.MinMemoryMB))
-			})
-		})
-
-		Context("when the app's disk limit is less than the minimum disk", func() {
-			BeforeEach(func() {
-				diskMB = 256
-			})
-
-			It("uses the minimum disk", func() {
-				desiredTask, err := backend.BuildRecipe(stagingRequestJson)
-				Ω(err).ShouldNot(HaveOccurred())
-
-				Ω(desiredTask.DiskMB).Should(BeNumerically("==", config.MinDiskMB))
-			})
-		})
-
-		Context("when the app's file descriptor limit is less than the minimum memory", func() {
-			BeforeEach(func() {
-				fileDescriptors = 17
-			})
-
-			It("uses the minimum file descriptors", func() {
-				desiredTask, err := backend.BuildRecipe(stagingRequestJson)
-				Ω(err).ShouldNot(HaveOccurred())
-
-				runAction = models.EmitProgressFor(
-					&models.RunAction{
-						Path: "/tmp/circus/tailor",
-						Args: []string{
-							"-buildArtifactsCacheDir=/tmp/cache",
-							"-buildDir=/tmp/app",
-							"-buildpackOrder=zfirst-buildpack,asecond-buildpack",
-							"-buildpacksDir=/tmp/buildpacks",
-							"-outputBuildArtifactsCache=/tmp/output-cache",
-							"-outputDroplet=/tmp/droplet",
-							"-outputMetadata=/tmp/result.json",
-							"-skipCertVerify=false",
-						},
-						Env: []models.EnvironmentVariable{
-							{"VCAP_APPLICATION", "foo"},
-							{"VCAP_SERVICES", "bar"},
-						},
-						ResourceLimits: models.ResourceLimits{Nofile: &config.MinFileDescriptors},
-					},
-					"Staging...",
-					"Staging complete",
-					"Staging failed",
-				)
-
-				Ω(actionsFromDesiredTask(desiredTask)).Should(Equal([]models.Action{
-					downloadAppAction,
-					models.EmitProgressFor(
-						models.Parallel(
-							downloadTailorAction,
-							downloadFirstBuildpackAction,
-							downloadSecondBuildpackAction,
-							downloadBuildArtifactsAction,
-						),
-						"No buildpack specified; fetching standard buildpacks to detect and build your application.\n"+
-							"Downloading buildpacks (zfirst, asecond), build artifacts cache...",
-						"Downloaded buildpacks",
-						"Downloading buildpacks failed",
-					),
-					runAction,
-					models.EmitProgressFor(
-						models.Parallel(
-							uploadDropletAction,
-							uploadBuildArtifactsAction,
-						),
-						"Uploading droplet, build artifacts cache...",
-						"Uploading complete",
-						"Uploading failed",
-					),
-				}))
 			})
 		})
 	})

@@ -79,24 +79,6 @@ var dockerCircusPath = flag.String(
 	"path for downloading docker circus from file server",
 )
 
-var minMemoryMB = flag.Uint(
-	"minMemoryMB",
-	1024,
-	"minimum memory limit for staging tasks",
-)
-
-var minDiskMB = flag.Uint(
-	"minDiskMB",
-	3072,
-	"minimum disk limit for staging tasks",
-)
-
-var minFileDescriptors = flag.Uint64(
-	"minFileDescriptors",
-	0,
-	"minimum file descriptors for staging tasks",
-)
-
 var diegoAPIURL = flag.String(
 	"diegoAPIURL",
 	"",
@@ -188,15 +170,12 @@ func initializeBackends(logger lager.Logger) []backend.Backend {
 		logger.Fatal("Error parsing circuses flag", err)
 	}
 	config := backend.Config{
-		CallbackURL:        *stagerURL,
-		FileServerURL:      *fileServerURL,
-		Circuses:           circusesMap,
-		DockerCircusPath:   *dockerCircusPath,
-		MinMemoryMB:        *minMemoryMB,
-		MinDiskMB:          *minDiskMB,
-		MinFileDescriptors: *minFileDescriptors,
-		SkipCertVerify:     *skipCertVerify,
-		Sanitizer:          diego_errors.SanitizeErrorMessage,
+		CallbackURL:      *stagerURL,
+		FileServerURL:    *fileServerURL,
+		Circuses:         circusesMap,
+		DockerCircusPath: *dockerCircusPath,
+		SkipCertVerify:   *skipCertVerify,
+		Sanitizer:        diego_errors.SanitizeErrorMessage,
 	}
 
 	return []backend.Backend{

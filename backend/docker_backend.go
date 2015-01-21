@@ -100,11 +100,7 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		),
 	)
 
-	fileDescriptorLimit := max(DefaultFileDescriptorLimit, backend.config.MinFileDescriptors)
-	if request.FileDescriptors != 0 {
-		fd := max(uint64(request.FileDescriptors), backend.config.MinFileDescriptors)
-		fileDescriptorLimit = fd
-	}
+	fileDescriptorLimit := uint64(request.FileDescriptors)
 
 	//Run Smelter
 	actions = append(
@@ -134,8 +130,8 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		TaskGuid:              backend.taskGuid(request),
 		Domain:                DockerTaskDomain,
 		Stack:                 request.Stack,
-		MemoryMB:              int(max(uint64(request.MemoryMB), uint64(backend.config.MinMemoryMB))),
-		DiskMB:                int(max(uint64(request.DiskMB), uint64(backend.config.MinDiskMB))),
+		MemoryMB:              request.MemoryMB,
+		DiskMB:                request.DiskMB,
 		Action:                models.Timeout(models.Serial(actions...), dockerTimeout(request, backend.logger)),
 		CompletionCallbackURL: backend.config.CallbackURL,
 		LogGuid:               request.AppId,

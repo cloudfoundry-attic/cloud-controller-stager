@@ -54,10 +54,7 @@ var _ = Describe("DockerBackend", func() {
 				"compiler_with_full_url": "http://the-full-compiler-url",
 				"compiler_with_bad_url":  "ftp://the-bad-compiler-url",
 			},
-			MinDiskMB:          2048,
-			MinMemoryMB:        1024,
-			MinFileDescriptors: 256,
-			Sanitizer:          func(msg string) string { return msg + " was totally sanitized" },
+			Sanitizer: func(msg string) string { return msg + " was totally sanitized" },
 		}
 
 		logger := lager.NewLogger("fakelogger")
@@ -209,28 +206,9 @@ var _ = Describe("DockerBackend", func() {
 		Ω(actions[0]).Should(Equal(downloadTailorAction))
 		Ω(actions[1]).Should(Equal(runAction))
 
-		Ω(desiredTask.MemoryMB).To(Equal(2048))
-		Ω(desiredTask.DiskMB).To(Equal(3072))
+		Ω(desiredTask.MemoryMB).To(Equal(memoryMB))
+		Ω(desiredTask.DiskMB).To(Equal(diskMB))
 		Ω(desiredTask.EgressRules).Should(ConsistOf(egressRules))
-	})
-
-	Context("when the file descriptor limit isn't set", func() {
-		BeforeEach(func() {
-			fileDescriptors = 0
-		})
-
-		It("uses the default file descriptor limit for the backend", func() {
-			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
-			Ω(err).ShouldNot(HaveOccurred())
-
-			actions := actionsFromDesiredTask(desiredTask)
-			tailorProgressAction, ok := actions[1].(*models.EmitProgressAction)
-			Ω(ok).Should(BeTrue())
-			tailorRunAction, ok := tailorProgressAction.Action.(*models.RunAction)
-			Ω(ok).Should(BeTrue())
-
-			Ω(*tailorRunAction.ResourceLimits.Nofile).Should(Equal(DefaultFileDescriptorLimit))
-		})
 	})
 
 	It("gives the task a callback URL to call it back", func() {
@@ -283,63 +261,6 @@ var _ = Describe("DockerBackend", func() {
 				timeoutAction := desiredTask.Action
 				Ω(timeoutAction).Should(BeAssignableToTypeOf(&models.TimeoutAction{}))
 				Ω(timeoutAction.(*models.TimeoutAction).Timeout).Should(Equal(DefaultStagingTimeout))
-			})
-		})
-	})
-
-	Describe("resource limits", func() {
-		Context("when the app's memory limit is less than the minimum memory", func() {
-			BeforeEach(func() {
-				memoryMB = 256
-			})
-
-			It("uses the minimum memory", func() {
-				desiredTask, err := backend.BuildRecipe(stagingRequestJson)
-				Ω(err).ShouldNot(HaveOccurred())
-
-				Ω(desiredTask.MemoryMB).Should(BeNumerically("==", config.MinMemoryMB))
-			})
-		})
-
-		Context("when the app's disk limit is less than the minimum disk", func() {
-			BeforeEach(func() {
-				diskMB = 256
-			})
-
-			It("uses the minimum disk", func() {
-				desiredTask, err := backend.BuildRecipe(stagingRequestJson)
-				Ω(err).ShouldNot(HaveOccurred())
-
-				Ω(desiredTask.DiskMB).Should(BeNumerically("==", config.MinDiskMB))
-			})
-		})
-
-		Context("when the app's memory limit is less than the minimum memory", func() {
-			BeforeEach(func() {
-				fileDescriptors = 17
-			})
-
-			It("uses the minimum file descriptors", func() {
-				desiredTask, err := backend.BuildRecipe(stagingRequestJson)
-				Ω(err).ShouldNot(HaveOccurred())
-
-				Ω(actionsFromDesiredTask(desiredTask)[1]).Should(Equal(models.EmitProgressFor(
-					&models.RunAction{
-						Path: "/tmp/docker-circus/tailor",
-						Args: []string{
-							"-outputMetadataJSONFilename", "/tmp/docker-result/result.json",
-							"-dockerRef", "busybox",
-						},
-						Env: []models.EnvironmentVariable{
-							{"VCAP_APPLICATION", "foo"},
-							{"VCAP_SERVICES", "bar"},
-						},
-						ResourceLimits: models.ResourceLimits{Nofile: &config.MinFileDescriptors},
-					},
-					"Staging...",
-					"Staging Complete",
-					"Staging Failed",
-				)))
 			})
 		})
 	})

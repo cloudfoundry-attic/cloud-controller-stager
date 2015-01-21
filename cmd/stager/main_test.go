@@ -55,7 +55,7 @@ var _ = Describe("Stager", func() {
 
 	Context("when started", func() {
 		BeforeEach(func() {
-			runner.Start("--circuses", `{"lucid64":"lifecycle.zip"}`, "--minDiskMB", "2048", "--minMemoryMB", "256", "--minFileDescriptors", "2")
+			runner.Start("--circuses", `{"lucid64":"lifecycle.zip"}`)
 		})
 
 		Describe("when a 'diego.staging.start' message is received", func() {
@@ -66,7 +66,7 @@ var _ = Describe("Stager", func() {
 					Ω(err).ShouldNot(HaveOccurred())
 
 					Ω(taskRequest.MemoryMB).Should(Equal(1024))
-					Ω(taskRequest.DiskMB).Should(Equal(2048))
+					Ω(taskRequest.DiskMB).Should(Equal(128))
 					Ω(taskRequest.CompletionCallbackURL).Should(Equal(runner.Config.StagerURL))
 				})
 
@@ -95,7 +95,7 @@ var _ = Describe("Stager", func() {
 					Ω(err).ShouldNot(HaveOccurred())
 
 					Ω(taskRequest.MemoryMB).Should(Equal(1024))
-					Ω(taskRequest.DiskMB).Should(Equal(2048))
+					Ω(taskRequest.DiskMB).Should(Equal(128))
 					Ω(taskRequest.CompletionCallbackURL).Should(Equal(runner.Config.StagerURL))
 				})
 

@@ -13,9 +13,8 @@ import (
 )
 
 const (
-	TaskLogSource              = "STG"
-	DefaultStagingTimeout      = 15 * time.Minute
-	DefaultFileDescriptorLimit = uint64(1024)
+	TaskLogSource         = "STG"
+	DefaultStagingTimeout = 15 * time.Minute
 )
 
 type FailureReasonSanitizer func(string) string
@@ -40,15 +39,12 @@ var ErrMissingTaskId = errors.New(diego_errors.MISSING_TASK_ID_MESSAGE)
 var ErrMissingAppBitsDownloadUri = errors.New(diego_errors.MISSING_APP_BITS_DOWNLOAD_URI_MESSAGE)
 
 type Config struct {
-	CallbackURL        string
-	FileServerURL      string
-	Circuses           map[string]string
-	DockerCircusPath   string
-	MinMemoryMB        uint
-	MinDiskMB          uint
-	MinFileDescriptors uint64
-	SkipCertVerify     bool
-	Sanitizer          FailureReasonSanitizer
+	CallbackURL      string
+	FileServerURL    string
+	Circuses         map[string]string
+	DockerCircusPath string
+	SkipCertVerify   bool
+	Sanitizer        FailureReasonSanitizer
 }
 
 func max(x, y uint64) uint64 {
