@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cloudfoundry-incubator/linux-circus"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -726,7 +727,7 @@ var _ = Describe("TraditionalBackend", func() {
 
 					Context("with a valid staging result", func() {
 						BeforeEach(func() {
-							stagingResult := models.StagingResult{
+							stagingResult := linux_circus.StagingResult{
 								BuildpackKey:         "buildpack-key",
 								DetectedBuildpack:    "detected-buildpack",
 								ExecutionMetadata:    "metadata",

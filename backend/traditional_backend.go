@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cloudfoundry-incubator/linux-circus"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
@@ -85,7 +86,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 		buildpacksOrder = append(buildpacksOrder, buildpack.Key)
 	}
 
-	tailorConfig := models.NewCircusTailorConfig(buildpacksOrder, backend.config.SkipCertVerify)
+	tailorConfig := linux_circus.NewCircusTailorConfig(buildpacksOrder, backend.config.SkipCertVerify)
 
 	timeout := traditionalTimeout(request, backend.logger)
 
@@ -287,7 +288,7 @@ func (backend *traditionalBackend) BuildStagingResponse(taskResponse receptor.Ta
 	if taskResponse.Failed {
 		response.Error = backend.config.Sanitizer(taskResponse.FailureReason)
 	} else {
-		var result models.StagingResult
+		var result linux_circus.StagingResult
 		err := json.Unmarshal([]byte(taskResponse.Result), &result)
 		if err != nil {
 			return nil, err
