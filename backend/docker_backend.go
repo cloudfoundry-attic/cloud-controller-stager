@@ -8,6 +8,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/cloudfoundry-incubator/docker-circus"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
@@ -181,7 +182,7 @@ func (backend *dockerBackend) BuildStagingResponse(taskResponse receptor.TaskRes
 	if taskResponse.Failed {
 		response.Error = backend.config.Sanitizer(taskResponse.FailureReason)
 	} else {
-		var result models.StagingDockerResult
+		var result docker_circus.StagingDockerResult
 		err := json.Unmarshal([]byte(taskResponse.Result), &result)
 		if err != nil {
 			return nil, err

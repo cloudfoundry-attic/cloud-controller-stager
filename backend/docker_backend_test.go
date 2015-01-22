@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/cloudfoundry-incubator/docker-circus"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -426,7 +427,7 @@ var _ = Describe("DockerBackend", func() {
 
 					Context("with a valid staging result", func() {
 						BeforeEach(func() {
-							stagingResult := models.StagingDockerResult{
+							stagingResult := docker_circus.StagingDockerResult{
 								ExecutionMetadata:    "metadata",
 								DetectedStartCommand: map[string]string{"a": "b"},
 							}
