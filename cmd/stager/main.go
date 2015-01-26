@@ -9,7 +9,7 @@ import (
 
 	"github.com/cloudfoundry/dropsonde"
 	"github.com/cloudfoundry/gunk/diegonats"
-	"github.com/cloudfoundry/gunk/timeprovider"
+	"github.com/pivotal-golang/clock"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
@@ -135,7 +135,7 @@ func main() {
 	}
 
 	members = append(members, grouper.Member{
-		"outbox", outbox.New(address, ccClient, backends, logger, timeprovider.NewTimeProvider()),
+		"outbox", outbox.New(address, ccClient, backends, logger, clock.NewClock()),
 	})
 
 	if dbgAddr := cf_debug_server.DebugAddress(flag.CommandLine); dbgAddr != "" {

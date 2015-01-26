@@ -20,9 +20,9 @@ import (
 	"github.com/cloudfoundry-incubator/stager/outbox"
 	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
 	"github.com/cloudfoundry/dropsonde/metrics"
-	"github.com/cloudfoundry/gunk/timeprovider/faketimeprovider"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/pivotal-golang/clock/fakeclock"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 )
@@ -40,7 +40,7 @@ var _ = Describe("Outbox", func() {
 		fakeBackend         *fake_backend.FakeBackend
 		backendResponse     []byte
 		backendError        error
-		fakeTimeProvider    *faketimeprovider.FakeTimeProvider
+		fakeClock           *fakeclock.FakeClock
 		metricSender        *fake.FakeMetricSender
 		stagingDurationNano time.Duration
 
@@ -66,9 +66,9 @@ var _ = Describe("Outbox", func() {
 		backendResponse = []byte("fake-response")
 		backendError = nil
 
-		fakeTimeProvider = faketimeprovider.New(time.Now())
+		fakeClock = fakeclock.NewFakeClock(time.Now())
 
-		runner = outbox.New(outboxAddress, fakeCCClient, []backend.Backend{fakeBackend}, logger, fakeTimeProvider)
+		runner = outbox.New(outboxAddress, fakeCCClient, []backend.Backend{fakeBackend}, logger, fakeClock)
 	})
 
 	JustBeforeEach(func() {
@@ -101,8 +101,8 @@ var _ = Describe("Outbox", func() {
 				TaskId: taskId,
 			})
 
-			createdAt := fakeTimeProvider.Now().UnixNano()
-			fakeTimeProvider.Increment(stagingDurationNano)
+			createdAt := fakeClock.Now().UnixNano()
+			fakeClock.Increment(stagingDurationNano)
 
 			taskResponse = receptor.TaskResponse{
 				TaskGuid:  "the-task-guid",
@@ -227,8 +227,8 @@ var _ = Describe("Outbox", func() {
 		})
 
 		JustBeforeEach(func() {
-			createdAt := fakeTimeProvider.Now().UnixNano()
-			fakeTimeProvider.Increment(stagingDurationNano)
+			createdAt := fakeClock.Now().UnixNano()
+			fakeClock.Increment(stagingDurationNano)
 
 			resp = postTask(receptor.TaskResponse{
 				Domain:        "fake-domain",

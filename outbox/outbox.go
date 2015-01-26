@@ -12,7 +12,7 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry-incubator/stager/backend"
 	"github.com/cloudfoundry-incubator/stager/cc_client"
-	"github.com/cloudfoundry/gunk/timeprovider"
+	"github.com/pivotal-golang/clock"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -25,22 +25,22 @@ const (
 )
 
 type Outbox struct {
-	address      string
-	ccClient     cc_client.CcClient
-	backends     []backend.Backend
-	logger       lager.Logger
-	timeProvider timeprovider.TimeProvider
+	address  string
+	ccClient cc_client.CcClient
+	backends []backend.Backend
+	logger   lager.Logger
+	clock    clock.Clock
 }
 
-func New(address string, ccClient cc_client.CcClient, backends []backend.Backend, logger lager.Logger, timeProvider timeprovider.TimeProvider) *Outbox {
+func New(address string, ccClient cc_client.CcClient, backends []backend.Backend, logger lager.Logger, clock clock.Clock) *Outbox {
 	outboxLogger := logger.Session("outbox")
 
 	return &Outbox{
-		address:      address,
-		ccClient:     ccClient,
-		backends:     backends,
-		logger:       outboxLogger,
-		timeProvider: timeProvider,
+		address:  address,
+		ccClient: ccClient,
+		backends: backends,
+		logger:   outboxLogger,
+		clock:    clock,
 	}
 }
 
@@ -97,7 +97,7 @@ func (o *Outbox) handleRequest(res http.ResponseWriter, req *http.Request) {
 }
 
 func (o *Outbox) reportMetrics(task receptor.TaskResponse) {
-	duration := o.timeProvider.Now().Sub(time.Unix(0, task.CreatedAt))
+	duration := o.clock.Now().Sub(time.Unix(0, task.CreatedAt))
 	if task.Failed {
 		stagingFailureCounter.Increment()
 		stagingFailureDuration.Send(duration)
