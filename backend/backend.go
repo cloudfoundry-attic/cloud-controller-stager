@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/diego_errors"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -17,7 +18,7 @@ const (
 	DefaultStagingTimeout = 15 * time.Minute
 )
 
-type FailureReasonSanitizer func(string) string
+type FailureReasonSanitizer func(string) *cc_messages.StagingError
 
 type Backend interface {
 	StagingRequestsNatsSubject() string

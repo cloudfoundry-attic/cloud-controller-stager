@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/cloudfoundry-incubator/docker-circus"
+	docker_circus "github.com/cloudfoundry-incubator/docker-circus"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -54,7 +54,9 @@ var _ = Describe("DockerBackend", func() {
 				"compiler_with_full_url": "http://the-full-compiler-url",
 				"compiler_with_bad_url":  "ftp://the-bad-compiler-url",
 			},
-			Sanitizer: func(msg string) string { return msg + " was totally sanitized" },
+			Sanitizer: func(msg string) *cc_messages.StagingError {
+				return &cc_messages.StagingError{Message: msg + " was totally sanitized"}
+			},
 		}
 
 		logger := lager.NewLogger("fakelogger")
@@ -291,7 +293,7 @@ var _ = Describe("DockerBackend", func() {
 					expectedResponse := cc_messages.DockerStagingResponseForCC{
 						AppId:  "myapp",
 						TaskId: "mytask",
-						Error:  "fake-error-message was totally sanitized",
+						Error:  &cc_messages.StagingError{Message: "fake-error-message was totally sanitized"},
 					}
 					expectedResponseJson, err := json.Marshal(expectedResponse)
 					Ω(err).ShouldNot(HaveOccurred())
@@ -394,7 +396,7 @@ var _ = Describe("DockerBackend", func() {
 							expectedResponse := cc_messages.DockerStagingResponseForCC{
 								AppId:  "app-id",
 								TaskId: "task-id",
-								Error:  "some-failure-reason was totally sanitized",
+								Error:  &cc_messages.StagingError{Message: "some-failure-reason was totally sanitized"},
 							}
 							expectedResponseJson, err := json.Marshal(expectedResponse)
 							Ω(err).ShouldNot(HaveOccurred())

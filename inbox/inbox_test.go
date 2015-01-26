@@ -219,7 +219,7 @@ var _ = Describe("Inbox", func() {
 				Context("when the recipe failed to be built", func() {
 					BeforeEach(func() {
 						fakeBackend.BuildRecipeReturns(receptor.TaskCreateRequest{}, errors.New("fake error"))
-						responseForCC := cc_messages.StagingResponseForCC{Error: "some fake error"}
+						responseForCC := cc_messages.StagingResponseForCC{Error: &cc_messages.StagingError{Message: "some fake error"}}
 						responseForCCjson, err := json.Marshal(responseForCC)
 						Ω(err).ShouldNot(HaveOccurred())
 						fakeBackend.BuildStagingResponseFromRequestErrorReturns(responseForCCjson, nil)
@@ -241,7 +241,7 @@ var _ = Describe("Inbox", func() {
 
 						stagingResponse := cc_messages.StagingResponseForCC{}
 						json.Unmarshal(response, &stagingResponse)
-						Ω(stagingResponse.Error).Should(Equal("some fake error"))
+						Ω(stagingResponse.Error).Should(Equal(&cc_messages.StagingError{Message: "some fake error"}))
 					})
 
 					Context("when the response builder fails", func() {
