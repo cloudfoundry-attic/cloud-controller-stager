@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudfoundry-incubator/linux-circus"
+	"github.com/cloudfoundry-incubator/buildpack_app_lifecycle"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
@@ -86,7 +86,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 		buildpacksOrder = append(buildpacksOrder, buildpack.Key)
 	}
 
-	tailorConfig := linux_circus.NewCircusTailorConfig(buildpacksOrder, backend.config.SkipCertVerify)
+	builderConfig := buildpack_app_lifecycle.NewLifecycleBuilderConfig(buildpacksOrder, backend.config.SkipCertVerify)
 
 	timeout := traditionalTimeout(request, backend.logger)
 
@@ -96,7 +96,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	appDownloadAction := &models.DownloadAction{
 		Artifact: "app package",
 		From:     request.AppBitsDownloadUri,
-		To:       tailorConfig.BuildDir(),
+		To:       builderConfig.BuildDir(),
 	}
 
 	actions = append(actions, appDownloadAction)
@@ -104,14 +104,14 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	downloadActions := []models.Action{}
 	downloadNames := []string{}
 
-	//Download tailor
+	//Download builder
 	downloadActions = append(
 		downloadActions,
 		models.EmitProgressFor(
 			&models.DownloadAction{
 				From:     compilerURL.String(),
-				To:       path.Dir(tailorConfig.ExecutablePath),
-				CacheKey: fmt.Sprintf("tailor-%s", request.Stack),
+				To:       path.Dir(builderConfig.ExecutablePath),
+				CacheKey: fmt.Sprintf("builder-%s", request.Stack),
 			},
 			"",
 			"",
@@ -135,7 +135,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 				&models.DownloadAction{
 					Artifact: buildpack.Name,
 					From:     buildpack.Url,
-					To:       tailorConfig.BuildpackPath(buildpack.Key),
+					To:       builderConfig.BuildpackPath(buildpack.Key),
 					CacheKey: buildpack.Key,
 				},
 			)
@@ -157,7 +157,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 				&models.DownloadAction{
 					Artifact: "build artifacts cache",
 					From:     downloadURL.String(),
-					To:       tailorConfig.BuildArtifactsCacheDir(),
+					To:       builderConfig.BuildArtifactsCacheDir(),
 				},
 			),
 		)
@@ -169,13 +169,13 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 
 	fileDescriptorLimit := uint64(request.FileDescriptors)
 
-	//Run Tailor
+	//Run Builder
 	actions = append(
 		actions,
 		models.EmitProgressFor(
 			&models.RunAction{
-				Path: tailorConfig.Path(),
-				Args: tailorConfig.Args(),
+				Path: builderConfig.Path(),
+				Args: builderConfig.Args(),
 				Env:  request.Environment.BBSEnvironment(),
 				ResourceLimits: models.ResourceLimits{
 					Nofile: &fileDescriptorLimit,
@@ -199,7 +199,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 		uploadActions,
 		&models.UploadAction{
 			Artifact: "droplet",
-			From:     tailorConfig.OutputDroplet(), // get the droplet
+			From:     builderConfig.OutputDroplet(), // get the droplet
 			To:       addTimeoutParamToURL(*uploadURL, timeout).String(),
 		},
 	)
@@ -215,7 +215,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 		models.Try(
 			&models.UploadAction{
 				Artifact: "build artifacts cache",
-				From:     tailorConfig.OutputBuildArtifactsCache(), // get the compressed build artifacts cache
+				From:     builderConfig.OutputBuildArtifactsCache(), // get the compressed build artifacts cache
 				To:       addTimeoutParamToURL(*uploadURL, timeout).String(),
 			},
 		),
@@ -234,7 +234,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 		TaskGuid:              backend.taskGuid(request),
 		Domain:                TraditionalTaskDomain,
 		Stack:                 request.Stack,
-		ResultFile:            tailorConfig.OutputMetadata(),
+		ResultFile:            builderConfig.OutputMetadata(),
 		MemoryMB:              request.MemoryMB,
 		DiskMB:                request.DiskMB,
 		CPUWeight:             StagingTaskCpuWeight,
@@ -284,7 +284,7 @@ func (backend *traditionalBackend) BuildStagingResponse(taskResponse receptor.Ta
 	if taskResponse.Failed {
 		response.Error = backend.config.Sanitizer(taskResponse.FailureReason)
 	} else {
-		var result linux_circus.StagingResult
+		var result buildpack_app_lifecycle.StagingResult
 		err := json.Unmarshal([]byte(taskResponse.Result), &result)
 		if err != nil {
 			return nil, err
@@ -322,7 +322,7 @@ func (backend *traditionalBackend) taskGuid(request cc_messages.StagingRequestFr
 }
 
 func (backend *traditionalBackend) compilerDownloadURL(request cc_messages.StagingRequestFromCC) (*url.URL, error) {
-	compilerPath, ok := backend.config.Circuses[request.Stack]
+	compilerPath, ok := backend.config.Lifecycles[request.Stack]
 	if !ok {
 		return nil, ErrNoCompilerDefined
 	}

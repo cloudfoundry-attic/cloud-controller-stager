@@ -67,16 +67,16 @@ var skipCertVerify = flag.Bool(
 	"skip SSL certificate verification",
 )
 
-var circuses = flag.String(
-	"circuses",
+var lifecycles = flag.String(
+	"lifecycles",
 	"{}",
-	"Map of circuses for different stacks (name => compiler_name)",
+	"Map of lifecycles for different stacks (name => compiler_name)",
 )
 
-var dockerCircusPath = flag.String(
-	"dockerCircusPath",
+var dockerLifecyclePath = flag.String(
+	"dockerLifecyclePath",
 	"",
-	"path for downloading docker circus from file server",
+	"path for downloading docker lifecycle from file server",
 )
 
 var diegoAPIURL = flag.String(
@@ -164,18 +164,18 @@ func initializeDropsonde(logger lager.Logger) {
 }
 
 func initializeBackends(logger lager.Logger) []backend.Backend {
-	circusesMap := make(map[string]string)
-	err := json.Unmarshal([]byte(*circuses), &circusesMap)
+	lifecyclesMap := make(map[string]string)
+	err := json.Unmarshal([]byte(*lifecycles), &lifecyclesMap)
 	if err != nil {
-		logger.Fatal("Error parsing circuses flag", err)
+		logger.Fatal("Error parsing lifecycles flag", err)
 	}
 	config := backend.Config{
-		CallbackURL:      *stagerURL,
-		FileServerURL:    *fileServerURL,
-		Circuses:         circusesMap,
-		DockerCircusPath: *dockerCircusPath,
-		SkipCertVerify:   *skipCertVerify,
-		Sanitizer:        cc_messages.SanitizeErrorMessage,
+		CallbackURL:         *stagerURL,
+		FileServerURL:       *fileServerURL,
+		Lifecycles:          lifecyclesMap,
+		DockerLifecyclePath: *dockerLifecyclePath,
+		SkipCertVerify:      *skipCertVerify,
+		Sanitizer:           cc_messages.SanitizeErrorMessage,
 	}
 
 	return []backend.Backend{

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	linux_circus "github.com/cloudfoundry-incubator/linux-circus"
+	"github.com/cloudfoundry-incubator/buildpack_app_lifecycle"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -33,7 +33,7 @@ var _ = Describe("TraditionalBackend", func() {
 		taskId                         string
 		buildpacks                     []cc_messages.Buildpack
 		appBitsDownloadUri             string
-		downloadTailorAction           models.Action
+		downloadBuilderAction          models.Action
 		downloadAppAction              models.Action
 		downloadFirstBuildpackAction   models.Action
 		downloadSecondBuildpackAction  models.Action
@@ -50,7 +50,7 @@ var _ = Describe("TraditionalBackend", func() {
 		config = Config{
 			CallbackURL:   callbackURL,
 			FileServerURL: "http://file-server.com",
-			Circuses: map[string]string{
+			Lifecycles: map[string]string{
 				"penguin":                "penguin-compiler",
 				"rabbit_hole":            "rabbit-hole-compiler",
 				"compiler_with_full_url": "http://the-full-compiler-url",
@@ -80,11 +80,11 @@ var _ = Describe("TraditionalBackend", func() {
 		}
 		appBitsDownloadUri = "http://example-uri.com/bunny"
 
-		downloadTailorAction = models.EmitProgressFor(
+		downloadBuilderAction = models.EmitProgressFor(
 			&models.DownloadAction{
 				From:     "http://file-server.com/v1/static/rabbit-hole-compiler",
-				To:       "/tmp/circus",
-				CacheKey: "tailor-rabbit_hole",
+				To:       "/tmp/lifecycle",
+				CacheKey: "builder-rabbit_hole",
 			},
 			"",
 			"",
@@ -148,7 +148,7 @@ var _ = Describe("TraditionalBackend", func() {
 		fileDescriptorLimit := uint64(fileDescriptors)
 		runAction = models.EmitProgressFor(
 			&models.RunAction{
-				Path: "/tmp/circus/tailor",
+				Path: "/tmp/lifecycle/builder",
 				Args: []string{
 					"-buildArtifactsCacheDir=/tmp/cache",
 					"-buildDir=/tmp/app",
@@ -264,7 +264,7 @@ var _ = Describe("TraditionalBackend", func() {
 			downloadAppAction,
 			models.EmitProgressFor(
 				models.Parallel(
-					downloadTailorAction,
+					downloadBuilderAction,
 					downloadFirstBuildpackAction,
 					downloadSecondBuildpackAction,
 					downloadBuildArtifactsAction,
@@ -328,7 +328,7 @@ var _ = Describe("TraditionalBackend", func() {
 			Ω(actions[0]).Should(Equal(downloadAppAction))
 			Ω(actions[1]).Should(Equal(models.EmitProgressFor(
 				models.Parallel(
-					downloadTailorAction,
+					downloadBuilderAction,
 					downloadBuildArtifactsAction,
 				),
 				"Downloading buildpacks ("+customBuildpack+"), build artifacts cache...",
@@ -418,7 +418,7 @@ var _ = Describe("TraditionalBackend", func() {
 				downloadAppAction,
 				models.EmitProgressFor(
 					models.Parallel(
-						downloadTailorAction,
+						downloadBuilderAction,
 						downloadFirstBuildpackAction,
 						downloadSecondBuildpackAction,
 					),
@@ -459,7 +459,7 @@ var _ = Describe("TraditionalBackend", func() {
 			stack = "compiler_with_full_url"
 		})
 
-		It("uses the full URL in the download tailor action", func() {
+		It("uses the full URL in the download builder action", func() {
 			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 			Ω(err).ShouldNot(HaveOccurred())
 
@@ -503,7 +503,7 @@ var _ = Describe("TraditionalBackend", func() {
 			backend = NewTraditionalBackend(config, logger)
 		})
 
-		It("the tailor is told to skip certificate verification", func() {
+		It("the builder is told to skip certificate verification", func() {
 			args := []string{
 				"-buildArtifactsCacheDir=/tmp/cache",
 				"-buildDir=/tmp/app",
@@ -618,7 +618,7 @@ var _ = Describe("TraditionalBackend", func() {
 
 					Context("with a valid staging result", func() {
 						BeforeEach(func() {
-							stagingResult := linux_circus.StagingResult{
+							stagingResult := buildpack_app_lifecycle.StagingResult{
 								BuildpackKey:         "buildpack-key",
 								DetectedBuildpack:    "detected-buildpack",
 								ExecutionMetadata:    "metadata",

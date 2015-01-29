@@ -8,7 +8,7 @@ import (
 	"path"
 	"time"
 
-	"github.com/cloudfoundry-incubator/docker-circus"
+	"github.com/cloudfoundry-incubator/docker_app_lifecycle"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
@@ -20,13 +20,13 @@ import (
 
 const (
 	DockerTaskDomain                         = "cf-app-docker-staging"
-	DockerCircusFilename                     = "docker-circus.zip"
+	DockerLifecycleFilename                  = "docker_app_lifecycle.zip"
 	DockerStagingRequestsNatsSubject         = "diego.docker.staging.start"
 	DockerStagingRequestsReceivedCounter     = metric.Counter("DockerStagingRequestsReceived")
 	DockerStopStagingRequestsNatsSubject     = "diego.docker.staging.stop"
 	DockerStopStagingRequestsReceivedCounter = metric.Counter("DockerStopStagingRequestsReceived")
-	DockerTailorExecutablePath               = "/tmp/docker-circus/tailor"
-	DockerTailorOutputPath                   = "/tmp/docker-result/result.json"
+	DockerBuilderExecutablePath              = "/tmp/docker_app_lifecycle/builder"
+	DockerBuilderOutputPath                  = "/tmp/docker-result/result.json"
 )
 
 var ErrMissingDockerImageUrl = errors.New("missing docker image download url")
@@ -85,14 +85,14 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 
 	actions := []models.Action{}
 
-	//Download tailor
+	//Download builder
 	actions = append(
 		actions,
 		models.EmitProgressFor(
 			&models.DownloadAction{
 				From:     compilerURL.String(),
-				To:       path.Dir(DockerTailorExecutablePath),
-				CacheKey: "tailor-docker",
+				To:       path.Dir(DockerBuilderExecutablePath),
+				CacheKey: "builder-docker",
 			},
 			"",
 			"",
@@ -107,8 +107,8 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		actions,
 		models.EmitProgressFor(
 			&models.RunAction{
-				Path: DockerTailorExecutablePath,
-				Args: []string{"-outputMetadataJSONFilename", DockerTailorOutputPath, "-dockerRef", request.DockerImageUrl},
+				Path: DockerBuilderExecutablePath,
+				Args: []string{"-outputMetadataJSONFilename", DockerBuilderOutputPath, "-dockerRef", request.DockerImageUrl},
 				Env:  request.Environment.BBSEnvironment(),
 				ResourceLimits: models.ResourceLimits{
 					Nofile: &fileDescriptorLimit,
@@ -126,7 +126,7 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 	})
 
 	task := receptor.TaskCreateRequest{
-		ResultFile:            DockerTailorOutputPath,
+		ResultFile:            DockerBuilderOutputPath,
 		TaskGuid:              backend.taskGuid(request),
 		Domain:                DockerTaskDomain,
 		Stack:                 request.Stack,
@@ -178,7 +178,7 @@ func (backend *dockerBackend) BuildStagingResponse(taskResponse receptor.TaskRes
 	if taskResponse.Failed {
 		response.Error = backend.config.Sanitizer(taskResponse.FailureReason)
 	} else {
-		var result docker_circus.StagingDockerResult
+		var result docker_app_lifecycle.StagingDockerResult
 		err := json.Unmarshal([]byte(taskResponse.Result), &result)
 		if err != nil {
 			return nil, err
@@ -211,13 +211,13 @@ func (backend *dockerBackend) StagingTaskGuid(requestJson []byte) (string, error
 
 func (backend *dockerBackend) compilerDownloadURL(request cc_messages.DockerStagingRequestFromCC) (*url.URL, error) {
 
-	var circusFilename string
-	if len(backend.config.DockerCircusPath) > 0 {
-		circusFilename = backend.config.DockerCircusPath
+	var lifecycleFilename string
+	if len(backend.config.DockerLifecyclePath) > 0 {
+		lifecycleFilename = backend.config.DockerLifecyclePath
 	} else {
-		circusFilename = DockerCircusFilename
+		lifecycleFilename = DockerLifecycleFilename
 	}
-	parsed, err := url.Parse(circusFilename)
+	parsed, err := url.Parse(lifecycleFilename)
 	if err != nil {
 		return nil, errors.New("couldn't parse compiler URL")
 	}
@@ -236,7 +236,7 @@ func (backend *dockerBackend) compilerDownloadURL(request cc_messages.DockerStag
 		return nil, fmt.Errorf("couldn't generate the compiler download path: %s", err)
 	}
 
-	urlString := urljoiner.Join(backend.config.FileServerURL, staticPath, circusFilename)
+	urlString := urljoiner.Join(backend.config.FileServerURL, staticPath, lifecycleFilename)
 
 	url, err := url.ParseRequestURI(urlString)
 	if err != nil {

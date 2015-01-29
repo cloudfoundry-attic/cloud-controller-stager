@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	docker_circus "github.com/cloudfoundry-incubator/docker-circus"
+	docker_app_lifecycle "github.com/cloudfoundry-incubator/docker_app_lifecycle"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -16,13 +16,13 @@ import (
 
 var _ = Describe("DockerBackend", func() {
 	var (
-		stagingRequest       cc_messages.DockerStagingRequestFromCC
-		stagingRequestJson   []byte
-		downloadTailorAction models.Action
-		runAction            models.Action
-		config               Config
-		callbackURL          string
-		backend              Backend
+		stagingRequest        cc_messages.DockerStagingRequestFromCC
+		stagingRequestJson    []byte
+		downloadBuilderAction models.Action
+		runAction             models.Action
+		config                Config
+		callbackURL           string
+		backend               Backend
 
 		appId           string
 		taskId          string
@@ -48,7 +48,7 @@ var _ = Describe("DockerBackend", func() {
 		config = Config{
 			CallbackURL:   callbackURL,
 			FileServerURL: "http://file-server.com",
-			Circuses: map[string]string{
+			Lifecycles: map[string]string{
 				"penguin":                "penguin-compiler",
 				"rabbit_hole":            "rabbit-hole-compiler",
 				"compiler_with_full_url": "http://the-full-compiler-url",
@@ -64,11 +64,11 @@ var _ = Describe("DockerBackend", func() {
 
 		backend = NewDockerBackend(config, logger)
 
-		downloadTailorAction = models.EmitProgressFor(
+		downloadBuilderAction = models.EmitProgressFor(
 			&models.DownloadAction{
-				From:     "http://file-server.com/v1/static/docker-circus.zip",
-				To:       "/tmp/docker-circus",
-				CacheKey: "tailor-docker",
+				From:     "http://file-server.com/v1/static/docker_app_lifecycle.zip",
+				To:       "/tmp/docker_app_lifecycle",
+				CacheKey: "builder-docker",
 			},
 			"",
 			"",
@@ -79,7 +79,7 @@ var _ = Describe("DockerBackend", func() {
 
 		runAction = models.EmitProgressFor(
 			&models.RunAction{
-				Path: "/tmp/docker-circus/tailor",
+				Path: "/tmp/docker_app_lifecycle/builder",
 				Args: []string{
 					"-outputMetadataJSONFilename",
 					"/tmp/docker-result/result.json",
@@ -205,7 +205,7 @@ var _ = Describe("DockerBackend", func() {
 
 		actions := actionsFromDesiredTask(desiredTask)
 		Ω(actions).Should(HaveLen(2))
-		Ω(actions[0]).Should(Equal(downloadTailorAction))
+		Ω(actions[0]).Should(Equal(downloadBuilderAction))
 		Ω(actions[1]).Should(Equal(runAction))
 
 		Ω(desiredTask.MemoryMB).To(Equal(memoryMB))
@@ -350,7 +350,7 @@ var _ = Describe("DockerBackend", func() {
 
 					Context("with a valid staging result", func() {
 						BeforeEach(func() {
-							stagingResult := docker_circus.StagingDockerResult{
+							stagingResult := docker_app_lifecycle.StagingDockerResult{
 								ExecutionMetadata:    "metadata",
 								DetectedStartCommand: map[string]string{"a": "b"},
 							}
