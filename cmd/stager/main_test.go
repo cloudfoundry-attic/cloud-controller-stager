@@ -142,4 +142,17 @@ var _ = Describe("Stager", func() {
 			})
 		})
 	})
+
+	Describe("--dockerRegistryURL arg", func() {
+		Context("when started with --dockerRegistryURL arg", func() {
+			BeforeEach(func() {
+				runner.Start("--lifecycles", `{"lucid64":"lifecycle.zip"}`,
+					"--dockerRegistryURL", "http://10.244.2.6:5000")
+			})
+
+			It("starts successfully", func() {
+				Consistently(runner.Session()).ShouldNot(gexec.Exit())
+			})
+		})
+	})
 })

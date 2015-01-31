@@ -44,6 +44,7 @@ type Config struct {
 	FileServerURL       string
 	Lifecycles          map[string]string
 	DockerLifecyclePath string
+	DockerRegistryURL   string
 	SkipCertVerify      bool
 	Sanitizer           FailureReasonSanitizer
 }

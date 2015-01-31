@@ -102,13 +102,18 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 
 	fileDescriptorLimit := uint64(request.FileDescriptors)
 
+	runActionArguments := []string{"-outputMetadataJSONFilename", DockerBuilderOutputPath, "-dockerRef", request.DockerImageUrl}
+	if len(backend.config.DockerRegistryURL) > 0 {
+		runActionArguments = append(runActionArguments, "-dockerRegistryURL", backend.config.DockerRegistryURL)
+	}
+
 	//Run Smelter
 	actions = append(
 		actions,
 		models.EmitProgressFor(
 			&models.RunAction{
 				Path: DockerBuilderExecutablePath,
-				Args: []string{"-outputMetadataJSONFilename", DockerBuilderOutputPath, "-dockerRef", request.DockerImageUrl},
+				Args: runActionArguments,
 				Env:  request.Environment.BBSEnvironment(),
 				ResourceLimits: models.ResourceLimits{
 					Nofile: &fileDescriptorLimit,

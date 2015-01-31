@@ -97,6 +97,12 @@ var fileServerURL = flag.String(
 	"URL of the file server",
 )
 
+var dockerRegistryURL = flag.String(
+	"dockerRegistryURL",
+	"",
+	"URL of a private Docker Registry, used for reproducible scale up",
+)
+
 const (
 	dropsondeDestination = "localhost:3457"
 	dropsondeOrigin      = "stager"
@@ -174,6 +180,7 @@ func initializeBackends(logger lager.Logger) []backend.Backend {
 		FileServerURL:       *fileServerURL,
 		Lifecycles:          lifecyclesMap,
 		DockerLifecyclePath: *dockerLifecyclePath,
+		DockerRegistryURL:   *dockerRegistryURL,
 		SkipCertVerify:      *skipCertVerify,
 		Sanitizer:           cc_messages.SanitizeErrorMessage,
 	}
