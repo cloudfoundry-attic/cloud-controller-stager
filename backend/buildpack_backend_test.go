@@ -245,6 +245,7 @@ var _ = Describe("TraditionalBackend", func() {
 		Ω(desiredTask.TaskGuid).To(Equal("bunny-hop"))
 		Ω(desiredTask.Stack).To(Equal("rabbit_hole"))
 		Ω(desiredTask.LogGuid).To(Equal("bunny"))
+		Ω(desiredTask.MetricsGuid).Should(BeEmpty()) // do not emit metrics for staging!
 		Ω(desiredTask.LogSource).To(Equal(TaskLogSource))
 		Ω(desiredTask.ResultFile).To(Equal("/tmp/result.json"))
 		Ω(desiredTask.Privileged).Should(BeTrue())
