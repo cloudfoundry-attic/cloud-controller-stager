@@ -100,7 +100,7 @@ var fileServerURL = flag.String(
 var dockerRegistryURL = flag.String(
 	"dockerRegistryURL",
 	"",
-	"URL of a private Docker Registry, used for reproducible scale up",
+	"Private Docker Registry URL",
 )
 
 const (
