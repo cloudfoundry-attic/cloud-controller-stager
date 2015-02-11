@@ -113,7 +113,7 @@ func main() {
 	cf_lager.AddFlags(flag.CommandLine)
 	flag.Parse()
 
-	logger := cf_lager.New("stager")
+	logger, reconfigurableSink := cf_lager.New("stager")
 	initializeDropsonde(logger)
 
 	ccClient := cc_client.NewCcClient(*ccBaseURL, *ccUsername, *ccPassword, *skipCertVerify)
@@ -146,7 +146,7 @@ func main() {
 
 	if dbgAddr := cf_debug_server.DebugAddress(flag.CommandLine); dbgAddr != "" {
 		members = append(grouper.Members{
-			{"debug-server", cf_debug_server.Runner(dbgAddr)},
+			{"debug-server", cf_debug_server.Runner(dbgAddr, reconfigurableSink)},
 		}, members...)
 	}
 
