@@ -2,12 +2,15 @@ package backend_test
 
 import (
 	"encoding/json"
+	"fmt"
+	"net/http"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/cloudfoundry-incubator/stager/backend"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/ghttp"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -17,15 +20,57 @@ var _ = Describe("DockerBackend", func() {
 		stagingRequestJson   []byte
 		downloadTailorAction models.Action
 		runAction            models.Action
+		server               *ghttp.Server
 		backend              Backend
+		dockerRegistryIPs    []string
+		dockerRegistryPort   uint16
+		expectedEgressRules  []models.SecurityGroupRule
+		dockerRegistryURL    string
 	)
 
+	dockerRegistryIPs = []string{"10.244.2.6", "10.244.2.7"}
+	dockerRegistryPort = uint16(8080)
+
+	setupConsulAgent := func() {
+		server.AppendHandlers(
+			ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", "/v1/catalog/service/docker_registry"),
+				http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+					w.Write([]byte(fmt.Sprintf(
+						`[
+								{"Address": "%s"},
+								{"Address": "%s"}
+						 ]`,
+						dockerRegistryIPs[0], dockerRegistryIPs[1])))
+				}),
+			),
+		)
+	}
+
+	setupEgressRules := func(ips []string) []models.SecurityGroupRule {
+		rules := []models.SecurityGroupRule{}
+		for _, ip := range ips {
+			rules = append(rules, models.SecurityGroupRule{
+				Protocol:     models.TCPProtocol,
+				Destinations: []string{ip},
+				Ports:        []uint16{dockerRegistryPort},
+			})
+		}
+		return rules
+	}
+
 	BeforeEach(func() {
-		dockerRegistryURL := "http://10.244.2.6:5000"
+		dockerRegistryURL = fmt.Sprintf("http://%s:%d", dockerRegistryIPs[0], dockerRegistryPort)
+	})
+
+	JustBeforeEach(func() {
+		server = ghttp.NewServer()
+		setupConsulAgent()
 
 		config := Config{
 			FileServerURL:     "http://file-server.com",
 			DockerRegistryURL: dockerRegistryURL,
+			ConsulAgentURL:    server.URL(),
 		}
 
 		logger := lager.NewLogger("fakelogger")
@@ -66,9 +111,9 @@ var _ = Describe("DockerBackend", func() {
 			"Staging Complete",
 			"Staging Failed",
 		)
-	})
 
-	JustBeforeEach(func() {
+		expectedEgressRules = setupEgressRules(dockerRegistryIPs)
+
 		stagingRequest = cc_messages.DockerStagingRequestFromCC{
 			AppId:           "bunny",
 			TaskId:          "hop",
@@ -93,5 +138,21 @@ var _ = Describe("DockerBackend", func() {
 		Ω(actions).Should(HaveLen(2))
 		Ω(actions[0]).Should(Equal(downloadTailorAction))
 		Ω(actions[1]).Should(Equal(runAction))
+
+		Ω(desiredTask.EgressRules).Should(ConsistOf(expectedEgressRules))
 	})
+
+	Context("with no docker registry URL", func() {
+		BeforeEach(func() {
+			dockerRegistryURL = ""
+		})
+
+		It("creates a cf-app-docker-staging Task with no additional egress rules", func() {
+			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
+			Ω(err).ShouldNot(HaveOccurred())
+			Ω(desiredTask.EgressRules).Should(BeEmpty())
+
+		})
+	})
+
 })

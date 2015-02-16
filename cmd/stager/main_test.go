@@ -55,7 +55,7 @@ var _ = Describe("Stager", func() {
 
 	Context("when started", func() {
 		BeforeEach(func() {
-			runner.Start("--lifecycles", `{"lucid64":"lifecycle.zip"}`)
+			runner.Start("-lifecycles", `{"lucid64":"lifecycle.zip"}`)
 		})
 
 		Describe("when a 'diego.staging.start' message is received", func() {
@@ -143,11 +143,24 @@ var _ = Describe("Stager", func() {
 		})
 	})
 
-	Describe("--dockerRegistryURL arg", func() {
-		Context("when started with --dockerRegistryURL arg", func() {
+	Describe("-dockerRegistryURL arg", func() {
+		Context("when started with -dockerRegistryURL arg", func() {
 			BeforeEach(func() {
-				runner.Start("--lifecycles", `{"lucid64":"lifecycle.zip"}`,
-					"--dockerRegistryURL", "http://10.244.2.6:5000")
+				runner.Start("-lifecycles", `{"lucid64":"lifecycle.zip"}`,
+					"-dockerRegistryURL", "http://10.244.2.6:5000")
+			})
+
+			It("starts successfully", func() {
+				Consistently(runner.Session()).ShouldNot(gexec.Exit())
+			})
+		})
+	})
+
+	Describe("-consulAgentURL arg", func() {
+		Context("when started with -consulAgentURL arg", func() {
+			BeforeEach(func() {
+				runner.Start("-lifecycles", `{"lucid64":"lifecycle.zip"}`,
+					"-consulAgentURL", "http://localhost:8500")
 			})
 
 			It("starts successfully", func() {

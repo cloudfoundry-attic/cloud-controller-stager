@@ -45,6 +45,7 @@ type Config struct {
 	Lifecycles          map[string]string
 	DockerLifecyclePath string
 	DockerRegistryURL   string
+	ConsulAgentURL      string
 	SkipCertVerify      bool
 	Sanitizer           FailureReasonSanitizer
 }

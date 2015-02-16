@@ -103,6 +103,12 @@ var dockerRegistryURL = flag.String(
 	"Private Docker Registry URL",
 )
 
+var consulAgentURL = flag.String(
+	"consulAgentURL",
+	"",
+	"Consul Agent URL",
+)
+
 const (
 	dropsondeDestination = "localhost:3457"
 	dropsondeOrigin      = "stager"
@@ -181,6 +187,7 @@ func initializeBackends(logger lager.Logger) []backend.Backend {
 		Lifecycles:          lifecyclesMap,
 		DockerLifecyclePath: *dockerLifecyclePath,
 		DockerRegistryURL:   *dockerRegistryURL,
+		ConsulAgentURL:      *consulAgentURL,
 		SkipCertVerify:      *skipCertVerify,
 		Sanitizer:           cc_messages.SanitizeErrorMessage,
 	}

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"net/url"
 	"path"
 	"time"
@@ -34,6 +36,10 @@ var ErrMissingDockerImageUrl = errors.New("missing docker image download url")
 type dockerBackend struct {
 	config Config
 	logger lager.Logger
+}
+
+type consulServiceInfo struct {
+	Address string
 }
 
 func NewDockerBackend(config Config, logger lager.Logger) Backend {
@@ -129,6 +135,15 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		AppId:  request.AppId,
 		TaskId: request.TaskId,
 	})
+
+	if len(backend.config.DockerRegistryURL) > 0 {
+		registryRules, err := addDockerRegistryRules(request.EgressRules, backend.config.ConsulAgentURL)
+		if err != nil {
+			return receptor.TaskCreateRequest{}, err
+		}
+
+		request.EgressRules = append(request.EgressRules, registryRules...)
+	}
 
 	task := receptor.TaskCreateRequest{
 		ResultFile:            DockerBuilderOutputPath,
@@ -283,4 +298,42 @@ func dockerTimeout(request cc_messages.DockerStagingRequestFromCC, logger lager.
 		})
 		return DefaultStagingTimeout
 	}
+}
+
+func addDockerRegistryRules(egressRules []models.SecurityGroupRule, consulAgentURL string) ([]models.SecurityGroupRule, error) {
+	registries, err := getDockerRegistryIPs(consulAgentURL)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, registry := range registries {
+		egressRules = append(egressRules, models.SecurityGroupRule{
+			Protocol:     models.TCPProtocol,
+			Destinations: []string{registry.Address},
+			Ports:        []uint16{8080},
+		})
+	}
+
+	return egressRules, nil
+}
+
+func getDockerRegistryIPs(consulAgentURL string) ([]consulServiceInfo, error) {
+	response, err := http.Get(consulAgentURL + "/v1/catalog/service/docker_registry")
+	if err != nil {
+		return nil, err
+	}
+
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var ips []consulServiceInfo
+	err = json.Unmarshal(body, &ips)
+	if err != nil {
+		return nil, err
+	}
+
+	return ips, nil
 }
