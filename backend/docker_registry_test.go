@@ -151,7 +151,6 @@ var _ = Describe("DockerBackend", func() {
 			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 			Ω(err).ShouldNot(HaveOccurred())
 			Ω(desiredTask.EgressRules).Should(BeEmpty())
-
 		})
 	})
 

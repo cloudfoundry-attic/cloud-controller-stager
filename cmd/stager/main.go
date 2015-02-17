@@ -181,6 +181,12 @@ func initializeBackends(logger lager.Logger) []backend.Backend {
 	if err != nil {
 		logger.Fatal("Error parsing lifecycles flag", err)
 	}
+
+	_, err = url.Parse(*consulAgentURL)
+	if err != nil {
+		logger.Fatal("Error parsing consul agent URL", err)
+	}
+
 	config := backend.Config{
 		CallbackURL:         *stagerURL,
 		FileServerURL:       *fileServerURL,

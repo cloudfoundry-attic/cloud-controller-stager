@@ -147,7 +147,7 @@ var _ = Describe("Stager", func() {
 		Context("when started with -dockerRegistryURL arg", func() {
 			BeforeEach(func() {
 				runner.Start("-lifecycles", `{"lucid64":"lifecycle.zip"}`,
-					"-dockerRegistryURL", "http://10.244.2.6:5000")
+					"-dockerRegistryURL", "http://10.244.2.6:8080")
 			})
 
 			It("starts successfully", func() {
@@ -157,7 +157,7 @@ var _ = Describe("Stager", func() {
 	})
 
 	Describe("-consulAgentURL arg", func() {
-		Context("when started with -consulAgentURL arg", func() {
+		Context("when started with a valid -consulAgentURL arg", func() {
 			BeforeEach(func() {
 				runner.Start("-lifecycles", `{"lucid64":"lifecycle.zip"}`,
 					"-consulAgentURL", "http://localhost:8500")
