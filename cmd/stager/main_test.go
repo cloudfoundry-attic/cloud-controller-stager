@@ -16,6 +16,7 @@ import (
 	"github.com/cloudfoundry-incubator/stager/cmd/stager/testrunner"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	"github.com/onsi/gomega/ghttp"
 )
@@ -56,6 +57,7 @@ var _ = Describe("Stager", func() {
 	Context("when started", func() {
 		BeforeEach(func() {
 			runner.Start("-lifecycles", `{"lucid64":"lifecycle.zip"}`)
+			Eventually(runner.Session()).Should(gbytes.Say("Listening for staging requests!"))
 		})
 
 		Describe("when a 'diego.staging.start' message is received", func() {
@@ -144,14 +146,27 @@ var _ = Describe("Stager", func() {
 	})
 
 	Describe("-dockerRegistryURL arg", func() {
-		Context("when started with -dockerRegistryURL arg", func() {
+		Context("when started with a valid -dockerRegistryURL arg", func() {
 			BeforeEach(func() {
 				runner.Start("-lifecycles", `{"lucid64":"lifecycle.zip"}`,
 					"-dockerRegistryURL", "http://10.244.2.6:8080")
+				Eventually(runner.Session()).Should(gbytes.Say("Listening for staging requests!"))
 			})
 
 			It("starts successfully", func() {
 				Consistently(runner.Session()).ShouldNot(gexec.Exit())
+			})
+		})
+
+		Context("when started with an invalid -dockerRegistryURL arg", func() {
+			BeforeEach(func() {
+				runner.Start("-lifecycles", `{"lucid64":"lifecycle.zip"}`,
+					"-dockerRegistryURL", "://noscheme:8080")
+			})
+
+			It("logs and errors", func() {
+				Eventually(runner.Session().ExitCode()).ShouldNot(Equal(0))
+				Eventually(runner.Session()).Should(gbytes.Say("Error parsing docker registry URL"))
 			})
 		})
 	})
@@ -161,11 +176,51 @@ var _ = Describe("Stager", func() {
 			BeforeEach(func() {
 				runner.Start("-lifecycles", `{"lucid64":"lifecycle.zip"}`,
 					"-consulAgentURL", "http://localhost:8500")
+				Eventually(runner.Session()).Should(gbytes.Say("Listening for staging requests!"))
 			})
 
 			It("starts successfully", func() {
 				Consistently(runner.Session()).ShouldNot(gexec.Exit())
 			})
 		})
+
+		Context("when started with an invalid -consulAgentURL arg", func() {
+			BeforeEach(func() {
+				runner.Start("-lifecycles", `{"lucid64":"lifecycle.zip"}`,
+					"-consulAgentURL", "://noscheme:8500")
+			})
+
+			It("logs and errors", func() {
+				Eventually(runner.Session().ExitCode()).ShouldNot(Equal(0))
+				Eventually(runner.Session()).Should(gbytes.Say("Error parsing consul agent URL"))
+			})
+		})
 	})
+
+	Describe("-lifecycles arg", func() {
+		Context("when started with an invalid -lifecycles arg", func() {
+			BeforeEach(func() {
+				runner.Start("-lifecycles", `{"invalid json"`)
+			})
+
+			It("logs and errors", func() {
+				Eventually(runner.Session().ExitCode()).ShouldNot(Equal(0))
+				Eventually(runner.Session()).Should(gbytes.Say("Error parsing lifecycles flag"))
+			})
+		})
+	})
+
+	Describe("-stagerURL arg", func() {
+		Context("when started with an invalid -stagerURL arg", func() {
+			BeforeEach(func() {
+				runner.Start("-stagerURL", `://localhost:8080`)
+			})
+
+			It("logs and errors", func() {
+				Eventually(runner.Session().ExitCode()).ShouldNot(Equal(0))
+				Eventually(runner.Session()).Should(gbytes.Say("Invalid stager URL"))
+			})
+		})
+	})
+
 })

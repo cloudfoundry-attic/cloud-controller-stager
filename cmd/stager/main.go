@@ -187,6 +187,11 @@ func initializeBackends(logger lager.Logger) []backend.Backend {
 		logger.Fatal("Error parsing consul agent URL", err)
 	}
 
+	_, err = url.Parse(*dockerRegistryURL)
+	if err != nil {
+		logger.Fatal("Error parsing docker registry URL", err)
+	}
+
 	config := backend.Config{
 		CallbackURL:         *stagerURL,
 		FileServerURL:       *fileServerURL,

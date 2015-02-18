@@ -7,7 +7,6 @@ import (
 
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 )
 
@@ -51,7 +50,6 @@ func (r *StagerRunner) Start(args ...string) {
 	)
 
 	Ω(err).ShouldNot(HaveOccurred())
-	Eventually(stagerSession).Should(gbytes.Say("Listening for staging requests!"))
 
 	r.session = stagerSession
 }
