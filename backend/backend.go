@@ -39,12 +39,17 @@ var ErrMissingAppId = errors.New(diego_errors.MISSING_APP_ID_MESSAGE)
 var ErrMissingTaskId = errors.New(diego_errors.MISSING_TASK_ID_MESSAGE)
 var ErrMissingAppBitsDownloadUri = errors.New(diego_errors.MISSING_APP_BITS_DOWNLOAD_URI_MESSAGE)
 
+type DockerRegistry struct {
+	URL      string
+	Insecure bool
+}
+
 type Config struct {
 	CallbackURL         string
 	FileServerURL       string
 	Lifecycles          map[string]string
 	DockerLifecyclePath string
-	DockerRegistryURL   string
+	DockerRegistry      *DockerRegistry
 	ConsulAgentURL      string
 	SkipCertVerify      bool
 	Sanitizer           FailureReasonSanitizer

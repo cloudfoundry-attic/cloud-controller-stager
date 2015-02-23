@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/cloudfoundry-incubator/docker_app_lifecycle"
@@ -106,12 +107,23 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		),
 	)
 
-	fileDescriptorLimit := uint64(request.FileDescriptors)
-
 	runActionArguments := []string{"-outputMetadataJSONFilename", DockerBuilderOutputPath, "-dockerRef", request.DockerImageUrl}
-	if len(backend.config.DockerRegistryURL) > 0 {
-		runActionArguments = append(runActionArguments, "-dockerRegistryURL", backend.config.DockerRegistryURL)
+	if backend.config.DockerRegistry != nil {
+		registryServices, err := getDockerRegistryServices(backend.config.ConsulAgentURL)
+		if err != nil {
+			return receptor.TaskCreateRequest{}, err
+		}
+
+		registryRules := addDockerRegistryRules(request.EgressRules, registryServices)
+		request.EgressRules = append(request.EgressRules, registryRules...)
+
+		if backend.config.DockerRegistry.Insecure {
+			registryAddresses := strings.Join(buildDockerRegistryAddresses(registryServices), ",")
+			runActionArguments = append(runActionArguments, "-insecureDockerRegistries", registryAddresses)
+		}
 	}
+
+	fileDescriptorLimit := uint64(request.FileDescriptors)
 
 	//Run Smelter
 	actions = append(
@@ -135,15 +147,6 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		AppId:  request.AppId,
 		TaskId: request.TaskId,
 	})
-
-	if len(backend.config.DockerRegistryURL) > 0 {
-		registryRules, err := addDockerRegistryRules(request.EgressRules, backend.config.ConsulAgentURL)
-		if err != nil {
-			return receptor.TaskCreateRequest{}, err
-		}
-
-		request.EgressRules = append(request.EgressRules, registryRules...)
-	}
 
 	task := receptor.TaskCreateRequest{
 		ResultFile:            DockerBuilderOutputPath,
@@ -300,12 +303,7 @@ func dockerTimeout(request cc_messages.DockerStagingRequestFromCC, logger lager.
 	}
 }
 
-func addDockerRegistryRules(egressRules []models.SecurityGroupRule, consulAgentURL string) ([]models.SecurityGroupRule, error) {
-	registries, err := getDockerRegistryIPs(consulAgentURL)
-	if err != nil {
-		return nil, err
-	}
-
+func addDockerRegistryRules(egressRules []models.SecurityGroupRule, registries []consulServiceInfo) []models.SecurityGroupRule {
 	for _, registry := range registries {
 		egressRules = append(egressRules, models.SecurityGroupRule{
 			Protocol:     models.TCPProtocol,
@@ -314,10 +312,18 @@ func addDockerRegistryRules(egressRules []models.SecurityGroupRule, consulAgentU
 		})
 	}
 
-	return egressRules, nil
+	return egressRules
 }
 
-func getDockerRegistryIPs(consulAgentURL string) ([]consulServiceInfo, error) {
+func buildDockerRegistryAddresses(services []consulServiceInfo) []string {
+	registries := make([]string, 0, len(services))
+	for _, service := range services {
+		registries = append(registries, service.Address+":8080")
+	}
+	return registries
+}
+
+func getDockerRegistryServices(consulAgentURL string) ([]consulServiceInfo, error) {
 	response, err := http.Get(consulAgentURL + "/v1/catalog/service/docker_registry")
 	if err != nil {
 		return nil, err

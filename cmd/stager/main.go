@@ -187,9 +187,17 @@ func initializeBackends(logger lager.Logger) []backend.Backend {
 		logger.Fatal("Error parsing consul agent URL", err)
 	}
 
-	_, err = url.Parse(*dockerRegistryURL)
+	parts, err := url.Parse(*dockerRegistryURL)
 	if err != nil {
 		logger.Fatal("Error parsing docker registry URL", err)
+	}
+
+	var dockerRegistry *backend.DockerRegistry = nil
+	if len(*dockerRegistryURL) > 0 {
+		dockerRegistry = &backend.DockerRegistry{
+			URL:      *dockerRegistryURL,
+			Insecure: parts.Scheme == "http",
+		}
 	}
 
 	config := backend.Config{
@@ -197,7 +205,7 @@ func initializeBackends(logger lager.Logger) []backend.Backend {
 		FileServerURL:       *fileServerURL,
 		Lifecycles:          lifecyclesMap,
 		DockerLifecyclePath: *dockerLifecyclePath,
-		DockerRegistryURL:   *dockerRegistryURL,
+		DockerRegistry:      dockerRegistry,
 		ConsulAgentURL:      *consulAgentURL,
 		SkipCertVerify:      *skipCertVerify,
 		Sanitizer:           cc_messages.SanitizeErrorMessage,

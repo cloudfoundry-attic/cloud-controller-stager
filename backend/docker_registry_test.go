@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -59,18 +60,28 @@ var _ = Describe("DockerBackend", func() {
 		return rules
 	}
 
-	BeforeEach(func() {
-		dockerRegistryURL = fmt.Sprintf("http://%s:%d", dockerRegistryIPs[0], dockerRegistryPort)
-	})
+	setupDockerRepositories := func(ips []string, port uint16) string {
+		var result []string
+		for _, ip := range ips {
+			result = append(result, fmt.Sprintf("%s:%d", ip, port))
+		}
+		return strings.Join(result, ",")
+	}
 
 	JustBeforeEach(func() {
 		server = ghttp.NewServer()
 		setupConsulAgent()
 
 		config := Config{
-			FileServerURL:     "http://file-server.com",
-			DockerRegistryURL: dockerRegistryURL,
-			ConsulAgentURL:    server.URL(),
+			FileServerURL:  "http://file-server.com",
+			ConsulAgentURL: server.URL(),
+		}
+
+		if len(dockerRegistryURL) > 0 {
+			config.DockerRegistry = &DockerRegistry{
+				URL:      dockerRegistryURL,
+				Insecure: strings.HasPrefix(dockerRegistryURL, "http://"),
+			}
 		}
 
 		logger := lager.NewLogger("fakelogger")
@@ -87,29 +98,6 @@ var _ = Describe("DockerBackend", func() {
 			"",
 			"",
 			"Failed to set up docker environment",
-		)
-
-		fileDescriptorLimit := uint64(512)
-
-		runAction = models.EmitProgressFor(
-			&models.RunAction{
-				Path: "/tmp/docker_app_lifecycle/builder",
-				Args: []string{
-					"-outputMetadataJSONFilename",
-					"/tmp/docker-result/result.json",
-					"-dockerRef",
-					"busybox",
-					"-dockerRegistryURL",
-					dockerRegistryURL,
-				},
-				Env: []models.EnvironmentVariable{},
-				ResourceLimits: models.ResourceLimits{
-					Nofile: &fileDescriptorLimit,
-				},
-			},
-			"Staging...",
-			"Staging Complete",
-			"Staging Failed",
 		)
 
 		expectedEgressRules = setupEgressRules(dockerRegistryIPs)
@@ -130,7 +118,7 @@ var _ = Describe("DockerBackend", func() {
 		Ω(err).ShouldNot(HaveOccurred())
 	})
 
-	It("creates a cf-app-docker-staging Task with staging instructions", func() {
+	checkStagingInstructionsFunc := func() {
 		desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 		Ω(err).ShouldNot(HaveOccurred())
 
@@ -140,6 +128,68 @@ var _ = Describe("DockerBackend", func() {
 		Ω(actions[1]).Should(Equal(runAction))
 
 		Ω(desiredTask.EgressRules).Should(ConsistOf(expectedEgressRules))
+	}
+
+	Context("when Docker Registry is insecure", func() {
+		BeforeEach(func() {
+			dockerRegistryURL = fmt.Sprintf("http://%s:%d", dockerRegistryIPs[0], dockerRegistryPort)
+		})
+
+		JustBeforeEach(func() {
+			fileDescriptorLimit := uint64(512)
+			runAction = models.EmitProgressFor(
+				&models.RunAction{
+					Path: "/tmp/docker_app_lifecycle/builder",
+					Args: []string{
+						"-outputMetadataJSONFilename",
+						"/tmp/docker-result/result.json",
+						"-dockerRef",
+						"busybox",
+						"-insecureDockerRegistries",
+						setupDockerRepositories(dockerRegistryIPs, dockerRegistryPort),
+					},
+					Env: []models.EnvironmentVariable{},
+					ResourceLimits: models.ResourceLimits{
+						Nofile: &fileDescriptorLimit,
+					},
+				},
+				"Staging...",
+				"Staging Complete",
+				"Staging Failed",
+			)
+		})
+
+		It("creates a cf-app-docker-staging Task with staging instructions", checkStagingInstructionsFunc)
+	})
+
+	Context("when Docker Registry is secure", func() {
+		BeforeEach(func() {
+			dockerRegistryURL = fmt.Sprintf("https://%s:%d", dockerRegistryIPs[0], dockerRegistryPort)
+		})
+
+		JustBeforeEach(func() {
+			fileDescriptorLimit := uint64(512)
+			runAction = models.EmitProgressFor(
+				&models.RunAction{
+					Path: "/tmp/docker_app_lifecycle/builder",
+					Args: []string{
+						"-outputMetadataJSONFilename",
+						"/tmp/docker-result/result.json",
+						"-dockerRef",
+						"busybox",
+					},
+					Env: []models.EnvironmentVariable{},
+					ResourceLimits: models.ResourceLimits{
+						Nofile: &fileDescriptorLimit,
+					},
+				},
+				"Staging...",
+				"Staging Complete",
+				"Staging Failed",
+			)
+		})
+
+		It("creates a cf-app-docker-staging Task with staging instructions", checkStagingInstructionsFunc)
 	})
 
 	Context("with no docker registry URL", func() {
@@ -153,5 +203,4 @@ var _ = Describe("DockerBackend", func() {
 			Ω(desiredTask.EgressRules).Should(BeEmpty())
 		})
 	})
-
 })
