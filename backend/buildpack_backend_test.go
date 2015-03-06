@@ -728,7 +728,7 @@ var _ = Describe("TraditionalBackend", func() {
 			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 			Ω(err).ShouldNot(HaveOccurred())
 
-			Ω(desiredTask.EnvironmentVariables).Should(ContainElement(receptor.EnvironmentVariable{Name: "LANG", Value: backend.DefaultLANG}))
+			Ω(desiredTask.EnvironmentVariables).Should(ContainElement(receptor.EnvironmentVariable{Name: "LANG", Value: DefaultLANG}))
 		})
 	})
 })
