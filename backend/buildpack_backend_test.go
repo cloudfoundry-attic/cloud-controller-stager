@@ -42,6 +42,7 @@ var _ = Describe("TraditionalBackend", func() {
 		uploadDropletAction            models.Action
 		uploadBuildArtifactsAction     models.Action
 		egressRules                    []models.SecurityGroupRule
+		environment                    cc_messages.Environment
 	)
 
 	BeforeEach(func() {
@@ -142,6 +143,11 @@ var _ = Describe("TraditionalBackend", func() {
 				PortRange:    &models.PortRange{Start: 80, End: 443},
 			},
 		}
+
+		environment = cc_messages.Environment{
+			{"VCAP_APPLICATION", "foo"},
+			{"VCAP_SERVICES", "bar"},
+		}
 	})
 
 	JustBeforeEach(func() {
@@ -183,12 +189,9 @@ var _ = Describe("TraditionalBackend", func() {
 			MemoryMB:                       memoryMB,
 			DiskMB:                         diskMB,
 			Buildpacks:                     buildpacks,
-			Environment: cc_messages.Environment{
-				{"VCAP_APPLICATION", "foo"},
-				{"VCAP_SERVICES", "bar"},
-			},
-			EgressRules: egressRules,
-			Timeout:     timeout,
+			Environment:                    environment,
+			EgressRules:                    egressRules,
+			Timeout:                        timeout,
 		}
 
 		stagingRequestJson, err = json.Marshal(stagingRequest)
@@ -717,6 +720,15 @@ var _ = Describe("TraditionalBackend", func() {
 		It("fails if the TaskId is missing", func() {
 			_, err := backend.StagingTaskGuid([]byte(`{"app_id":"bunny"}`))
 			Ω(err).Should(Equal(ErrMissingTaskId))
+		})
+	})
+
+	Describe("LANG environment variable", func() {
+		It("sets the container's LANG to en_US.UTF-8", func() {
+			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			Ω(desiredTask.EnvironmentVariables).Should(ContainElement(receptor.EnvironmentVariable{Name: "LANG", Value: backend.DefaultLANG}))
 		})
 	})
 })
