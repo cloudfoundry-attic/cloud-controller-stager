@@ -88,7 +88,9 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 		buildpacksOrder = append(buildpacksOrder, buildpack.Key)
 	}
 
-	builderConfig := buildpack_app_lifecycle.NewLifecycleBuilderConfig(buildpacksOrder, backend.config.SkipCertVerify)
+	skipDetect := len(request.Buildpacks) == 1 && request.Buildpacks[0].SkipDetect
+
+	builderConfig := buildpack_app_lifecycle.NewLifecycleBuilderConfig(buildpacksOrder, skipDetect, backend.config.SkipCertVerify)
 
 	timeout := traditionalTimeout(request, backend.logger)
 
@@ -124,7 +126,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	//Download buildpacks
 	buildpackNames := []string{}
 	downloadMsgPrefix := ""
-	if len(request.Buildpacks) > 1 {
+	if !skipDetect {
 		downloadMsgPrefix = "No buildpack specified; fetching standard buildpacks to detect and build your application.\n"
 	}
 	for _, buildpack := range request.Buildpacks {

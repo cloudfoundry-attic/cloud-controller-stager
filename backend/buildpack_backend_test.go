@@ -3,6 +3,7 @@ package backend_test
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/cloudfoundry-incubator/buildpack_app_lifecycle"
@@ -164,6 +165,7 @@ var _ = Describe("TraditionalBackend", func() {
 					"-outputDroplet=/tmp/droplet",
 					"-outputMetadata=/tmp/result.json",
 					"-skipCertVerify=false",
+					"-skipDetect=" + strconv.FormatBool(buildpacks[0].SkipDetect),
 				},
 				Env: []models.EnvironmentVariable{
 					{"VCAP_APPLICATION", "foo"},
@@ -296,16 +298,54 @@ var _ = Describe("TraditionalBackend", func() {
 		Ω(desiredTask.EgressRules).Should(ConsistOf(egressRules))
 	})
 
+	Context("with a speicifed buildpack", func() {
+		BeforeEach(func() {
+			buildpacks = buildpacks[:1]
+			buildpacks[0].SkipDetect = true
+			buildpackOrder = "zfirst-buildpack"
+		})
+
+		It("it downloads the buildpack and skips detect", func() {
+			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			actions := actionsFromDesiredTask(desiredTask)
+
+			Ω(actions).Should(HaveLen(4))
+			Ω(actions[0]).Should(Equal(downloadAppAction))
+			Ω(actions[1]).Should(Equal(models.EmitProgressFor(
+				models.Parallel(
+					downloadBuilderAction,
+					downloadFirstBuildpackAction,
+					downloadBuildArtifactsAction,
+				),
+				"Downloading buildpacks (zfirst), build artifacts cache...",
+				"Downloaded buildpacks",
+				"Downloading buildpacks failed",
+			)))
+			Ω(actions[2]).Should(Equal(runAction))
+			Ω(actions[3]).Should(Equal(models.EmitProgressFor(
+				models.Parallel(
+					uploadDropletAction,
+					uploadBuildArtifactsAction,
+				),
+				"Uploading droplet, build artifacts cache...",
+				"Uploading complete",
+				"Uploading failed",
+			)))
+		})
+	})
+
 	Context("with a custom buildpack", func() {
 		var customBuildpack = "https://example.com/a/custom-buildpack.git"
 		BeforeEach(func() {
 			buildpacks = []cc_messages.Buildpack{
-				{Name: cc_messages.CUSTOM_BUILDPACK, Key: customBuildpack, Url: customBuildpack},
+				{Name: "custom", Key: customBuildpack, Url: customBuildpack, SkipDetect: true},
 			}
 			buildpackOrder = customBuildpack
 		})
 
-		It("does not download any buildpacks", func() {
+		It("does not download any buildpacks and skips detect", func() {
 			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
 			Ω(err).ShouldNot(HaveOccurred())
 
@@ -517,6 +557,7 @@ var _ = Describe("TraditionalBackend", func() {
 				"-outputDroplet=/tmp/droplet",
 				"-outputMetadata=/tmp/result.json",
 				"-skipCertVerify=true",
+				"-skipDetect=false",
 			}
 
 			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
