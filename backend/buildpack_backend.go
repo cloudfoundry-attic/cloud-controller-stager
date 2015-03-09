@@ -27,6 +27,8 @@ const (
 	TraditionalStopStagingRequestsNatsSubject     = "diego.staging.stop"
 	TraditionalStopStagingRequestsReceivedCounter = metric.Counter("TraditionalStopStagingRequestsReceived")
 	StagingTaskCpuWeight                          = uint(50)
+
+	DefaultLANG = "en_US.UTF-8"
 )
 
 type traditionalBackend struct {
@@ -86,7 +88,9 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 		buildpacksOrder = append(buildpacksOrder, buildpack.Key)
 	}
 
-	builderConfig := buildpack_app_lifecycle.NewLifecycleBuilderConfig(buildpacksOrder, backend.config.SkipCertVerify)
+	skipDetect := len(request.Buildpacks) == 1 && request.Buildpacks[0].SkipDetect
+
+	builderConfig := buildpack_app_lifecycle.NewLifecycleBuilderConfig(buildpacksOrder, skipDetect, backend.config.SkipCertVerify)
 
 	timeout := traditionalTimeout(request, backend.logger)
 
@@ -122,7 +126,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	//Download buildpacks
 	buildpackNames := []string{}
 	downloadMsgPrefix := ""
-	if len(request.Buildpacks) > 1 {
+	if !skipDetect {
 		downloadMsgPrefix = "No buildpack specified; fetching standard buildpacks to detect and build your application.\n"
 	}
 	for _, buildpack := range request.Buildpacks {
@@ -245,6 +249,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 		EgressRules:           request.EgressRules,
 		Annotation:            string(annotationJson),
 		Privileged:            true,
+		EnvironmentVariables:  []receptor.EnvironmentVariable{{"LANG", DefaultLANG}},
 	}
 
 	logger.Debug("staging-task-request", lager.Data{"TaskCreateRequest": task})
