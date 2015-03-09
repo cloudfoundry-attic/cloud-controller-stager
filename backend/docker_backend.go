@@ -125,7 +125,7 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 
 	fileDescriptorLimit := uint64(request.FileDescriptors)
 
-	//Run Smelter
+	// Run builder
 	actions = append(
 		actions,
 		models.EmitProgressFor(
@@ -136,6 +136,7 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 				ResourceLimits: models.ResourceLimits{
 					Nofile: &fileDescriptorLimit,
 				},
+				Privileged: true,
 			},
 			"Staging...",
 			"Staging Complete",
@@ -161,7 +162,7 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		LogSource:             TaskLogSource,
 		Annotation:            string(annotationJson),
 		EgressRules:           request.EgressRules,
-		Privileged:            false,
+		Privileged:            true,
 	}
 
 	logger.Debug("staging-task-request", lager.Data{"TaskCreateRequest": task})
