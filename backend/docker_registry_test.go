@@ -152,6 +152,7 @@ var _ = Describe("DockerBackend", func() {
 					ResourceLimits: models.ResourceLimits{
 						Nofile: &fileDescriptorLimit,
 					},
+					Privileged: true,
 				},
 				"Staging...",
 				"Staging Complete",
@@ -182,6 +183,7 @@ var _ = Describe("DockerBackend", func() {
 					ResourceLimits: models.ResourceLimits{
 						Nofile: &fileDescriptorLimit,
 					},
+					Privileged: true,
 				},
 				"Staging...",
 				"Staging Complete",
