@@ -73,7 +73,17 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	}
 	logger.Info("staging-request", lager.Data{"Request": request})
 
-	err = backend.validateRequest(request)
+	if request.LifecycleData == nil {
+		return receptor.TaskCreateRequest{}, ErrMissingLifecycleData
+	}
+
+	var lifecycleData cc_messages.BuildpackStagingData
+	err = json.Unmarshal(*request.LifecycleData, &lifecycleData)
+	if err != nil {
+		return receptor.TaskCreateRequest{}, err
+	}
+
+	err = backend.validateRequest(request, lifecycleData)
 	if err != nil {
 		return receptor.TaskCreateRequest{}, err
 	}
@@ -84,11 +94,11 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	}
 
 	buildpacksOrder := []string{}
-	for _, buildpack := range request.Buildpacks {
+	for _, buildpack := range lifecycleData.Buildpacks {
 		buildpacksOrder = append(buildpacksOrder, buildpack.Key)
 	}
 
-	skipDetect := len(request.Buildpacks) == 1 && request.Buildpacks[0].SkipDetect
+	skipDetect := len(lifecycleData.Buildpacks) == 1 && lifecycleData.Buildpacks[0].SkipDetect
 
 	builderConfig := buildpack_app_lifecycle.NewLifecycleBuilderConfig(buildpacksOrder, skipDetect, backend.config.SkipCertVerify)
 
@@ -99,7 +109,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	//Download app package
 	appDownloadAction := &models.DownloadAction{
 		Artifact: "app package",
-		From:     request.AppBitsDownloadUri,
+		From:     lifecycleData.AppBitsDownloadUri,
 		To:       builderConfig.BuildDir(),
 	}
 
@@ -129,7 +139,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	if !skipDetect {
 		downloadMsgPrefix = "No buildpack specified; fetching standard buildpacks to detect and build your application.\n"
 	}
-	for _, buildpack := range request.Buildpacks {
+	for _, buildpack := range lifecycleData.Buildpacks {
 		if buildpack.Name == cc_messages.CUSTOM_BUILDPACK {
 			buildpackNames = append(buildpackNames, buildpack.Url)
 		} else {
@@ -149,7 +159,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	downloadNames = append(downloadNames, fmt.Sprintf("buildpacks (%s)", strings.Join(buildpackNames, ", ")))
 
 	//Download buildpack artifacts cache
-	downloadURL, err := backend.buildArtifactsDownloadURL(request)
+	downloadURL, err := backend.buildArtifactsDownloadURL(lifecycleData)
 	if err != nil {
 		return receptor.TaskCreateRequest{}, err
 	}
@@ -191,10 +201,10 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 		),
 	)
 
+	//Upload Droplet
 	uploadActions := []models.Action{}
 	uploadNames := []string{}
-	//Upload Droplet
-	uploadURL, err := backend.dropletUploadURL(request)
+	uploadURL, err := backend.dropletUploadURL(request, lifecycleData)
 	if err != nil {
 		return receptor.TaskCreateRequest{}, err
 	}
@@ -210,7 +220,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	uploadNames = append(uploadNames, "droplet")
 
 	//Upload Buildpack Artifacts Cache
-	uploadURL, err = backend.buildArtifactsUploadURL(request)
+	uploadURL, err = backend.buildArtifactsUploadURL(request, lifecycleData)
 	if err != nil {
 		return receptor.TaskCreateRequest{}, err
 	}
@@ -295,10 +305,20 @@ func (backend *traditionalBackend) BuildStagingResponse(taskResponse receptor.Ta
 			return nil, err
 		}
 
-		response.BuildpackKey = result.BuildpackKey
-		response.DetectedBuildpack = result.DetectedBuildpack
+		buildpackResponse := cc_messages.BuildpackStagingResponse{
+			BuildpackKey:      result.BuildpackKey,
+			DetectedBuildpack: result.DetectedBuildpack,
+		}
+
+		lifecycleDataJSON, err := json.Marshal(buildpackResponse)
+		if err != nil {
+			return nil, err
+		}
+		lifecycleData := json.RawMessage(lifecycleDataJSON)
+
 		response.ExecutionMetadata = result.ExecutionMetadata
 		response.DetectedStartCommand = result.DetectedStartCommand
+		response.LifecycleData = &lifecycleData
 	}
 
 	return json.Marshal(response)
@@ -361,7 +381,7 @@ func (backend *traditionalBackend) compilerDownloadURL(request cc_messages.Stagi
 	return url, nil
 }
 
-func (backend *traditionalBackend) dropletUploadURL(request cc_messages.StagingRequestFromCC) (*url.URL, error) {
+func (backend *traditionalBackend) dropletUploadURL(request cc_messages.StagingRequestFromCC, buildpackData cc_messages.BuildpackStagingData) (*url.URL, error) {
 	path, err := routes.FileServerRoutes.CreatePathForRoute(routes.FS_UPLOAD_DROPLET, rata.Params{
 		"guid": request.AppId,
 	})
@@ -377,13 +397,13 @@ func (backend *traditionalBackend) dropletUploadURL(request cc_messages.StagingR
 	}
 
 	values := make(url.Values, 1)
-	values.Add(models.CcDropletUploadUriKey, request.DropletUploadUri)
+	values.Add(models.CcDropletUploadUriKey, buildpackData.DropletUploadUri)
 	u.RawQuery = values.Encode()
 
 	return u, nil
 }
 
-func (backend *traditionalBackend) buildArtifactsUploadURL(request cc_messages.StagingRequestFromCC) (*url.URL, error) {
+func (backend *traditionalBackend) buildArtifactsUploadURL(request cc_messages.StagingRequestFromCC, buildpackData cc_messages.BuildpackStagingData) (*url.URL, error) {
 	path, err := routes.FileServerRoutes.CreatePathForRoute(routes.FS_UPLOAD_BUILD_ARTIFACTS, rata.Params{
 		"app_guid": request.AppId,
 	})
@@ -399,14 +419,14 @@ func (backend *traditionalBackend) buildArtifactsUploadURL(request cc_messages.S
 	}
 
 	values := make(url.Values, 1)
-	values.Add(models.CcBuildArtifactsUploadUriKey, request.BuildArtifactsCacheUploadUri)
+	values.Add(models.CcBuildArtifactsUploadUriKey, buildpackData.BuildArtifactsCacheUploadUri)
 	u.RawQuery = values.Encode()
 
 	return u, nil
 }
 
-func (backend *traditionalBackend) buildArtifactsDownloadURL(request cc_messages.StagingRequestFromCC) (*url.URL, error) {
-	urlString := request.BuildArtifactsCacheDownloadUri
+func (backend *traditionalBackend) buildArtifactsDownloadURL(buildpackData cc_messages.BuildpackStagingData) (*url.URL, error) {
+	urlString := buildpackData.BuildArtifactsCacheDownloadUri
 	if urlString == "" {
 		return nil, nil
 	}
@@ -419,7 +439,7 @@ func (backend *traditionalBackend) buildArtifactsDownloadURL(request cc_messages
 	return url, nil
 }
 
-func (backend *traditionalBackend) validateRequest(stagingRequest cc_messages.StagingRequestFromCC) error {
+func (backend *traditionalBackend) validateRequest(stagingRequest cc_messages.StagingRequestFromCC, buildpackData cc_messages.BuildpackStagingData) error {
 	if len(stagingRequest.AppId) == 0 {
 		return ErrMissingAppId
 	}
@@ -428,7 +448,7 @@ func (backend *traditionalBackend) validateRequest(stagingRequest cc_messages.St
 		return ErrMissingTaskId
 	}
 
-	if len(stagingRequest.AppBitsDownloadUri) == 0 {
+	if len(buildpackData.AppBitsDownloadUri) == 0 {
 		return ErrMissingAppBitsDownloadUri
 	}
 

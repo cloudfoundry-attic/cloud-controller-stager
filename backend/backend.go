@@ -38,6 +38,7 @@ var ErrNoCompilerDefined = errors.New(diego_errors.NO_COMPILER_DEFINED_MESSAGE)
 var ErrMissingAppId = errors.New(diego_errors.MISSING_APP_ID_MESSAGE)
 var ErrMissingTaskId = errors.New(diego_errors.MISSING_TASK_ID_MESSAGE)
 var ErrMissingAppBitsDownloadUri = errors.New(diego_errors.MISSING_APP_BITS_DOWNLOAD_URI_MESSAGE)
+var ErrMissingLifecycleData = errors.New(diego_errors.MISSING_LIFECYCLE_DATA_MESSAGE)
 
 type Config struct {
 	CallbackURL         string

@@ -178,22 +178,30 @@ var _ = Describe("TraditionalBackend", func() {
 			"Staging failed",
 		)
 
-		var err error
-		stagingRequest = cc_messages.StagingRequestFromCC{
-			AppId:                          appId,
-			TaskId:                         taskId,
+		buildpackStagingData := cc_messages.BuildpackStagingData{
 			AppBitsDownloadUri:             appBitsDownloadUri,
 			BuildArtifactsCacheDownloadUri: buildArtifactsCacheDownloadUri,
 			BuildArtifactsCacheUploadUri:   "http://example-uri.com/bunny-uppings",
-			DropletUploadUri:               "http://example-uri.com/droplet-upload",
-			Stack:                          stack,
-			FileDescriptors:                fileDescriptors,
-			MemoryMB:                       memoryMB,
-			DiskMB:                         diskMB,
 			Buildpacks:                     buildpacks,
-			Environment:                    environment,
-			EgressRules:                    egressRules,
-			Timeout:                        timeout,
+			DropletUploadUri:               "http://example-uri.com/droplet-upload",
+		}
+		lifecycleDataJSON, err := json.Marshal(buildpackStagingData)
+		Ω(err).ShouldNot(HaveOccurred())
+
+		lifecycleData := json.RawMessage(lifecycleDataJSON)
+
+		stagingRequest = cc_messages.StagingRequestFromCC{
+			AppId:           appId,
+			TaskId:          taskId,
+			Stack:           stack,
+			FileDescriptors: fileDescriptors,
+			MemoryMB:        memoryMB,
+			DiskMB:          diskMB,
+			Environment:     environment,
+			EgressRules:     egressRules,
+			Timeout:         timeout,
+			Lifecycle:       "buildpack",
+			LifecycleData:   &lifecycleData,
 		}
 
 		stagingRequestJson, err = json.Marshal(stagingRequest)
@@ -238,6 +246,20 @@ var _ = Describe("TraditionalBackend", func() {
 			It("returns an error", func() {
 				_, err := backend.BuildRecipe(stagingRequestJson)
 				Ω(err).Should(Equal(ErrMissingAppBitsDownloadUri))
+			})
+		})
+
+		Context("with missing lifecycle data", func() {
+			JustBeforeEach(func() {
+				var err error
+				stagingRequest.LifecycleData = nil
+				stagingRequestJson, err = json.Marshal(stagingRequest)
+				Ω(err).ShouldNot(HaveOccurred())
+			})
+
+			It("returns an error", func() {
+				_, err := backend.BuildRecipe(stagingRequestJson)
+				Ω(err).Should(Equal(ErrMissingLifecycleData))
 			})
 		})
 	})
@@ -675,13 +697,21 @@ var _ = Describe("TraditionalBackend", func() {
 						})
 
 						It("populates a staging response correctly", func() {
+							expectedBuildpackResponse := cc_messages.BuildpackStagingResponse{
+								BuildpackKey:      "buildpack-key",
+								DetectedBuildpack: "detected-buildpack",
+							}
+							lifecycleDataJSON, err := json.Marshal(expectedBuildpackResponse)
+							Ω(err).ShouldNot(HaveOccurred())
+
+							responseLifecycleData := json.RawMessage(lifecycleDataJSON)
+
 							expectedResponse := cc_messages.StagingResponseForCC{
 								AppId:                "app-id",
 								TaskId:               "task-id",
-								BuildpackKey:         "buildpack-key",
-								DetectedBuildpack:    "detected-buildpack",
 								ExecutionMetadata:    "metadata",
 								DetectedStartCommand: map[string]string{"a": "b"},
+								LifecycleData:        &responseLifecycleData,
 							}
 							expectedResponseJson, err := json.Marshal(expectedResponse)
 							Ω(err).ShouldNot(HaveOccurred())

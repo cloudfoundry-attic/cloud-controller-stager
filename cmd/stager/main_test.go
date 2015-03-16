@@ -74,12 +74,15 @@ var _ = Describe("Stager", func() {
 					"app_id":"my-app-guid",
 					"task_id":"my-task-guid",
 					"stack":"lucid64",
-					"app_bits_download_uri":"http://example.com/app_bits",
 					"file_descriptors":3,
 					"memory_mb" : 1024,
 					"disk_mb" : 128,
-					"buildpacks" : [],
-					"environment" : []
+					"environment" : [],
+					"lifecycle": "buildpack",
+					"lifecycle_data": {
+					  "buildpacks" : [],
+					  "app_bits_download_uri":"http://example.com/app_bits"
+					}
 				}`))
 
 				Eventually(fakeServer.ReceivedRequests).Should(HaveLen(1))
@@ -103,11 +106,14 @@ var _ = Describe("Stager", func() {
 					"app_id":"my-app-guid",
 					"task_id":"my-task-guid",
 					"stack":"lucid64",
-					"docker_image":"http://docker.docker/docker",
 					"file_descriptors":3,
 					"memory_mb" : 1024,
 					"disk_mb" : 128,
-					"environment" : []
+					"environment" : [],
+					"lifecycle": "docker",
+					"lifecycle_data": {
+					  "docker_image":"http://docker.docker/docker"
+					}
 				}`))
 
 				Eventually(fakeServer.ReceivedRequests).Should(HaveLen(1))
@@ -118,27 +124,92 @@ var _ = Describe("Stager", func() {
 		Describe("when a staging task completes", func() {
 			var resp *http.Response
 
-			BeforeEach(func() {
-				fakeCC.RouteToHandler("POST", "/internal/staging/completed", func(res http.ResponseWriter, req *http.Request) {
+			Context("for a docker lifecycle", func() {
+				BeforeEach(func() {
+					fakeCC.AppendHandlers(
+						ghttp.CombineHandlers(
+							ghttp.VerifyRequest("POST", "/internal/staging/completed"),
+							ghttp.VerifyContentType("application/json"),
+							ghttp.VerifyJSON(`{
+								"app_id": "app-id",
+								"task_id": "task-id",
+								"execution_metadata": "metadata",
+								"detected_start_command": {"a": "b"}
+							}`),
+						),
+					)
+
+					taskJSON, err := json.Marshal(receptor.TaskResponse{
+						TaskGuid: "the-task-guid",
+						Action: &models.RunAction{
+							Path: "ls",
+						},
+						Domain: backend.DockerTaskDomain,
+						Annotation: `{
+							"app_id": "app-id",
+							"task_id": "task-id"
+						}`,
+						Result: `{
+							"execution_metadata": "metadata",
+							"detected_start_command": {"a": "b"}
+						}`,
+					})
+					Ω(err).ShouldNot(HaveOccurred())
+
+					resp, err = http.Post(runner.Config.StagerURL, "application/json", bytes.NewReader(taskJSON))
+					Ω(err).ShouldNot(HaveOccurred())
 				})
 
-				taskJSON, err := json.Marshal(receptor.TaskResponse{
-					TaskGuid: "the-task-guid",
-					Action: &models.RunAction{
-						Path: "ls",
-					},
-					Domain:     backend.TraditionalTaskDomain,
-					Annotation: `{}`,
-					Result:     `{}`,
+				It("POSTs to the CC that staging is complete", func() {
+					Eventually(fakeCC.ReceivedRequests).Should(HaveLen(1))
 				})
-				Ω(err).ShouldNot(HaveOccurred())
-
-				resp, err = http.Post(runner.Config.StagerURL, "application/json", bytes.NewReader(taskJSON))
-				Ω(err).ShouldNot(HaveOccurred())
 			})
 
-			It("POSTs to the CC that staging is complete", func() {
-				Eventually(fakeCC.ReceivedRequests).Should(HaveLen(1))
+			Context("for a buildpack lifecycle", func() {
+				BeforeEach(func() {
+					fakeCC.AppendHandlers(
+						ghttp.CombineHandlers(
+							ghttp.VerifyRequest("POST", "/internal/staging/completed"),
+							ghttp.VerifyContentType("application/json"),
+							ghttp.VerifyJSON(`{
+								"app_id": "app-id",
+								"task_id": "task-id",
+								"execution_metadata": "metadata",
+								"detected_start_command": {"a": "b"},
+								"lifecycle_data": {
+									"buildpack_key": "buildpack-key",
+									"detected_buildpack": "detected-buildpack"
+								}
+							}`),
+						),
+					)
+
+					taskJSON, err := json.Marshal(receptor.TaskResponse{
+						TaskGuid: "the-task-guid",
+						Action: &models.RunAction{
+							Path: "ls",
+						},
+						Domain: backend.TraditionalTaskDomain,
+						Annotation: `{
+							"app_id": "app-id",
+							"task_id": "task-id"
+						}`,
+						Result: `{
+							"buildpack_key": "buildpack-key",
+							"detected_buildpack": "detected-buildpack",
+							"execution_metadata": "metadata",
+							"detected_start_command": {"a": "b"}
+						}`,
+					})
+					Ω(err).ShouldNot(HaveOccurred())
+
+					resp, err = http.Post(runner.Config.StagerURL, "application/json", bytes.NewReader(taskJSON))
+					Ω(err).ShouldNot(HaveOccurred())
+				})
+
+				It("POSTs to the CC that staging is complete", func() {
+					Eventually(fakeCC.ReceivedRequests).Should(HaveLen(1))
+				})
 			})
 		})
 	})

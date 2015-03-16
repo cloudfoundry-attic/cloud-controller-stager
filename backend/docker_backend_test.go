@@ -16,7 +16,7 @@ import (
 
 var _ = Describe("DockerBackend", func() {
 	var (
-		stagingRequest        cc_messages.DockerStagingRequestFromCC
+		stagingRequest        cc_messages.StagingRequestFromCC
 		stagingRequestJson    []byte
 		downloadBuilderAction models.Action
 		runAction             models.Action
@@ -115,10 +115,17 @@ var _ = Describe("DockerBackend", func() {
 	})
 
 	JustBeforeEach(func() {
-		stagingRequest = cc_messages.DockerStagingRequestFromCC{
+		dockerStagingData := cc_messages.DockerStagingData{
+			DockerImageUrl: dockerImageUrl,
+		}
+		lifecycleDataJSON, err := json.Marshal(dockerStagingData)
+		Ω(err).ShouldNot(HaveOccurred())
+
+		lifecycleData := json.RawMessage(lifecycleDataJSON)
+
+		stagingRequest = cc_messages.StagingRequestFromCC{
 			AppId:           appId,
 			TaskId:          taskId,
-			DockerImageUrl:  dockerImageUrl,
 			Stack:           "rabbit_hole",
 			FileDescriptors: fileDescriptors,
 			MemoryMB:        memoryMB,
@@ -127,11 +134,12 @@ var _ = Describe("DockerBackend", func() {
 				{"VCAP_APPLICATION", "foo"},
 				{"VCAP_SERVICES", "bar"},
 			},
-			EgressRules: egressRules,
-			Timeout:     timeout,
+			EgressRules:   egressRules,
+			Timeout:       timeout,
+			Lifecycle:     "docker",
+			LifecycleData: &lifecycleData,
 		}
 
-		var err error
 		stagingRequestJson, err = json.Marshal(stagingRequest)
 		Ω(err).ShouldNot(HaveOccurred())
 	})
@@ -280,7 +288,7 @@ var _ = Describe("DockerBackend", func() {
 
 			Context("with a valid request", func() {
 				BeforeEach(func() {
-					request := cc_messages.DockerStagingRequestFromCC{
+					request := cc_messages.StagingRequestFromCC{
 						AppId:  "myapp",
 						TaskId: "mytask",
 					}
@@ -290,7 +298,7 @@ var _ = Describe("DockerBackend", func() {
 				})
 
 				It("returns a correctly populated staging response", func() {
-					expectedResponse := cc_messages.DockerStagingResponseForCC{
+					expectedResponse := cc_messages.StagingResponseForCC{
 						AppId:  "myapp",
 						TaskId: "mytask",
 						Error:  &cc_messages.StagingError{Message: "fake-error-message was totally sanitized"},
@@ -360,7 +368,7 @@ var _ = Describe("DockerBackend", func() {
 						})
 
 						It("populates a staging response correctly", func() {
-							expectedResponse := cc_messages.DockerStagingResponseForCC{
+							expectedResponse := cc_messages.StagingResponseForCC{
 								AppId:                "app-id",
 								TaskId:               "task-id",
 								ExecutionMetadata:    "metadata",
@@ -393,7 +401,7 @@ var _ = Describe("DockerBackend", func() {
 						})
 
 						It("populates a staging response correctly", func() {
-							expectedResponse := cc_messages.DockerStagingResponseForCC{
+							expectedResponse := cc_messages.StagingResponseForCC{
 								AppId:  "app-id",
 								TaskId: "task-id",
 								Error:  &cc_messages.StagingError{Message: "some-failure-reason was totally sanitized"},

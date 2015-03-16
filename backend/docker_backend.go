@@ -66,19 +66,25 @@ func (backend *dockerBackend) TaskDomain() string {
 func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCreateRequest, error) {
 	logger := backend.logger.Session("build-recipe")
 
-	var request cc_messages.DockerStagingRequestFromCC
+	var request cc_messages.StagingRequestFromCC
 	err := json.Unmarshal(requestJson, &request)
 	if err != nil {
 		return receptor.TaskCreateRequest{}, err
 	}
 	logger.Info("staging-request", lager.Data{"Request": request})
 
-	err = backend.validateRequest(request)
+	var lifecycleData cc_messages.DockerStagingData
+	err = json.Unmarshal(*request.LifecycleData, &lifecycleData)
 	if err != nil {
 		return receptor.TaskCreateRequest{}, err
 	}
 
-	compilerURL, err := backend.compilerDownloadURL(request)
+	err = backend.validateRequest(request, lifecycleData)
+	if err != nil {
+		return receptor.TaskCreateRequest{}, err
+	}
+
+	compilerURL, err := backend.compilerDownloadURL()
 	if err != nil {
 		return receptor.TaskCreateRequest{}, err
 	}
@@ -108,7 +114,7 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		models.EmitProgressFor(
 			&models.RunAction{
 				Path: DockerBuilderExecutablePath,
-				Args: []string{"-outputMetadataJSONFilename", DockerBuilderOutputPath, "-dockerRef", request.DockerImageUrl},
+				Args: []string{"-outputMetadataJSONFilename", DockerBuilderOutputPath, "-dockerRef", lifecycleData.DockerImageUrl},
 				Env:  request.Environment.BBSEnvironment(),
 				ResourceLimits: models.ResourceLimits{
 					Nofile: &fileDescriptorLimit,
@@ -147,14 +153,14 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 }
 
 func (backend *dockerBackend) BuildStagingResponseFromRequestError(requestJson []byte, errorMessage string) ([]byte, error) {
-	request := cc_messages.DockerStagingRequestFromCC{}
+	request := cc_messages.StagingRequestFromCC{}
 
 	err := json.Unmarshal(requestJson, &request)
 	if err != nil {
 		return nil, err
 	}
 
-	response := cc_messages.DockerStagingResponseForCC{
+	response := cc_messages.StagingResponseForCC{
 		AppId:  request.AppId,
 		TaskId: request.TaskId,
 		Error:  backend.config.Sanitizer(errorMessage),
@@ -164,7 +170,7 @@ func (backend *dockerBackend) BuildStagingResponseFromRequestError(requestJson [
 }
 
 func (backend *dockerBackend) BuildStagingResponse(taskResponse receptor.TaskResponse) ([]byte, error) {
-	var response cc_messages.DockerStagingResponseForCC
+	var response cc_messages.StagingResponseForCC
 
 	var annotation models.StagingTaskAnnotation
 	err := json.Unmarshal([]byte(taskResponse.Annotation), &annotation)
@@ -209,7 +215,7 @@ func (backend *dockerBackend) StagingTaskGuid(requestJson []byte) (string, error
 	return stagingTaskGuid(request.AppId, request.TaskId), nil
 }
 
-func (backend *dockerBackend) compilerDownloadURL(request cc_messages.DockerStagingRequestFromCC) (*url.URL, error) {
+func (backend *dockerBackend) compilerDownloadURL() (*url.URL, error) {
 
 	var lifecycleFilename string
 	if len(backend.config.DockerLifecyclePath) > 0 {
@@ -246,11 +252,11 @@ func (backend *dockerBackend) compilerDownloadURL(request cc_messages.DockerStag
 	return url, nil
 }
 
-func (backend *dockerBackend) taskGuid(request cc_messages.DockerStagingRequestFromCC) string {
+func (backend *dockerBackend) taskGuid(request cc_messages.StagingRequestFromCC) string {
 	return stagingTaskGuid(request.AppId, request.TaskId)
 }
 
-func (backend *dockerBackend) validateRequest(stagingRequest cc_messages.DockerStagingRequestFromCC) error {
+func (backend *dockerBackend) validateRequest(stagingRequest cc_messages.StagingRequestFromCC, dockerData cc_messages.DockerStagingData) error {
 	if len(stagingRequest.AppId) == 0 {
 		return ErrMissingAppId
 	}
@@ -259,14 +265,14 @@ func (backend *dockerBackend) validateRequest(stagingRequest cc_messages.DockerS
 		return ErrMissingTaskId
 	}
 
-	if len(stagingRequest.DockerImageUrl) == 0 {
+	if len(dockerData.DockerImageUrl) == 0 {
 		return ErrMissingDockerImageUrl
 	}
 
 	return nil
 }
 
-func dockerTimeout(request cc_messages.DockerStagingRequestFromCC, logger lager.Logger) time.Duration {
+func dockerTimeout(request cc_messages.StagingRequestFromCC, logger lager.Logger) time.Duration {
 	if request.Timeout > 0 {
 		return time.Duration(request.Timeout) * time.Second
 	} else {
