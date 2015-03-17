@@ -117,10 +117,14 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		registryRules := addDockerRegistryRules(request.EgressRules, registryServices)
 		request.EgressRules = append(request.EgressRules, registryRules...)
 
+		registryAddresses := strings.Join(buildDockerRegistryAddresses(registryServices), ",")
+		runActionArguments = append(runActionArguments, "-dockerRegistryAddresses", registryAddresses)
 		if backend.config.DockerRegistry.Insecure {
-			registryAddresses := strings.Join(buildDockerRegistryAddresses(registryServices), ",")
 			runActionArguments = append(runActionArguments, "-insecureDockerRegistries", registryAddresses)
 		}
+
+		//TODO: add only if user requested it
+		runActionArguments = append(runActionArguments, "-cacheDockerImage")
 	}
 
 	fileDescriptorLimit := uint64(request.FileDescriptors)
@@ -165,7 +169,7 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		Privileged:            true,
 	}
 
-	logger.Debug("staging-task-request", lager.Data{"TaskCreateRequest": task})
+	logger.Info("staging-task-request", lager.Data{"TaskCreateRequest": task})
 
 	return task, nil
 }

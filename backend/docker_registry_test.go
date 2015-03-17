@@ -60,7 +60,7 @@ var _ = Describe("DockerBackend", func() {
 		return rules
 	}
 
-	setupDockerRepositories := func(ips []string, port uint16) string {
+	setupDockerRegistries := func(ips []string, port uint16) string {
 		var result []string
 		for _, ip := range ips {
 			result = append(result, fmt.Sprintf("%s:%d", ip, port))
@@ -137,6 +137,7 @@ var _ = Describe("DockerBackend", func() {
 
 		JustBeforeEach(func() {
 			fileDescriptorLimit := uint64(512)
+			dockerRegistries := setupDockerRegistries(dockerRegistryIPs, dockerRegistryPort)
 			runAction = models.EmitProgressFor(
 				&models.RunAction{
 					Path: "/tmp/docker_app_lifecycle/builder",
@@ -145,8 +146,11 @@ var _ = Describe("DockerBackend", func() {
 						"/tmp/docker-result/result.json",
 						"-dockerRef",
 						"busybox",
+						"-dockerRegistryAddresses",
+						dockerRegistries,
 						"-insecureDockerRegistries",
-						setupDockerRepositories(dockerRegistryIPs, dockerRegistryPort),
+						dockerRegistries,
+						"-cacheDockerImage",
 					},
 					Env: []models.EnvironmentVariable{},
 					ResourceLimits: models.ResourceLimits{
@@ -170,6 +174,7 @@ var _ = Describe("DockerBackend", func() {
 
 		JustBeforeEach(func() {
 			fileDescriptorLimit := uint64(512)
+			dockerRegistries := setupDockerRegistries(dockerRegistryIPs, dockerRegistryPort)
 			runAction = models.EmitProgressFor(
 				&models.RunAction{
 					Path: "/tmp/docker_app_lifecycle/builder",
@@ -178,6 +183,9 @@ var _ = Describe("DockerBackend", func() {
 						"/tmp/docker-result/result.json",
 						"-dockerRef",
 						"busybox",
+						"-dockerRegistryAddresses",
+						dockerRegistries,
+						"-cacheDockerImage",
 					},
 					Env: []models.EnvironmentVariable{},
 					ResourceLimits: models.ResourceLimits{
