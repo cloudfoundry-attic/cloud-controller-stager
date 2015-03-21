@@ -9,44 +9,40 @@ import (
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/diego_errors"
-	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 )
 
 const (
 	TaskLogSource         = "STG"
 	DefaultStagingTimeout = 15 * time.Minute
+
+	StagingTaskDomain = "cf-app-staging"
 )
 
 type FailureReasonSanitizer func(string) *cc_messages.StagingError
 
+//go:generate counterfeiter -o fake_backend/fake_backend.go . Backend
 type Backend interface {
-	StagingRequestsNatsSubject() string
-	StopStagingRequestsNatsSubject() string
-	StagingRequestsReceivedCounter() metric.Counter
-	StopStagingRequestsReceivedCounter() metric.Counter
-	TaskDomain() string
-
-	BuildRecipe(requestJson []byte) (receptor.TaskCreateRequest, error)
-	BuildStagingResponse(receptor.TaskResponse) ([]byte, error)
-	BuildStagingResponseFromRequestError(requestJson []byte, errorMessage string) ([]byte, error)
-
-	StagingTaskGuid(requestJson []byte) (string, error)
+	BuildRecipe(stagingGuid string, request cc_messages.StagingRequestFromCC) (receptor.TaskCreateRequest, error)
+	BuildStagingResponse(receptor.TaskResponse) (cc_messages.StagingResponseForCC, error)
 }
 
 var ErrNoCompilerDefined = errors.New(diego_errors.NO_COMPILER_DEFINED_MESSAGE)
 var ErrMissingAppId = errors.New(diego_errors.MISSING_APP_ID_MESSAGE)
-var ErrMissingTaskId = errors.New(diego_errors.MISSING_TASK_ID_MESSAGE)
 var ErrMissingAppBitsDownloadUri = errors.New(diego_errors.MISSING_APP_BITS_DOWNLOAD_URI_MESSAGE)
 var ErrMissingLifecycleData = errors.New(diego_errors.MISSING_LIFECYCLE_DATA_MESSAGE)
 
 type Config struct {
-	CallbackURL         string
-	FileServerURL       string
-	Lifecycles          map[string]string
-	DockerLifecyclePath string
-	SkipCertVerify      bool
-	Sanitizer           FailureReasonSanitizer
+	TaskDomain     string
+	StagerURL      string
+	FileServerURL  string
+	Lifecycles     map[string]string
+	SkipCertVerify bool
+	Sanitizer      FailureReasonSanitizer
+}
+
+func (c Config) CallbackURL(stagingGuid string) string {
+	return fmt.Sprintf("%s/v1/staging/%s/completed", c.StagerURL, stagingGuid)
 }
 
 func max(x, y uint64) uint64 {
@@ -55,10 +51,6 @@ func max(x, y uint64) uint64 {
 	} else {
 		return y
 	}
-}
-
-func stagingTaskGuid(appId, taskId string) string {
-	return fmt.Sprintf("%s-%s", appId, taskId)
 }
 
 func addTimeoutParamToURL(u url.URL, timeout time.Duration) *url.URL {

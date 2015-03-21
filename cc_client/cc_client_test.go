@@ -20,6 +20,8 @@ var _ = Describe("CC Client", func() {
 
 		logger   lager.Logger
 		ccClient cc_client.CcClient
+
+		stagingGuid string
 	)
 
 	BeforeEach(func() {
@@ -29,6 +31,8 @@ var _ = Describe("CC Client", func() {
 		logger.RegisterSink(lager.NewWriterSink(GinkgoWriter, lager.DEBUG))
 
 		ccClient = cc_client.NewCcClient(fakeCC.URL(), "username", "password", true)
+
+		stagingGuid = "the-staging-guid"
 	})
 
 	AfterEach(func() {
@@ -43,7 +47,7 @@ var _ = Describe("CC Client", func() {
 		BeforeEach(func() {
 			fakeCC.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("POST", "/internal/staging/completed"),
+					ghttp.VerifyRequest("POST", fmt.Sprintf("/internal/staging/%s/completed", stagingGuid)),
 					ghttp.VerifyBasicAuth("username", "password"),
 					ghttp.RespondWith(200, `{}`),
 					func(w http.ResponseWriter, req *http.Request) {
@@ -58,7 +62,7 @@ var _ = Describe("CC Client", func() {
 		})
 
 		It("sends the request payload to the CC without modification", func() {
-			err := ccClient.StagingComplete(expectedBody, logger)
+			err := ccClient.StagingComplete(stagingGuid, expectedBody, logger)
 			Ω(err).ShouldNot(HaveOccurred())
 		})
 	})
@@ -68,7 +72,7 @@ var _ = Describe("CC Client", func() {
 			fakeCC = ghttp.NewTLSServer() // self-signed certificate
 			fakeCC.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("POST", "/internal/staging/completed"),
+					ghttp.VerifyRequest("POST", fmt.Sprintf("/internal/staging/%s/completed", stagingGuid)),
 					ghttp.VerifyBasicAuth("username", "password"),
 					ghttp.RespondWith(200, `{}`),
 				),
@@ -84,7 +88,7 @@ var _ = Describe("CC Client", func() {
 			})
 
 			It("fails with a self-signed certificate", func() {
-				err := ccClient.StagingComplete([]byte(`{}`), logger)
+				err := ccClient.StagingComplete(stagingGuid, []byte(`{}`), logger)
 				Ω(err).Should(HaveOccurred())
 			})
 		})
@@ -95,7 +99,7 @@ var _ = Describe("CC Client", func() {
 			})
 
 			It("Attempts to validate SSL certificates", func() {
-				err := ccClient.StagingComplete([]byte(`{}`), logger)
+				err := ccClient.StagingComplete(stagingGuid, []byte(`{}`), logger)
 				Ω(err).ShouldNot(HaveOccurred())
 			})
 		})
@@ -109,7 +113,7 @@ var _ = Describe("CC Client", func() {
 			})
 
 			It("percolates the error", func() {
-				err := ccClient.StagingComplete([]byte(`{}`), logger)
+				err := ccClient.StagingComplete(stagingGuid, []byte(`{}`), logger)
 				Ω(err).Should(HaveOccurred())
 				Ω(err).Should(BeAssignableToTypeOf(&url.Error{}))
 			})
@@ -119,14 +123,14 @@ var _ = Describe("CC Client", func() {
 			BeforeEach(func() {
 				fakeCC.AppendHandlers(
 					ghttp.CombineHandlers(
-						ghttp.VerifyRequest("POST", "/internal/staging/completed"),
+						ghttp.VerifyRequest("POST", fmt.Sprintf("/internal/staging/%s/completed", stagingGuid)),
 						ghttp.RespondWith(500, `{}`),
 					),
 				)
 			})
 
 			It("returns an error with the actual status code", func() {
-				err := ccClient.StagingComplete([]byte(`{}`), logger)
+				err := ccClient.StagingComplete(stagingGuid, []byte(`{}`), logger)
 				Ω(err).Should(HaveOccurred())
 				Ω(err).Should(BeAssignableToTypeOf(&cc_client.BadResponseError{}))
 				Ω(err.(*cc_client.BadResponseError).StatusCode).Should(Equal(500))

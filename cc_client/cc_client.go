@@ -8,24 +8,23 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cloudfoundry/gunk/urljoiner"
 	"github.com/pivotal-golang/lager"
 )
 
 const (
-	stagingCompletePath           = "/internal/staging/completed"
 	stagingCompleteRequestTimeout = 5 * time.Second
 )
 
+//go:generate counterfeiter -o fakes/fake_cc_client.go . CcClient
 type CcClient interface {
-	StagingComplete(payload []byte, logger lager.Logger) error
+	StagingComplete(stagingGuid string, payload []byte, logger lager.Logger) error
 }
 
 type ccClient struct {
-	stagingCompleteURI string
-	username           string
-	password           string
-	httpClient         *http.Client
+	baseURI    string
+	username   string
+	password   string
+	httpClient *http.Client
 }
 
 type BadResponseError struct {
@@ -54,18 +53,18 @@ func NewCcClient(baseURI string, username string, password string, skipCertVerif
 	}
 
 	return &ccClient{
-		stagingCompleteURI: urljoiner.Join(baseURI, stagingCompletePath),
-		username:           username,
-		password:           password,
-		httpClient:         httpClient,
+		baseURI:    baseURI,
+		username:   username,
+		password:   password,
+		httpClient: httpClient,
 	}
 }
 
-func (cc *ccClient) StagingComplete(payload []byte, logger lager.Logger) error {
+func (cc *ccClient) StagingComplete(stagingGuid string, payload []byte, logger lager.Logger) error {
 	logger = logger.Session("cc-client")
 	logger.Info("delivering-staging-response", lager.Data{"payload": string(payload)})
 
-	request, err := http.NewRequest("POST", cc.stagingCompleteURI, bytes.NewReader(payload))
+	request, err := http.NewRequest("POST", cc.stagingCompleteURI(stagingGuid), bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
@@ -104,4 +103,8 @@ func IsRetryable(err error) bool {
 	}
 
 	return false
+}
+
+func (cc *ccClient) stagingCompleteURI(stagingGuid string) string {
+	return fmt.Sprintf("%s/internal/staging/%s/completed", cc.baseURI, stagingGuid)
 }

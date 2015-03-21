@@ -12,7 +12,6 @@ import (
 	"github.com/cloudfoundry-incubator/buildpack_app_lifecycle"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/routes"
 	"github.com/cloudfoundry/gunk/urljoiner"
@@ -21,12 +20,8 @@ import (
 )
 
 const (
-	TraditionalTaskDomain                         = "cf-app-staging"
-	TraditionalStagingRequestsNatsSubject         = "diego.staging.start"
-	TraditionalStagingRequestsReceivedCounter     = metric.Counter("TraditionalStagingRequestsReceived")
-	TraditionalStopStagingRequestsNatsSubject     = "diego.staging.stop"
-	TraditionalStopStagingRequestsReceivedCounter = metric.Counter("TraditionalStopStagingRequestsReceived")
-	StagingTaskCpuWeight                          = uint(50)
+	TraditionalLifecycleName = "buildpack"
+	StagingTaskCpuWeight     = uint(50)
 
 	DefaultLANG = "en_US.UTF-8"
 )
@@ -43,34 +38,8 @@ func NewTraditionalBackend(config Config, logger lager.Logger) Backend {
 	}
 }
 
-func (backend *traditionalBackend) StagingRequestsNatsSubject() string {
-	return TraditionalStagingRequestsNatsSubject
-}
-
-func (backend *traditionalBackend) StagingRequestsReceivedCounter() metric.Counter {
-	return TraditionalStagingRequestsReceivedCounter
-}
-
-func (backend *traditionalBackend) StopStagingRequestsNatsSubject() string {
-	return TraditionalStopStagingRequestsNatsSubject
-}
-
-func (backend *traditionalBackend) StopStagingRequestsReceivedCounter() metric.Counter {
-	return TraditionalStopStagingRequestsReceivedCounter
-}
-
-func (backend *traditionalBackend) TaskDomain() string {
-	return TraditionalTaskDomain
-}
-
-func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.TaskCreateRequest, error) {
+func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_messages.StagingRequestFromCC) (receptor.TaskCreateRequest, error) {
 	logger := backend.logger.Session("build-recipe")
-
-	var request cc_messages.StagingRequestFromCC
-	err := json.Unmarshal(requestJson, &request)
-	if err != nil {
-		return receptor.TaskCreateRequest{}, err
-	}
 	logger.Info("staging-request", lager.Data{"Request": request})
 
 	if request.LifecycleData == nil {
@@ -78,7 +47,7 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	}
 
 	var lifecycleData cc_messages.BuildpackStagingData
-	err = json.Unmarshal(*request.LifecycleData, &lifecycleData)
+	err := json.Unmarshal(*request.LifecycleData, &lifecycleData)
 	if err != nil {
 		return receptor.TaskCreateRequest{}, err
 	}
@@ -239,23 +208,22 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	uploadMsg := fmt.Sprintf("Uploading %s...", strings.Join(uploadNames, ", "))
 	actions = append(actions, models.EmitProgressFor(models.Parallel(uploadActions...), uploadMsg, "Uploading complete", "Uploading failed"))
 
-	annotationJson, _ := json.Marshal(models.StagingTaskAnnotation{
-		AppId:  request.AppId,
-		TaskId: request.TaskId,
+	annotationJson, _ := json.Marshal(cc_messages.StagingTaskAnnotation{
+		Lifecycle: TraditionalLifecycleName,
 	})
 
 	task := receptor.TaskCreateRequest{
-		TaskGuid:              backend.taskGuid(request),
-		Domain:                TraditionalTaskDomain,
+		TaskGuid:              stagingGuid,
+		Domain:                backend.config.TaskDomain,
 		Stack:                 request.Stack,
 		ResultFile:            builderConfig.OutputMetadata(),
 		MemoryMB:              request.MemoryMB,
 		DiskMB:                request.DiskMB,
 		CPUWeight:             StagingTaskCpuWeight,
 		Action:                models.Timeout(models.Serial(actions...), timeout),
-		LogGuid:               request.AppId,
+		LogGuid:               request.LogGuid,
 		LogSource:             TaskLogSource,
-		CompletionCallbackURL: backend.config.CallbackURL,
+		CompletionCallbackURL: backend.config.CallbackURL(stagingGuid),
 		EgressRules:           request.EgressRules,
 		Annotation:            string(annotationJson),
 		Privileged:            true,
@@ -267,34 +235,14 @@ func (backend *traditionalBackend) BuildRecipe(requestJson []byte) (receptor.Tas
 	return task, nil
 }
 
-func (backend *traditionalBackend) BuildStagingResponseFromRequestError(requestJson []byte, errorMessage string) ([]byte, error) {
-	request := cc_messages.StagingRequestFromCC{}
-
-	err := json.Unmarshal(requestJson, &request)
-	if err != nil {
-		return nil, err
-	}
-
-	response := cc_messages.StagingResponseForCC{
-		AppId:  request.AppId,
-		TaskId: request.TaskId,
-		Error:  backend.config.Sanitizer(errorMessage),
-	}
-
-	return json.Marshal(response)
-}
-
-func (backend *traditionalBackend) BuildStagingResponse(taskResponse receptor.TaskResponse) ([]byte, error) {
+func (backend *traditionalBackend) BuildStagingResponse(taskResponse receptor.TaskResponse) (cc_messages.StagingResponseForCC, error) {
 	var response cc_messages.StagingResponseForCC
 
-	var annotation models.StagingTaskAnnotation
+	var annotation cc_messages.StagingTaskAnnotation
 	err := json.Unmarshal([]byte(taskResponse.Annotation), &annotation)
 	if err != nil {
-		return nil, err
+		return cc_messages.StagingResponseForCC{}, err
 	}
-
-	response.AppId = annotation.AppId
-	response.TaskId = annotation.TaskId
 
 	if taskResponse.Failed {
 		response.Error = backend.config.Sanitizer(taskResponse.FailureReason)
@@ -302,7 +250,7 @@ func (backend *traditionalBackend) BuildStagingResponse(taskResponse receptor.Ta
 		var result buildpack_app_lifecycle.StagingResult
 		err := json.Unmarshal([]byte(taskResponse.Result), &result)
 		if err != nil {
-			return nil, err
+			return cc_messages.StagingResponseForCC{}, err
 		}
 
 		buildpackResponse := cc_messages.BuildpackStagingResponse{
@@ -312,7 +260,7 @@ func (backend *traditionalBackend) BuildStagingResponse(taskResponse receptor.Ta
 
 		lifecycleDataJSON, err := json.Marshal(buildpackResponse)
 		if err != nil {
-			return nil, err
+			return cc_messages.StagingResponseForCC{}, err
 		}
 		lifecycleData := json.RawMessage(lifecycleDataJSON)
 
@@ -321,33 +269,11 @@ func (backend *traditionalBackend) BuildStagingResponse(taskResponse receptor.Ta
 		response.LifecycleData = &lifecycleData
 	}
 
-	return json.Marshal(response)
-}
-
-func (backend *traditionalBackend) StagingTaskGuid(requestJson []byte) (string, error) {
-	var request cc_messages.StopStagingRequestFromCC
-	err := json.Unmarshal(requestJson, &request)
-	if err != nil {
-		return "", err
-	}
-
-	if request.AppId == "" {
-		return "", ErrMissingAppId
-	}
-
-	if request.TaskId == "" {
-		return "", ErrMissingTaskId
-	}
-
-	return stagingTaskGuid(request.AppId, request.TaskId), nil
-}
-
-func (backend *traditionalBackend) taskGuid(request cc_messages.StagingRequestFromCC) string {
-	return stagingTaskGuid(request.AppId, request.TaskId)
+	return response, nil
 }
 
 func (backend *traditionalBackend) compilerDownloadURL(request cc_messages.StagingRequestFromCC) (*url.URL, error) {
-	compilerPath, ok := backend.config.Lifecycles[request.Stack]
+	compilerPath, ok := backend.config.Lifecycles[request.Lifecycle+"/"+request.Stack]
 	if !ok {
 		return nil, ErrNoCompilerDefined
 	}
@@ -444,10 +370,6 @@ func (backend *traditionalBackend) validateRequest(stagingRequest cc_messages.St
 		return ErrMissingAppId
 	}
 
-	if len(stagingRequest.TaskId) == 0 {
-		return ErrMissingTaskId
-	}
-
 	if len(buildpackData.AppBitsDownloadUri) == 0 {
 		return ErrMissingAppBitsDownloadUri
 	}
@@ -463,7 +385,6 @@ func traditionalTimeout(request cc_messages.StagingRequestFromCC, logger lager.L
 			"requested-timeout": request.Timeout,
 			"default-timeout":   DefaultStagingTimeout,
 			"app-id":            request.AppId,
-			"task-id":           request.TaskId,
 		})
 		return DefaultStagingTimeout
 	}

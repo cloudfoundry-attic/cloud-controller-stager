@@ -2,7 +2,6 @@ package testrunner
 
 import (
 	"os/exec"
-	"strings"
 	"time"
 
 	"github.com/onsi/ginkgo"
@@ -18,11 +17,10 @@ type StagerRunner struct {
 }
 
 type Config struct {
-	StagerBin     string
-	StagerURL     string
-	NatsAddresses []string
-	DiegoAPIURL   string
-	CCBaseURL     string
+	StagerBin   string
+	StagerURL   string
+	DiegoAPIURL string
+	CCBaseURL   string
 }
 
 func New(config Config) *StagerRunner {
@@ -40,7 +38,6 @@ func (r *StagerRunner) Start(args ...string) {
 		exec.Command(
 			r.Config.StagerBin,
 			append([]string{
-				"-natsAddresses", strings.Join(r.Config.NatsAddresses, ","),
 				"-diegoAPIURL", r.Config.DiegoAPIURL,
 				"-stagerURL", r.Config.StagerURL,
 				"-ccBaseURL", r.Config.CCBaseURL,

@@ -2,9 +2,10 @@ package backend_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
-	docker_app_lifecycle "github.com/cloudfoundry-incubator/docker_app_lifecycle"
+	"github.com/cloudfoundry-incubator/docker_app_lifecycle"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
@@ -17,15 +18,13 @@ import (
 var _ = Describe("DockerBackend", func() {
 	var (
 		stagingRequest        cc_messages.StagingRequestFromCC
-		stagingRequestJson    []byte
 		downloadBuilderAction models.Action
 		runAction             models.Action
 		config                backend.Config
-		callbackURL           string
 		docker                backend.Backend
 
+		stagingGuid     string
 		appId           string
-		taskId          string
 		dockerImageUrl  string
 		fileDescriptors int
 		memoryMB        int
@@ -36,23 +35,26 @@ var _ = Describe("DockerBackend", func() {
 
 	BeforeEach(func() {
 		appId = "bunny"
-		taskId = "hop"
 		dockerImageUrl = "busybox"
 		fileDescriptors = 512
 		memoryMB = 2048
 		diskMB = 3072
 		timeout = 900
 
-		callbackURL = "http://the-stager.example.com"
+		stagingGuid = "a-staging-guid"
+
+		stagerURL := "http://the-stager.example.com"
 
 		config = backend.Config{
-			CallbackURL:   callbackURL,
+			TaskDomain:    "config-task-domain",
+			StagerURL:     stagerURL,
 			FileServerURL: "http://file-server.com",
 			Lifecycles: map[string]string{
 				"penguin":                "penguin-compiler",
 				"rabbit_hole":            "rabbit-hole-compiler",
 				"compiler_with_full_url": "http://the-full-compiler-url",
 				"compiler_with_bad_url":  "ftp://the-bad-compiler-url",
+				"docker":                 "docker_lifecycle/docker_app_lifecycle.tgz",
 			},
 			Sanitizer: func(msg string) *cc_messages.StagingError {
 				return &cc_messages.StagingError{Message: msg + " was totally sanitized"}
@@ -66,7 +68,7 @@ var _ = Describe("DockerBackend", func() {
 
 		downloadBuilderAction = models.EmitProgressFor(
 			&models.DownloadAction{
-				From:     "http://file-server.com/v1/static/docker_app_lifecycle.zip",
+				From:     "http://file-server.com/v1/static/docker_lifecycle/docker_app_lifecycle.tgz",
 				To:       "/tmp/docker_app_lifecycle",
 				CacheKey: "builder-docker",
 			},
@@ -125,7 +127,7 @@ var _ = Describe("DockerBackend", func() {
 
 		stagingRequest = cc_messages.StagingRequestFromCC{
 			AppId:           appId,
-			TaskId:          taskId,
+			LogGuid:         "log-guid",
 			Stack:           "rabbit_hole",
 			FileDescriptors: fileDescriptors,
 			MemoryMB:        memoryMB,
@@ -139,76 +141,64 @@ var _ = Describe("DockerBackend", func() {
 			Lifecycle:     "docker",
 			LifecycleData: &lifecycleData,
 		}
-
-		stagingRequestJson, err = json.Marshal(stagingRequest)
-		Ω(err).ShouldNot(HaveOccurred())
 	})
 
 	Describe("request validation", func() {
-		Context("with invalid request JSON", func() {
-			JustBeforeEach(func() {
-				stagingRequestJson = []byte("bad-json")
-			})
-			It("returns an error", func() {
-				_, err := docker.BuildRecipe(stagingRequestJson)
-				Ω(err).Should(HaveOccurred())
-				Ω(err).Should(BeAssignableToTypeOf(&json.SyntaxError{}))
-			})
-		})
-		Context("with a missing app id", func() {
-			BeforeEach(func() {
-				appId = ""
-			})
-
-			It("returns an error", func() {
-				_, err := docker.BuildRecipe(stagingRequestJson)
-				Ω(err).Should(Equal(backend.ErrMissingAppId))
-			})
-		})
-
-		Context("with a missing task id", func() {
-			BeforeEach(func() {
-				taskId = ""
-			})
-
-			It("returns an error", func() {
-				_, err := docker.BuildRecipe(stagingRequestJson)
-				Ω(err).Should(Equal(backend.ErrMissingTaskId))
-			})
-		})
-
 		Context("with a missing docker image url", func() {
 			BeforeEach(func() {
 				dockerImageUrl = ""
 			})
 
 			It("returns an error", func() {
-				_, err := docker.BuildRecipe(stagingRequestJson)
+				_, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 				Ω(err).Should(Equal(backend.ErrMissingDockerImageUrl))
 			})
 		})
 	})
 
+	Describe("docker lifeycle config", func() {
+		Context("when the docker lifecycle is missing", func() {
+			BeforeEach(func() {
+				delete(config.Lifecycles, "docker")
+			})
+
+			It("returns an error", func() {
+				_, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+				Ω(err).Should(Equal(backend.ErrNoCompilerDefined))
+			})
+		})
+
+		Context("when the docker lifecycle is empty", func() {
+			BeforeEach(func() {
+				config.Lifecycles["docker"] = ""
+			})
+
+			It("returns an error", func() {
+				_, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+				Ω(err).Should(Equal(backend.ErrNoCompilerDefined))
+			})
+		})
+	})
+
 	It("creates a cf-app-docker-staging Task with staging instructions", func() {
-		desiredTask, err := docker.BuildRecipe(stagingRequestJson)
+		desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 		Ω(err).ShouldNot(HaveOccurred())
 
-		Ω(desiredTask.Domain).To(Equal("cf-app-docker-staging"))
-		Ω(desiredTask.TaskGuid).To(Equal("bunny-hop"))
+		Ω(desiredTask.Domain).To(Equal("config-task-domain"))
+		Ω(desiredTask.TaskGuid).To(Equal(stagingGuid))
 		Ω(desiredTask.Stack).To(Equal("rabbit_hole"))
-		Ω(desiredTask.LogGuid).To(Equal("bunny"))
+		Ω(desiredTask.LogGuid).To(Equal("log-guid"))
 		Ω(desiredTask.LogSource).To(Equal(backend.TaskLogSource))
 		Ω(desiredTask.ResultFile).To(Equal("/tmp/docker-result/result.json"))
 		Ω(desiredTask.Privileged).Should(BeFalse())
 
-		var annotation models.StagingTaskAnnotation
+		var annotation cc_messages.StagingTaskAnnotation
 
 		err = json.Unmarshal([]byte(desiredTask.Annotation), &annotation)
 		Ω(err).ShouldNot(HaveOccurred())
 
-		Ω(annotation).Should(Equal(models.StagingTaskAnnotation{
-			AppId:  "bunny",
-			TaskId: "hop",
+		Ω(annotation).Should(Equal(cc_messages.StagingTaskAnnotation{
+			Lifecycle: "docker",
 		}))
 
 		actions := actionsFromDesiredTask(desiredTask)
@@ -222,10 +212,10 @@ var _ = Describe("DockerBackend", func() {
 	})
 
 	It("gives the task a callback URL to call it back", func() {
-		desiredTask, err := docker.BuildRecipe(stagingRequestJson)
+		desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 		Ω(err).ShouldNot(HaveOccurred())
 
-		Ω(desiredTask.CompletionCallbackURL).Should(Equal(callbackURL))
+		Ω(desiredTask.CompletionCallbackURL).Should(Equal(fmt.Sprintf("%s/v1/staging/%s/completed", config.StagerURL, stagingGuid)))
 	})
 
 	Describe("staging action timeout", func() {
@@ -235,7 +225,7 @@ var _ = Describe("DockerBackend", func() {
 			})
 
 			It("passes the timeout along", func() {
-				desiredTask, err := docker.BuildRecipe(stagingRequestJson)
+				desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 				Ω(err).ShouldNot(HaveOccurred())
 
 				timeoutAction := desiredTask.Action
@@ -250,7 +240,7 @@ var _ = Describe("DockerBackend", func() {
 			})
 
 			It("uses the default timeout", func() {
-				desiredTask, err := docker.BuildRecipe(stagingRequestJson)
+				desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 				Ω(err).ShouldNot(HaveOccurred())
 
 				timeoutAction := desiredTask.Action
@@ -265,7 +255,7 @@ var _ = Describe("DockerBackend", func() {
 			})
 
 			It("uses the default timeout", func() {
-				desiredTask, err := docker.BuildRecipe(stagingRequestJson)
+				desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 				Ω(err).ShouldNot(HaveOccurred())
 
 				timeoutAction := desiredTask.Action
@@ -276,59 +266,14 @@ var _ = Describe("DockerBackend", func() {
 	})
 
 	Describe("building staging responses", func() {
-		var buildError error
-		var responseJson []byte
-
-		Describe("BuildStagingResponseFromRequestError", func() {
-			var requestJson []byte
-
-			JustBeforeEach(func() {
-				responseJson, buildError = docker.BuildStagingResponseFromRequestError(requestJson, "fake-error-message")
-			})
-
-			Context("with a valid request", func() {
-				BeforeEach(func() {
-					request := cc_messages.StagingRequestFromCC{
-						AppId:  "myapp",
-						TaskId: "mytask",
-					}
-					var err error
-					requestJson, err = json.Marshal(request)
-					Ω(err).ShouldNot(HaveOccurred())
-				})
-
-				It("returns a correctly populated staging response", func() {
-					expectedResponse := cc_messages.StagingResponseForCC{
-						AppId:  "myapp",
-						TaskId: "mytask",
-						Error:  &cc_messages.StagingError{Message: "fake-error-message was totally sanitized"},
-					}
-					expectedResponseJson, err := json.Marshal(expectedResponse)
-					Ω(err).ShouldNot(HaveOccurred())
-
-					Ω(buildError).ShouldNot(HaveOccurred())
-					Ω(responseJson).Should(MatchJSON(expectedResponseJson))
-				})
-			})
-
-			Context("with an invalid request", func() {
-				BeforeEach(func() {
-					requestJson = []byte("invalid-json")
-				})
-
-				It("returns an error", func() {
-					Ω(buildError).Should(HaveOccurred())
-					Ω(buildError).Should(BeAssignableToTypeOf(&json.SyntaxError{}))
-					Ω(responseJson).Should(BeNil())
-				})
-			})
-		})
+		var response cc_messages.StagingResponseForCC
 
 		Describe("BuildStagingResponse", func() {
 			var annotationJson []byte
 			var stagingResultJson []byte
 			var taskResponseFailed bool
 			var failureReason string
+			var buildError error
 
 			JustBeforeEach(func() {
 				taskResponse := receptor.TaskResponse{
@@ -337,14 +282,14 @@ var _ = Describe("DockerBackend", func() {
 					FailureReason: failureReason,
 					Result:        string(stagingResultJson),
 				}
-				responseJson, buildError = docker.BuildStagingResponse(taskResponse)
+
+				response, buildError = docker.BuildStagingResponse(taskResponse)
 			})
 
 			Context("with a valid annotation", func() {
 				BeforeEach(func() {
-					annotation := models.StagingTaskAnnotation{
-						AppId:  "app-id",
-						TaskId: "task-id",
+					annotation := cc_messages.StagingTaskAnnotation{
+						Lifecycle: "docker",
 					}
 					var err error
 					annotationJson, err = json.Marshal(annotation)
@@ -368,17 +313,11 @@ var _ = Describe("DockerBackend", func() {
 						})
 
 						It("populates a staging response correctly", func() {
-							expectedResponse := cc_messages.StagingResponseForCC{
-								AppId:                "app-id",
-								TaskId:               "task-id",
+							Ω(buildError).ShouldNot(HaveOccurred())
+							Ω(response).Should(Equal(cc_messages.StagingResponseForCC{
 								ExecutionMetadata:    "metadata",
 								DetectedStartCommand: map[string]string{"a": "b"},
-							}
-							expectedResponseJson, err := json.Marshal(expectedResponse)
-							Ω(err).ShouldNot(HaveOccurred())
-
-							Ω(buildError).ShouldNot(HaveOccurred())
-							Ω(responseJson).Should(MatchJSON(expectedResponseJson))
+							}))
 						})
 					})
 
@@ -390,7 +329,6 @@ var _ = Describe("DockerBackend", func() {
 						It("returns an error", func() {
 							Ω(buildError).Should(HaveOccurred())
 							Ω(buildError).Should(BeAssignableToTypeOf(&json.SyntaxError{}))
-							Ω(responseJson).Should(BeNil())
 						})
 					})
 
@@ -401,16 +339,10 @@ var _ = Describe("DockerBackend", func() {
 						})
 
 						It("populates a staging response correctly", func() {
-							expectedResponse := cc_messages.StagingResponseForCC{
-								AppId:  "app-id",
-								TaskId: "task-id",
-								Error:  &cc_messages.StagingError{Message: "some-failure-reason was totally sanitized"},
-							}
-							expectedResponseJson, err := json.Marshal(expectedResponse)
-							Ω(err).ShouldNot(HaveOccurred())
-
 							Ω(buildError).ShouldNot(HaveOccurred())
-							Ω(responseJson).Should(MatchJSON(expectedResponseJson))
+							Ω(response).Should(Equal(cc_messages.StagingResponseForCC{
+								Error: &cc_messages.StagingError{Message: "some-failure-reason was totally sanitized"},
+							}))
 						})
 					})
 				})
@@ -424,34 +356,8 @@ var _ = Describe("DockerBackend", func() {
 				It("returns an error", func() {
 					Ω(buildError).Should(HaveOccurred())
 					Ω(buildError).Should(BeAssignableToTypeOf(&json.SyntaxError{}))
-					Ω(responseJson).Should(BeNil())
 				})
 			})
-		})
-	})
-
-	Describe("StagingTaskGuid", func() {
-		It("returns the staging task guid", func() {
-			taskGuid, err := docker.StagingTaskGuid(stagingRequestJson)
-			Ω(err).ShouldNot(HaveOccurred())
-			Ω(taskGuid).Should(Equal("bunny-hop"))
-		})
-
-		It("matches the task guid on the TaskRequest from BuildRecipe", func() {
-			taskGuid, _ := docker.StagingTaskGuid(stagingRequestJson)
-			desiredTask, _ := docker.BuildRecipe(stagingRequestJson)
-
-			Ω(taskGuid).Should(Equal(desiredTask.TaskGuid))
-		})
-
-		It("fails if the AppId is missing", func() {
-			_, err := docker.StagingTaskGuid([]byte(`{"task_id":"hop"}`))
-			Ω(err).Should(Equal(backend.ErrMissingAppId))
-		})
-
-		It("fails if the TaskId is missing", func() {
-			_, err := docker.StagingTaskGuid([]byte(`{"app_id":"bunny"}`))
-			Ω(err).Should(Equal(backend.ErrMissingTaskId))
 		})
 	})
 })
