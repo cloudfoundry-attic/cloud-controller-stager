@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
-	"github.com/cloudfoundry-incubator/stager"
 	"github.com/cloudfoundry-incubator/stager/backend"
 	"github.com/cloudfoundry-incubator/stager/backend/fake_backend"
 	"github.com/cloudfoundry-incubator/stager/cc_client"
@@ -23,7 +23,6 @@ import (
 	"github.com/cloudfoundry/dropsonde/metrics"
 	"github.com/pivotal-golang/clock/fakeclock"
 	"github.com/pivotal-golang/lager"
-	"github.com/tedsuo/rata"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -44,7 +43,7 @@ var _ = Describe("StagingCompletedHandler", func() {
 		stagingDurationNano time.Duration
 
 		responseRecorder *httptest.ResponseRecorder
-		rataHandler      http.Handler
+		handler          handlers.CompletionHandler
 	)
 
 	BeforeEach(func() {
@@ -65,20 +64,7 @@ var _ = Describe("StagingCompletedHandler", func() {
 		fakeClock = fakeclock.NewFakeClock(time.Now())
 
 		responseRecorder = httptest.NewRecorder()
-		handler := handlers.NewStagingCompletionHandler(logger, fakeCCClient, map[string]backend.Backend{"fake": fakeBackend}, fakeClock)
-
-		var routes rata.Routes
-		for _, r := range stager.Routes {
-			if r.Name == stager.StagingCompletedRoute {
-				routes = append(routes, r)
-			}
-		}
-
-		var err error
-		rataHandler, err = rata.NewRouter(routes, rata.Handlers{
-			stager.StagingCompletedRoute: http.HandlerFunc(handler.StagingComplete),
-		})
-		Ω(err).ShouldNot(HaveOccurred())
+		handler = handlers.NewStagingCompletionHandler(logger, fakeCCClient, map[string]backend.Backend{"fake": fakeBackend}, fakeClock)
 	})
 
 	JustBeforeEach(func() {
@@ -91,6 +77,8 @@ var _ = Describe("StagingCompletedHandler", func() {
 
 		request, err := http.NewRequest("POST", fmt.Sprintf("/v1/staging/%s/completed", task.TaskGuid), bytes.NewReader(taskJSON))
 		Ω(err).ShouldNot(HaveOccurred())
+
+		request.Form = url.Values{":staging_guid": {task.TaskGuid}}
 
 		return request
 	}
@@ -127,7 +115,7 @@ var _ = Describe("StagingCompletedHandler", func() {
 				Annotation: string(annotationJson),
 			}
 
-			rataHandler.ServeHTTP(responseRecorder, postTask(taskResponse))
+			handler.StagingComplete(responseRecorder, postTask(taskResponse))
 		})
 
 		It("passes the task response to the matching response builder", func() {
@@ -143,7 +131,7 @@ var _ = Describe("StagingCompletedHandler", func() {
 				request, err := http.NewRequest("POST", "/v1/staging/an-invalid-guid/completed", bytes.NewReader(taskJSON))
 				Ω(err).ShouldNot(HaveOccurred())
 
-				rataHandler.ServeHTTP(responseRecorder, request)
+				handler.StagingComplete(responseRecorder, postTask(taskResponse))
 			})
 
 			It("returns StatusBadRequest", func() {
@@ -305,7 +293,7 @@ var _ = Describe("StagingCompletedHandler", func() {
 				Result: `{}`,
 			}
 
-			rataHandler.ServeHTTP(responseRecorder, postTask(taskResponse))
+			handler.StagingComplete(responseRecorder, postTask(taskResponse))
 		})
 
 		It("posts the result to CC as an error", func() {
@@ -345,7 +333,7 @@ var _ = Describe("StagingCompletedHandler", func() {
 				Result:        `{}`,
 			}
 
-			rataHandler.ServeHTTP(responseRecorder, postTask(taskResponse))
+			handler.StagingComplete(responseRecorder, postTask(taskResponse))
 		})
 
 		It("responds with a 404", func() {
@@ -358,7 +346,7 @@ var _ = Describe("StagingCompletedHandler", func() {
 			request, err := http.NewRequest("POST", "/v1/staging/an-invalid-guid/completed", strings.NewReader("{"))
 			Ω(err).ShouldNot(HaveOccurred())
 
-			rataHandler.ServeHTTP(responseRecorder, request)
+			handler.StagingComplete(responseRecorder, request)
 		})
 
 		It("responds with a 400", func() {

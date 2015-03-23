@@ -6,11 +6,11 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/receptor/fake_receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/stager"
 	"github.com/cloudfoundry-incubator/stager/backend"
 	"github.com/cloudfoundry-incubator/stager/backend/fake_backend"
 	"github.com/cloudfoundry-incubator/stager/cc_client/fakes"
@@ -19,7 +19,6 @@ import (
 	"github.com/cloudfoundry/dropsonde/metrics"
 	"github.com/pivotal-golang/lager"
 	"github.com/pivotal-golang/lager/lagertest"
-	"github.com/tedsuo/rata"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -37,7 +36,7 @@ var _ = Describe("StagingHandler", func() {
 		fakeBackend     *fake_backend.FakeBackend
 
 		responseRecorder *httptest.ResponseRecorder
-		rataHandler      http.Handler
+		handler          handlers.StagingHandler
 	)
 
 	BeforeEach(func() {
@@ -52,24 +51,7 @@ var _ = Describe("StagingHandler", func() {
 		fakeDiegoClient = &fake_receptor.FakeClient{}
 
 		responseRecorder = httptest.NewRecorder()
-		handler := handlers.NewStagingHandler(logger, map[string]backend.Backend{"fake-backend": fakeBackend}, fakeCcClient, fakeDiegoClient)
-
-		var routes rata.Routes
-		for _, r := range stager.Routes {
-			if r.Name == stager.StageRoute {
-				routes = append(routes, r)
-			}
-			if r.Name == stager.StopStagingRoute {
-				routes = append(routes, r)
-			}
-		}
-
-		var err error
-		rataHandler, err = rata.NewRouter(routes, rata.Handlers{
-			stager.StageRoute:       http.HandlerFunc(handler.Stage),
-			stager.StopStagingRoute: http.HandlerFunc(handler.StopStaging),
-		})
-		Ω(err).ShouldNot(HaveOccurred())
+		handler = handlers.NewStagingHandler(logger, map[string]backend.Backend{"fake-backend": fakeBackend}, fakeCcClient, fakeDiegoClient)
 	})
 
 	Describe("Stage", func() {
@@ -81,7 +63,9 @@ var _ = Describe("StagingHandler", func() {
 			req, err := http.NewRequest("PUT", "/v1/staging/a-staging-guid", bytes.NewReader(stagingRequestJson))
 			Ω(err).ShouldNot(HaveOccurred())
 
-			rataHandler.ServeHTTP(responseRecorder, req)
+			req.Form = url.Values{":staging_guid": {"a-staging-guid"}}
+
+			handler.Stage(responseRecorder, req)
 		})
 
 		Context("when a staging request is received for a registered backend", func() {
@@ -288,7 +272,9 @@ var _ = Describe("StagingHandler", func() {
 			req, err := http.NewRequest("DELETE", "/v1/staging/a-staging-guid", nil)
 			Ω(err).ShouldNot(HaveOccurred())
 
-			rataHandler.ServeHTTP(responseRecorder, req)
+			req.Form = url.Values{":staging_guid": {"a-staging-guid"}}
+
+			handler.StopStaging(responseRecorder, req)
 		})
 
 		Context("when receiving a stop staging request", func() {
