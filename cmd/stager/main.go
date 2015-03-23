@@ -51,7 +51,7 @@ var skipCertVerify = flag.Bool(
 var lifecycles = flag.String(
 	"lifecycles",
 	"{}",
-	"Map of lifecycles for different stacks (name => compiler_name)",
+	"Map of lifecycles for different stacks (lifecycle/stack => bundle filename)",
 )
 
 var diegoAPIURL = flag.String(
