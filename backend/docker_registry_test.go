@@ -9,6 +9,7 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	. "github.com/cloudfoundry-incubator/stager/backend"
+	"github.com/cloudfoundry-incubator/stager/helpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
@@ -16,8 +17,9 @@ import (
 )
 
 var _ = Describe("DockerBackend", func() {
+	const stagingGuid = "staging-guid"
 	var (
-		stagingRequest       cc_messages.DockerStagingRequestFromCC
+		stagingRequest       cc_messages.StagingRequestFromCC
 		stagingRequestJson   []byte
 		downloadTailorAction models.Action
 		runAction            models.Action
@@ -75,6 +77,9 @@ var _ = Describe("DockerBackend", func() {
 		config := Config{
 			FileServerURL:  "http://file-server.com",
 			ConsulAgentURL: server.URL(),
+			Lifecycles: map[string]string{
+				"docker": "docker_lifecycle/docker_app_lifecycle.tgz",
+			},
 		}
 
 		if len(dockerRegistryURL) > 0 {
@@ -91,7 +96,7 @@ var _ = Describe("DockerBackend", func() {
 
 		downloadTailorAction = models.EmitProgressFor(
 			&models.DownloadAction{
-				From:     "http://file-server.com/v1/static/docker_app_lifecycle.zip",
+				From:     "http://file-server.com/v1/static/docker_lifecycle/docker_app_lifecycle.tgz",
 				To:       "/tmp/docker_app_lifecycle",
 				CacheKey: "builder-docker",
 			},
@@ -102,24 +107,24 @@ var _ = Describe("DockerBackend", func() {
 
 		expectedEgressRules = setupEgressRules(dockerRegistryIPs)
 
-		stagingRequest = cc_messages.DockerStagingRequestFromCC{
+		lifecycleData, err := helpers.BuildDockerStagingData("busybox")
+		Ω(err).ShouldNot(HaveOccurred())
+		stagingRequest = cc_messages.StagingRequestFromCC{
 			AppId:           "bunny",
-			TaskId:          "hop",
-			DockerImageUrl:  "busybox",
 			Stack:           "rabbit_hole",
 			FileDescriptors: 512,
 			MemoryMB:        512,
 			DiskMB:          512,
 			Timeout:         512,
+			LifecycleData:   lifecycleData,
 		}
 
-		var err error
 		stagingRequestJson, err = json.Marshal(stagingRequest)
 		Ω(err).ShouldNot(HaveOccurred())
 	})
 
 	checkStagingInstructionsFunc := func() {
-		desiredTask, err := backend.BuildRecipe(stagingRequestJson)
+		desiredTask, err := backend.BuildRecipe(stagingGuid, stagingRequest)
 		Ω(err).ShouldNot(HaveOccurred())
 
 		actions := actionsFromDesiredTask(desiredTask)
@@ -208,7 +213,7 @@ var _ = Describe("DockerBackend", func() {
 		})
 
 		It("creates a cf-app-docker-staging Task with no additional egress rules", func() {
-			desiredTask, err := backend.BuildRecipe(stagingRequestJson)
+			desiredTask, err := backend.BuildRecipe(stagingGuid, stagingRequest)
 			Ω(err).ShouldNot(HaveOccurred())
 			Ω(desiredTask.EgressRules).Should(BeEmpty())
 		})

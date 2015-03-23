@@ -14,22 +14,17 @@ import (
 	"github.com/cloudfoundry-incubator/docker_app_lifecycle"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/routes"
+	"github.com/cloudfoundry-incubator/stager/helpers"
 	"github.com/cloudfoundry/gunk/urljoiner"
 	"github.com/pivotal-golang/lager"
 )
 
 const (
-	DockerTaskDomain                         = "cf-app-docker-staging"
-	DockerLifecycleFilename                  = "docker_app_lifecycle.zip"
-	DockerStagingRequestsNatsSubject         = "diego.docker.staging.start"
-	DockerStagingRequestsReceivedCounter     = metric.Counter("DockerStagingRequestsReceived")
-	DockerStopStagingRequestsNatsSubject     = "diego.docker.staging.stop"
-	DockerStopStagingRequestsReceivedCounter = metric.Counter("DockerStopStagingRequestsReceived")
-	DockerBuilderExecutablePath              = "/tmp/docker_app_lifecycle/builder"
-	DockerBuilderOutputPath                  = "/tmp/docker-result/result.json"
+	DockerLifecycleName         = "docker"
+	DockerBuilderExecutablePath = "/tmp/docker_app_lifecycle/builder"
+	DockerBuilderOutputPath     = "/tmp/docker-result/result.json"
 )
 
 var ErrMissingDockerImageUrl = errors.New("missing docker image download url")
@@ -50,42 +45,22 @@ func NewDockerBackend(config Config, logger lager.Logger) Backend {
 	}
 }
 
-func (backend *dockerBackend) StagingRequestsNatsSubject() string {
-	return DockerStagingRequestsNatsSubject
-}
-
-func (backend *dockerBackend) StagingRequestsReceivedCounter() metric.Counter {
-	return DockerStagingRequestsReceivedCounter
-}
-
-func (backend *dockerBackend) StopStagingRequestsNatsSubject() string {
-	return DockerStopStagingRequestsNatsSubject
-}
-
-func (backend *dockerBackend) StopStagingRequestsReceivedCounter() metric.Counter {
-	return DockerStopStagingRequestsReceivedCounter
-}
-
-func (backend *dockerBackend) TaskDomain() string {
-	return DockerTaskDomain
-}
-
-func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCreateRequest, error) {
+func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_messages.StagingRequestFromCC) (receptor.TaskCreateRequest, error) {
 	logger := backend.logger.Session("build-recipe")
-
-	var request cc_messages.DockerStagingRequestFromCC
-	err := json.Unmarshal(requestJson, &request)
-	if err != nil {
-		return receptor.TaskCreateRequest{}, err
-	}
 	logger.Info("staging-request", lager.Data{"Request": request})
 
-	err = backend.validateRequest(request)
+	var lifecycleData cc_messages.DockerStagingData
+	err := json.Unmarshal(*request.LifecycleData, &lifecycleData)
 	if err != nil {
 		return receptor.TaskCreateRequest{}, err
 	}
 
-	compilerURL, err := backend.compilerDownloadURL(request)
+	err = backend.validateRequest(request, lifecycleData)
+	if err != nil {
+		return receptor.TaskCreateRequest{}, err
+	}
+
+	compilerURL, err := backend.compilerDownloadURL()
 	if err != nil {
 		return receptor.TaskCreateRequest{}, err
 	}
@@ -107,7 +82,7 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		),
 	)
 
-	runActionArguments := []string{"-outputMetadataJSONFilename", DockerBuilderOutputPath, "-dockerRef", request.DockerImageUrl}
+	runActionArguments := []string{"-outputMetadataJSONFilename", DockerBuilderOutputPath, "-dockerRef", lifecycleData.DockerImageUrl}
 	if backend.config.DockerRegistry != nil {
 		registryServices, err := getDockerRegistryServices(backend.config.ConsulAgentURL)
 		if err != nil {
@@ -148,21 +123,20 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 		),
 	)
 
-	annotationJson, _ := json.Marshal(models.StagingTaskAnnotation{
-		AppId:  request.AppId,
-		TaskId: request.TaskId,
+	annotationJson, _ := json.Marshal(cc_messages.StagingTaskAnnotation{
+		Lifecycle: DockerLifecycleName,
 	})
 
 	task := receptor.TaskCreateRequest{
+		TaskGuid:              stagingGuid,
 		ResultFile:            DockerBuilderOutputPath,
-		TaskGuid:              backend.taskGuid(request),
-		Domain:                DockerTaskDomain,
+		Domain:                backend.config.TaskDomain,
 		Stack:                 request.Stack,
 		MemoryMB:              request.MemoryMB,
 		DiskMB:                request.DiskMB,
 		Action:                models.Timeout(models.Serial(actions...), dockerTimeout(request, backend.logger)),
-		CompletionCallbackURL: backend.config.CallbackURL,
-		LogGuid:               request.AppId,
+		CompletionCallbackURL: backend.config.CallbackURL(stagingGuid),
+		LogGuid:               request.LogGuid,
 		LogSource:             TaskLogSource,
 		Annotation:            string(annotationJson),
 		EgressRules:           request.EgressRules,
@@ -174,34 +148,14 @@ func (backend *dockerBackend) BuildRecipe(requestJson []byte) (receptor.TaskCrea
 	return task, nil
 }
 
-func (backend *dockerBackend) BuildStagingResponseFromRequestError(requestJson []byte, errorMessage string) ([]byte, error) {
-	request := cc_messages.DockerStagingRequestFromCC{}
+func (backend *dockerBackend) BuildStagingResponse(taskResponse receptor.TaskResponse) (cc_messages.StagingResponseForCC, error) {
+	var response cc_messages.StagingResponseForCC
 
-	err := json.Unmarshal(requestJson, &request)
-	if err != nil {
-		return nil, err
-	}
-
-	response := cc_messages.DockerStagingResponseForCC{
-		AppId:  request.AppId,
-		TaskId: request.TaskId,
-		Error:  backend.config.Sanitizer(errorMessage),
-	}
-
-	return json.Marshal(response)
-}
-
-func (backend *dockerBackend) BuildStagingResponse(taskResponse receptor.TaskResponse) ([]byte, error) {
-	var response cc_messages.DockerStagingResponseForCC
-
-	var annotation models.StagingTaskAnnotation
+	var annotation cc_messages.StagingTaskAnnotation
 	err := json.Unmarshal([]byte(taskResponse.Annotation), &annotation)
 	if err != nil {
-		return nil, err
+		return cc_messages.StagingResponseForCC{}, err
 	}
-
-	response.AppId = annotation.AppId
-	response.TaskId = annotation.TaskId
 
 	if taskResponse.Failed {
 		response.Error = backend.config.Sanitizer(taskResponse.FailureReason)
@@ -209,42 +163,29 @@ func (backend *dockerBackend) BuildStagingResponse(taskResponse receptor.TaskRes
 		var result docker_app_lifecycle.StagingDockerResult
 		err := json.Unmarshal([]byte(taskResponse.Result), &result)
 		if err != nil {
-			return nil, err
+			return cc_messages.StagingResponseForCC{}, err
+		}
+
+		dockerLifecycleData, err := helpers.BuildDockerStagingData(result.DockerImage)
+		if err != nil {
+			return cc_messages.StagingResponseForCC{}, err
+
 		}
 
 		response.ExecutionMetadata = result.ExecutionMetadata
 		response.DetectedStartCommand = result.DetectedStartCommand
+		response.LifecycleData = dockerLifecycleData
 	}
 
-	return json.Marshal(response)
+	return response, nil
 }
 
-func (backend *dockerBackend) StagingTaskGuid(requestJson []byte) (string, error) {
-	var request cc_messages.StopStagingRequestFromCC
-	err := json.Unmarshal(requestJson, &request)
-	if err != nil {
-		return "", err
+func (backend *dockerBackend) compilerDownloadURL() (*url.URL, error) {
+	lifecycleFilename := backend.config.Lifecycles["docker"]
+	if lifecycleFilename == "" {
+		return nil, ErrNoCompilerDefined
 	}
 
-	if request.AppId == "" {
-		return "", ErrMissingAppId
-	}
-
-	if request.TaskId == "" {
-		return "", ErrMissingTaskId
-	}
-
-	return stagingTaskGuid(request.AppId, request.TaskId), nil
-}
-
-func (backend *dockerBackend) compilerDownloadURL(request cc_messages.DockerStagingRequestFromCC) (*url.URL, error) {
-
-	var lifecycleFilename string
-	if len(backend.config.DockerLifecyclePath) > 0 {
-		lifecycleFilename = backend.config.DockerLifecyclePath
-	} else {
-		lifecycleFilename = DockerLifecycleFilename
-	}
 	parsed, err := url.Parse(lifecycleFilename)
 	if err != nil {
 		return nil, errors.New("couldn't parse compiler URL")
@@ -274,27 +215,19 @@ func (backend *dockerBackend) compilerDownloadURL(request cc_messages.DockerStag
 	return url, nil
 }
 
-func (backend *dockerBackend) taskGuid(request cc_messages.DockerStagingRequestFromCC) string {
-	return stagingTaskGuid(request.AppId, request.TaskId)
-}
-
-func (backend *dockerBackend) validateRequest(stagingRequest cc_messages.DockerStagingRequestFromCC) error {
+func (backend *dockerBackend) validateRequest(stagingRequest cc_messages.StagingRequestFromCC, dockerData cc_messages.DockerStagingData) error {
 	if len(stagingRequest.AppId) == 0 {
 		return ErrMissingAppId
 	}
 
-	if len(stagingRequest.TaskId) == 0 {
-		return ErrMissingTaskId
-	}
-
-	if len(stagingRequest.DockerImageUrl) == 0 {
+	if len(dockerData.DockerImageUrl) == 0 {
 		return ErrMissingDockerImageUrl
 	}
 
 	return nil
 }
 
-func dockerTimeout(request cc_messages.DockerStagingRequestFromCC, logger lager.Logger) time.Duration {
+func dockerTimeout(request cc_messages.StagingRequestFromCC, logger lager.Logger) time.Duration {
 	if request.Timeout > 0 {
 		return time.Duration(request.Timeout) * time.Second
 	} else {
@@ -302,7 +235,6 @@ func dockerTimeout(request cc_messages.DockerStagingRequestFromCC, logger lager.
 			"requested-timeout": request.Timeout,
 			"default-timeout":   DefaultStagingTimeout,
 			"app-id":            request.AppId,
-			"task-id":           request.TaskId,
 		})
 		return DefaultStagingTimeout
 	}

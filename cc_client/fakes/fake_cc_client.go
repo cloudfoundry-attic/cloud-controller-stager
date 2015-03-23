@@ -9,26 +9,28 @@ import (
 )
 
 type FakeCcClient struct {
-	StagingCompleteStub        func(payload []byte, logger lager.Logger) error
+	StagingCompleteStub        func(stagingGuid string, payload []byte, logger lager.Logger) error
 	stagingCompleteMutex       sync.RWMutex
 	stagingCompleteArgsForCall []struct {
-		payload []byte
-		logger  lager.Logger
+		stagingGuid string
+		payload     []byte
+		logger      lager.Logger
 	}
 	stagingCompleteReturns struct {
 		result1 error
 	}
 }
 
-func (fake *FakeCcClient) StagingComplete(payload []byte, logger lager.Logger) error {
+func (fake *FakeCcClient) StagingComplete(stagingGuid string, payload []byte, logger lager.Logger) error {
 	fake.stagingCompleteMutex.Lock()
 	fake.stagingCompleteArgsForCall = append(fake.stagingCompleteArgsForCall, struct {
-		payload []byte
-		logger  lager.Logger
-	}{payload, logger})
+		stagingGuid string
+		payload     []byte
+		logger      lager.Logger
+	}{stagingGuid, payload, logger})
 	fake.stagingCompleteMutex.Unlock()
 	if fake.StagingCompleteStub != nil {
-		return fake.StagingCompleteStub(payload, logger)
+		return fake.StagingCompleteStub(stagingGuid, payload, logger)
 	} else {
 		return fake.stagingCompleteReturns.result1
 	}
@@ -40,10 +42,10 @@ func (fake *FakeCcClient) StagingCompleteCallCount() int {
 	return len(fake.stagingCompleteArgsForCall)
 }
 
-func (fake *FakeCcClient) StagingCompleteArgsForCall(i int) ([]byte, lager.Logger) {
+func (fake *FakeCcClient) StagingCompleteArgsForCall(i int) (string, []byte, lager.Logger) {
 	fake.stagingCompleteMutex.RLock()
 	defer fake.stagingCompleteMutex.RUnlock()
-	return fake.stagingCompleteArgsForCall[i].payload, fake.stagingCompleteArgsForCall[i].logger
+	return fake.stagingCompleteArgsForCall[i].stagingGuid, fake.stagingCompleteArgsForCall[i].payload, fake.stagingCompleteArgsForCall[i].logger
 }
 
 func (fake *FakeCcClient) StagingCompleteReturns(result1 error) {

@@ -1,13 +1,13 @@
-package inbox_test
+package helpers_test
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"testing"
 )
 
-func TestInbox(t *testing.T) {
+func TestHelpers(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Inbox Suite")
+	RunSpecs(t, "Helpers Suite")
 }

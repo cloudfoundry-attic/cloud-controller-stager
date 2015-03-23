@@ -1,4 +1,4 @@
-package outbox_test
+package handlers_test
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestOutbox(t *testing.T) {
+func TestHandlers(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Outbox Suite")
+	RunSpecs(t, "Handlers Suite")
 }
