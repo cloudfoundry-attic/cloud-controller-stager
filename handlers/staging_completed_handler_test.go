@@ -128,10 +128,12 @@ var _ = Describe("StagingCompletedHandler", func() {
 				taskJSON, err := json.Marshal(taskResponse)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				request, err := http.NewRequest("POST", "/v1/staging/an-invalid-guid/completed", bytes.NewReader(taskJSON))
+				req, err := http.NewRequest("POST", "/v1/staging/an-invalid-guid/completed", bytes.NewReader(taskJSON))
 				Ω(err).ShouldNot(HaveOccurred())
 
-				handler.StagingComplete(responseRecorder, postTask(taskResponse))
+				req.Form = url.Values{":staging_guid": {"an-invalid-guid"}}
+
+				handler.StagingComplete(responseRecorder, req)
 			})
 
 			It("returns StatusBadRequest", func() {
