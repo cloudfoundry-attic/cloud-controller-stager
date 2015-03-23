@@ -169,6 +169,38 @@ var _ = Describe("Stager", func() {
 			})
 		})
 
+		Describe("when a stop staging request is recevied", func() {
+			BeforeEach(func() {
+				task := receptor.TaskResponse{
+					TaskGuid:   "the-task-guid",
+					Annotation: `{"lifecycle": "whatever"}`,
+				}
+
+				fakeReceptor.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("GET", "/v1/tasks/the-task-guid"),
+						ghttp.RespondWithJSONEncoded(http.StatusOK, task),
+					),
+				)
+				fakeReceptor.AppendHandlers(
+					ghttp.VerifyRequest("POST", "/v1/tasks/the-task-guid/cancel"),
+				)
+			})
+
+			It("cancels the staging task via the API", func() {
+				req, err := requestGenerator.CreateRequest(stager.StopStagingRoute, rata.Params{"staging_guid": "the-task-guid"}, nil)
+				Ω(err).ShouldNot(HaveOccurred())
+				req.Header.Set("Content-Type", "application/json")
+
+				resp, err := httpClient.Do(req)
+				Ω(err).ShouldNot(HaveOccurred())
+				Ω(resp.StatusCode).Should(Equal(http.StatusAccepted))
+
+				Eventually(fakeReceptor.ReceivedRequests).Should(HaveLen(2))
+				Consistently(runner.Session()).ShouldNot(gexec.Exit())
+			})
+		})
+
 		Describe("when a staging task completes", func() {
 			Context("for a docker lifecycle", func() {
 				BeforeEach(func() {
