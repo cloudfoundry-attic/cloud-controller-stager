@@ -57,7 +57,7 @@ func (handler *completionHandler) StagingComplete(res http.ResponseWriter, req *
 	}
 
 	if taskGuid != task.TaskGuid {
-		handler.logger.Error("task-guid-mismatch", err, lager.Data{"body-task-guid": task.TaskGuid})
+		logger.Error("task-guid-mismatch", err, lager.Data{"body-task-guid": task.TaskGuid})
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
