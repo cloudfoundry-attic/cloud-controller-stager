@@ -215,7 +215,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 	task := receptor.TaskCreateRequest{
 		TaskGuid:              stagingGuid,
 		Domain:                backend.config.TaskDomain,
-		Stack:                 request.Stack,
+		RootFS:                models.PreloadedRootFS(request.Stack),
 		ResultFile:            builderConfig.OutputMetadata(),
 		MemoryMB:              request.MemoryMB,
 		DiskMB:                request.DiskMB,

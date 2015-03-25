@@ -235,7 +235,7 @@ var _ = Describe("TraditionalBackend", func() {
 
 		Ω(desiredTask.Domain).To(Equal("config-task-domain"))
 		Ω(desiredTask.TaskGuid).To(Equal(stagingGuid))
-		Ω(desiredTask.Stack).To(Equal("rabbit_hole"))
+		Ω(desiredTask.RootFS).To(Equal(models.PreloadedRootFS("rabbit_hole")))
 		Ω(desiredTask.LogGuid).To(Equal("bunny"))
 		Ω(desiredTask.MetricsGuid).Should(BeEmpty()) // do not emit metrics for staging!
 		Ω(desiredTask.LogSource).To(Equal(backend.TaskLogSource))
@@ -337,7 +337,7 @@ var _ = Describe("TraditionalBackend", func() {
 
 			Ω(desiredTask.Domain).To(Equal("config-task-domain"))
 			Ω(desiredTask.TaskGuid).To(Equal(stagingGuid))
-			Ω(desiredTask.Stack).To(Equal("rabbit_hole"))
+			Ω(desiredTask.RootFS).To(Equal(models.PreloadedRootFS("rabbit_hole")))
 			Ω(desiredTask.LogGuid).To(Equal("bunny"))
 			Ω(desiredTask.LogSource).To(Equal(backend.TaskLogSource))
 			Ω(desiredTask.ResultFile).To(Equal("/tmp/result.json"))
