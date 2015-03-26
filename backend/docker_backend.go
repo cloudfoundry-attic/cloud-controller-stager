@@ -143,7 +143,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 		Privileged:            true,
 	}
 
-	logger.Info("staging-task-request", lager.Data{"TaskCreateRequest": task})
+	logger.Debug("staging-task-request", lager.Data{"TaskCreateRequest": task})
 
 	return task, nil
 }
