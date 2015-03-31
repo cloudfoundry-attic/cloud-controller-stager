@@ -65,6 +65,13 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 		return receptor.TaskCreateRequest{}, err
 	}
 
+	cacheDockerImage := false
+	for _, envVar := range request.Environment {
+		if envVar.Name == "DIEGO_DOCKER_CACHE" && envVar.Value == "true" {
+			cacheDockerImage = true
+		}
+	}
+
 	actions := []models.Action{}
 
 	//Download builder
@@ -98,8 +105,9 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 			runActionArguments = append(runActionArguments, "-insecureDockerRegistries", registryAddresses)
 		}
 
-		//TODO: add only if user requested it
-		runActionArguments = append(runActionArguments, "-cacheDockerImage")
+		if cacheDockerImage {
+			runActionArguments = append(runActionArguments, "-cacheDockerImage")
+		}
 	}
 
 	fileDescriptorLimit := uint64(request.FileDescriptors)
@@ -115,7 +123,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 				ResourceLimits: models.ResourceLimits{
 					Nofile: &fileDescriptorLimit,
 				},
-				Privileged: true,
+				Privileged: cacheDockerImage,
 			},
 			"Staging...",
 			"Staging Complete",
@@ -140,7 +148,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 		LogSource:             TaskLogSource,
 		Annotation:            string(annotationJson),
 		EgressRules:           request.EgressRules,
-		Privileged:            true,
+		Privileged:            cacheDockerImage,
 	}
 
 	logger.Debug("staging-task-request", lager.Data{"TaskCreateRequest": task})

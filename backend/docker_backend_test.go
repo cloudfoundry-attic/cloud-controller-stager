@@ -102,7 +102,7 @@ var _ = Describe("DockerBackend", func() {
 				ResourceLimits: models.ResourceLimits{
 					Nofile: &fileDescriptorLimit,
 				},
-				Privileged: true,
+				Privileged: false,
 			},
 			"Staging...",
 			"Staging Complete",
@@ -187,7 +187,7 @@ var _ = Describe("DockerBackend", func() {
 		Ω(desiredTask.LogGuid).To(Equal("log-guid"))
 		Ω(desiredTask.LogSource).To(Equal(backend.TaskLogSource))
 		Ω(desiredTask.ResultFile).To(Equal("/tmp/docker-result/result.json"))
-		Ω(desiredTask.Privileged).Should(BeTrue())
+		Ω(desiredTask.Privileged).Should(BeFalse())
 
 		var annotation cc_messages.StagingTaskAnnotation
 
