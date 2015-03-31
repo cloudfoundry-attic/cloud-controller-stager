@@ -33,12 +33,13 @@ var ErrMissingAppBitsDownloadUri = errors.New(diego_errors.MISSING_APP_BITS_DOWN
 var ErrMissingLifecycleData = errors.New(diego_errors.MISSING_LIFECYCLE_DATA_MESSAGE)
 
 type Config struct {
-	TaskDomain     string
-	StagerURL      string
-	FileServerURL  string
-	Lifecycles     map[string]string
-	SkipCertVerify bool
-	Sanitizer      FailureReasonSanitizer
+	TaskDomain         string
+	StagerURL          string
+	FileServerURL      string
+	Lifecycles         map[string]string
+	SkipCertVerify     bool
+	Sanitizer          FailureReasonSanitizer
+	DockerStagingStack string
 }
 
 func (c Config) CallbackURL(stagingGuid string) string {

@@ -39,10 +39,11 @@ var _ = Describe("Stager", func() {
 		fakeCC = ghttp.NewServer()
 
 		runner = testrunner.New(testrunner.Config{
-			StagerBin:   stagerPath,
-			StagerURL:   stagerURL,
-			DiegoAPIURL: fakeReceptor.URL(),
-			CCBaseURL:   fakeCC.URL(),
+			StagerBin:          stagerPath,
+			StagerURL:          stagerURL,
+			DiegoAPIURL:        fakeReceptor.URL(),
+			CCBaseURL:          fakeCC.URL(),
+			DockerStagingStack: "docker-staging-stack",
 		})
 
 		requestGenerator = rata.NewRequestGenerator(stagerURL, stager.Routes)

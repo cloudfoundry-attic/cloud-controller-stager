@@ -46,9 +46,10 @@ var _ = Describe("DockerBackend", func() {
 		stagerURL := "http://the-stager.example.com"
 
 		config = backend.Config{
-			TaskDomain:    "config-task-domain",
-			StagerURL:     stagerURL,
-			FileServerURL: "http://file-server.com",
+			TaskDomain:         "config-task-domain",
+			StagerURL:          stagerURL,
+			FileServerURL:      "http://file-server.com",
+			DockerStagingStack: "penguin",
 			Lifecycles: map[string]string{
 				"penguin":                "penguin-compiler",
 				"rabbit_hole":            "rabbit-hole-compiler",
@@ -186,7 +187,6 @@ var _ = Describe("DockerBackend", func() {
 
 		Ω(desiredTask.Domain).To(Equal("config-task-domain"))
 		Ω(desiredTask.TaskGuid).To(Equal(stagingGuid))
-		Ω(desiredTask.RootFS).To(Equal(models.PreloadedRootFS("rabbit_hole")))
 		Ω(desiredTask.LogGuid).To(Equal("log-guid"))
 		Ω(desiredTask.LogSource).To(Equal(backend.TaskLogSource))
 		Ω(desiredTask.ResultFile).To(Equal("/tmp/docker-result/result.json"))
@@ -209,6 +209,13 @@ var _ = Describe("DockerBackend", func() {
 		Ω(desiredTask.MemoryMB).To(Equal(memoryMB))
 		Ω(desiredTask.DiskMB).To(Equal(diskMB))
 		Ω(desiredTask.EgressRules).Should(ConsistOf(egressRules))
+	})
+
+	It("uses the configured docker staging stack rather than the stack from the staging request", func() {
+		desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+		Ω(err).ShouldNot(HaveOccurred())
+
+		Ω(desiredTask.RootFS).To(Equal(models.PreloadedRootFS("penguin")))
 	})
 
 	It("gives the task a callback URL to call it back", func() {
