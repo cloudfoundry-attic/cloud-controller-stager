@@ -141,7 +141,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 		TaskGuid:              stagingGuid,
 		ResultFile:            DockerBuilderOutputPath,
 		Domain:                backend.config.TaskDomain,
-		RootFS:                models.PreloadedRootFS(request.Stack),
+		RootFS:                models.PreloadedRootFS(backend.config.DockerStagingStack),
 		MemoryMB:              request.MemoryMB,
 		DiskMB:                request.DiskMB,
 		Action:                models.Timeout(models.Serial(actions...), dockerTimeout(request, backend.logger)),

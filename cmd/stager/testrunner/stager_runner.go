@@ -16,10 +16,11 @@ type StagerRunner struct {
 }
 
 type Config struct {
-	StagerBin   string
-	StagerURL   string
-	DiegoAPIURL string
-	CCBaseURL   string
+	StagerBin          string
+	StagerURL          string
+	DiegoAPIURL        string
+	CCBaseURL          string
+	DockerStagingStack string
 }
 
 func New(config Config) *StagerRunner {
@@ -40,6 +41,7 @@ func (r *StagerRunner) Start(args ...string) {
 				"-diegoAPIURL", r.Config.DiegoAPIURL,
 				"-stagerURL", r.Config.StagerURL,
 				"-ccBaseURL", r.Config.CCBaseURL,
+				"-dockerStagingStack", r.Config.DockerStagingStack,
 			}, args...)...,
 		),
 		gexec.NewPrefixedWriter("\x1b[32m[o]\x1b[95m[stager]\x1b[0m ", ginkgo.GinkgoWriter),

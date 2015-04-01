@@ -38,14 +38,15 @@ type DockerRegistry struct {
 }
 
 type Config struct {
-	TaskDomain     string
-	StagerURL      string
-	FileServerURL  string
-	Lifecycles     map[string]string
-	DockerRegistry *DockerRegistry
-	ConsulAgentURL string
-	SkipCertVerify bool
-	Sanitizer      FailureReasonSanitizer
+	TaskDomain         string
+	StagerURL          string
+	FileServerURL      string
+	Lifecycles         map[string]string
+	DockerRegistry     *DockerRegistry
+	ConsulAgentURL     string
+	SkipCertVerify     bool
+	Sanitizer          FailureReasonSanitizer
+	DockerStagingStack string
 }
 
 func (c Config) CallbackURL(stagingGuid string) string {

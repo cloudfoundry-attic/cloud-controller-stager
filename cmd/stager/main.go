@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"net"
 	"net/url"
@@ -82,6 +83,12 @@ var consulAgentURL = flag.String(
 	"consulAgentURL",
 	"",
 	"Consul Agent URL",
+)
+
+var dockerStagingStack = flag.String(
+	"dockerStagingStack",
+	"",
+	"Stack to use for staging Docker applications",
 )
 
 const (
@@ -171,16 +178,20 @@ func initializeBackends(logger lager.Logger) map[string]backend.Backend {
 	if err != nil {
 		logger.Fatal("Error parsing stager URL", err)
 	}
+	if *dockerStagingStack == "" {
+		logger.Fatal("Invalid Docker staging stack", errors.New("dockerStagingStack cannot be blank"))
+	}
 
 	config := backend.Config{
-		TaskDomain:     backend.StagingTaskDomain,
-		StagerURL:      *stagerURL,
-		FileServerURL:  *fileServerURL,
-		Lifecycles:     lifecyclesMap,
-		DockerRegistry: dockerRegistry,
-		ConsulAgentURL: *consulAgentURL,
-		SkipCertVerify: *skipCertVerify,
-		Sanitizer:      cc_messages.SanitizeErrorMessage,
+		TaskDomain:         backend.StagingTaskDomain,
+		StagerURL:          *stagerURL,
+		FileServerURL:      *fileServerURL,
+		Lifecycles:         lifecyclesMap,
+		DockerRegistry:     dockerRegistry,
+		ConsulAgentURL:     *consulAgentURL,
+		SkipCertVerify:     *skipCertVerify,
+		Sanitizer:          cc_messages.SanitizeErrorMessage,
+		DockerStagingStack: *dockerStagingStack,
 	}
 
 	return map[string]backend.Backend{
