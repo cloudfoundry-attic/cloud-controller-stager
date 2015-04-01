@@ -1,7 +1,6 @@
 package backend_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -17,62 +16,22 @@ import (
 )
 
 var _ = Describe("DockerBackend", func() {
+
 	const stagingGuid = "staging-guid"
-	var (
-		stagingRequest        cc_messages.StagingRequestFromCC
-		stagingRequestJson    []byte
-		downloadBuilderAction models.Action
-		runAction             models.Action
-		docker                backend.Backend
-		server                *ghttp.Server
-		dockerRegistryIPs     []string
-		dockerRegistryPort    uint16
-		expectedEgressRules   []models.SecurityGroupRule
-		dockerRegistryURL     string
-	)
+	const dockerRegistryPort = uint16(8080)
+	var dockerRegistryIPs = []string{"10.244.2.6", "10.244.2.7"}
 
-	dockerRegistryIPs = []string{"10.244.2.6", "10.244.2.7"}
-	dockerRegistryPort = uint16(8080)
+	setupDockerBackend := func(dockerRegistryURL string, payload string) backend.Backend {
+		server := ghttp.NewServer()
 
-	setupConsulAgent := func() {
 		server.AppendHandlers(
 			ghttp.CombineHandlers(
 				ghttp.VerifyRequest("GET", "/v1/catalog/service/docker_registry"),
 				http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-					w.Write([]byte(fmt.Sprintf(
-						`[
-								{"Address": "%s"},
-								{"Address": "%s"}
-						 ]`,
-						dockerRegistryIPs[0], dockerRegistryIPs[1])))
+					w.Write([]byte(payload))
 				}),
 			),
 		)
-	}
-
-	setupEgressRules := func(ips []string) []models.SecurityGroupRule {
-		rules := []models.SecurityGroupRule{}
-		for _, ip := range ips {
-			rules = append(rules, models.SecurityGroupRule{
-				Protocol:     models.TCPProtocol,
-				Destinations: []string{ip},
-				Ports:        []uint16{dockerRegistryPort},
-			})
-		}
-		return rules
-	}
-
-	setupDockerRegistries := func(ips []string, port uint16) string {
-		var result []string
-		for _, ip := range ips {
-			result = append(result, fmt.Sprintf("%s:%d", ip, port))
-		}
-		return strings.Join(result, ",")
-	}
-
-	JustBeforeEach(func() {
-		server = ghttp.NewServer()
-		setupConsulAgent()
 
 		config := backend.Config{
 			FileServerURL:  "http://file-server.com",
@@ -92,24 +51,14 @@ var _ = Describe("DockerBackend", func() {
 		logger := lager.NewLogger("fakelogger")
 		logger.RegisterSink(lager.NewWriterSink(GinkgoWriter, lager.DEBUG))
 
-		docker = backend.NewDockerBackend(config, logger)
+		return backend.NewDockerBackend(config, logger)
+	}
 
-		downloadBuilderAction = models.EmitProgressFor(
-			&models.DownloadAction{
-				From:     "http://file-server.com/v1/static/docker_lifecycle/docker_app_lifecycle.tgz",
-				To:       "/tmp/docker_app_lifecycle",
-				CacheKey: "builder-docker",
-			},
-			"",
-			"",
-			"Failed to set up docker environment",
-		)
-
-		expectedEgressRules = setupEgressRules(dockerRegistryIPs)
-
+	setupStagingRequest := func() cc_messages.StagingRequestFromCC {
 		lifecycleData, err := helpers.BuildDockerStagingData("busybox")
 		Ω(err).ShouldNot(HaveOccurred())
-		stagingRequest = cc_messages.StagingRequestFromCC{
+
+		return cc_messages.StagingRequestFromCC{
 			AppId:           "bunny",
 			Stack:           "rabbit_hole",
 			FileDescriptors: 512,
@@ -118,133 +67,206 @@ var _ = Describe("DockerBackend", func() {
 			Timeout:         512,
 			LifecycleData:   lifecycleData,
 		}
-
-		stagingRequestJson, err = json.Marshal(stagingRequest)
-		Ω(err).ShouldNot(HaveOccurred())
-	})
-
-	checkStagingInstructionsFunc := func() {
-		desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
-		Ω(err).ShouldNot(HaveOccurred())
-
-		actions := actionsFromDesiredTask(desiredTask)
-		Ω(actions).Should(HaveLen(2))
-		Ω(actions[0]).Should(Equal(downloadBuilderAction))
-		Ω(actions[1]).Should(Equal(runAction))
-
-		Ω(desiredTask.EgressRules).Should(ConsistOf(expectedEgressRules))
 	}
 
-	Context("when Docker Registry is insecure", func() {
-		BeforeEach(func() {
-			dockerRegistryURL = fmt.Sprintf("http://%s:%d", dockerRegistryIPs[0], dockerRegistryPort)
-		})
+	Context("when docker registry is running", func() {
+		var (
+			downloadBuilderAction models.Action
+			docker                backend.Backend
+			runAction             models.Action
+			expectedEgressRules   []models.SecurityGroupRule
+			dockerRegistryURL     string
+			stagingRequest        cc_messages.StagingRequestFromCC
+		)
+
+		setupEgressRules := func(ips []string) []models.SecurityGroupRule {
+			rules := []models.SecurityGroupRule{}
+			for _, ip := range ips {
+				rules = append(rules, models.SecurityGroupRule{
+					Protocol:     models.TCPProtocol,
+					Destinations: []string{ip},
+					Ports:        []uint16{dockerRegistryPort},
+				})
+			}
+			return rules
+		}
+
+		setupDockerRegistries := func(ips []string, port uint16) string {
+			var result []string
+			for _, ip := range ips {
+				result = append(result, fmt.Sprintf("%s:%d", ip, port))
+			}
+			return strings.Join(result, ",")
+		}
 
 		JustBeforeEach(func() {
-			fileDescriptorLimit := uint64(512)
-			dockerRegistries := setupDockerRegistries(dockerRegistryIPs, dockerRegistryPort)
-			runAction = models.EmitProgressFor(
-				&models.RunAction{
-					Path: "/tmp/docker_app_lifecycle/builder",
-					Args: []string{
-						"-outputMetadataJSONFilename",
-						"/tmp/docker-result/result.json",
-						"-dockerRef",
-						"busybox",
-						"-dockerRegistryAddresses",
-						dockerRegistries,
-						"-insecureDockerRegistries",
-						dockerRegistries,
-					},
-					Env: []models.EnvironmentVariable{},
-					ResourceLimits: models.ResourceLimits{
-						Nofile: &fileDescriptorLimit,
-					},
-					Privileged: false,
+			docker = setupDockerBackend(dockerRegistryURL, fmt.Sprintf(
+				`[
+						{"Address": "%s"},
+						{"Address": "%s"}
+				 ]`,
+				dockerRegistryIPs[0], dockerRegistryIPs[1]))
+
+			downloadBuilderAction = models.EmitProgressFor(
+				&models.DownloadAction{
+					From:     "http://file-server.com/v1/static/docker_lifecycle/docker_app_lifecycle.tgz",
+					To:       "/tmp/docker_app_lifecycle",
+					CacheKey: "builder-docker",
 				},
-				"Staging...",
-				"Staging Complete",
-				"Staging Failed",
+				"",
+				"",
+				"Failed to set up docker environment",
 			)
+
+			expectedEgressRules = setupEgressRules(dockerRegistryIPs)
+
+			stagingRequest = setupStagingRequest()
 		})
 
-		It("creates a cf-app-docker-staging Task with staging instructions", checkStagingInstructionsFunc)
-	})
-
-	Context("when Docker Registry is secure", func() {
-		BeforeEach(func() {
-			dockerRegistryURL = fmt.Sprintf("https://%s:%d", dockerRegistryIPs[0], dockerRegistryPort)
-		})
-
-		JustBeforeEach(func() {
-			fileDescriptorLimit := uint64(512)
-			dockerRegistries := setupDockerRegistries(dockerRegistryIPs, dockerRegistryPort)
-			runAction = models.EmitProgressFor(
-				&models.RunAction{
-					Path: "/tmp/docker_app_lifecycle/builder",
-					Args: []string{
-						"-outputMetadataJSONFilename",
-						"/tmp/docker-result/result.json",
-						"-dockerRef",
-						"busybox",
-						"-dockerRegistryAddresses",
-						dockerRegistries,
-					},
-					Env: []models.EnvironmentVariable{},
-					ResourceLimits: models.ResourceLimits{
-						Nofile: &fileDescriptorLimit,
-					},
-					Privileged: false,
-				},
-				"Staging...",
-				"Staging Complete",
-				"Staging Failed",
-			)
-		})
-
-		It("creates a cf-app-docker-staging Task with staging instructions", checkStagingInstructionsFunc)
-	})
-
-	Context("with no docker registry URL", func() {
-		BeforeEach(func() {
-			dockerRegistryURL = ""
-		})
-
-		It("creates a cf-app-docker-staging Task with no additional egress rules", func() {
+		checkStagingInstructionsFunc := func() {
 			desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 			Ω(err).ShouldNot(HaveOccurred())
-			Ω(desiredTask.EgressRules).Should(BeEmpty())
-		})
-	})
-
-	Context("user opted-in for docker image caching", func() {
-		BeforeEach(func() {
-			dockerRegistryURL = fmt.Sprintf("http://%s:%d", dockerRegistryIPs[0], dockerRegistryPort)
-		})
-
-		JustBeforeEach(func() {
-			cachingVar := cc_messages.EnvironmentVariable{Name: "DIEGO_DOCKER_CACHE", Value: "true"}
-			stagingRequest.Environment = append(stagingRequest.Environment, cachingVar)
-		})
-
-		It("creates a cf-app-docker-staging Task with caching instructions", func() {
-			desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
-			Ω(err).ShouldNot(HaveOccurred())
-
-			Ω(desiredTask.Privileged).Should(BeTrue())
-			Ω(desiredTask.Action).ShouldNot(BeNil())
-
-			Ω(desiredTask.Privileged).Should(BeTrue())
 
 			actions := actionsFromDesiredTask(desiredTask)
 			Ω(actions).Should(HaveLen(2))
+			Ω(actions[0]).Should(Equal(downloadBuilderAction))
+			Ω(actions[1]).Should(Equal(runAction))
 
-			runProgressAction := actions[1]
-			Ω(runProgressAction).Should(BeAssignableToTypeOf(&models.EmitProgressAction{}))
-			actualRunAction := runProgressAction.(*models.EmitProgressAction).Action
-			Ω(actualRunAction).Should(BeAssignableToTypeOf(&models.RunAction{}))
+			Ω(desiredTask.EgressRules).Should(ConsistOf(expectedEgressRules))
+		}
 
-			Ω(actualRunAction.(*models.RunAction).Args).Should(ContainElement("-cacheDockerImage"))
+		Context("when Docker Registry is insecure", func() {
+			BeforeEach(func() {
+				dockerRegistryURL = fmt.Sprintf("http://%s:%d", dockerRegistryIPs[0], dockerRegistryPort)
+			})
+
+			JustBeforeEach(func() {
+				fileDescriptorLimit := uint64(512)
+				dockerRegistries := setupDockerRegistries(dockerRegistryIPs, dockerRegistryPort)
+				runAction = models.EmitProgressFor(
+					&models.RunAction{
+						Path: "/tmp/docker_app_lifecycle/builder",
+						Args: []string{
+							"-outputMetadataJSONFilename",
+							"/tmp/docker-result/result.json",
+							"-dockerRef",
+							"busybox",
+							"-dockerRegistryAddresses",
+							dockerRegistries,
+							"-insecureDockerRegistries",
+							dockerRegistries,
+						},
+						Env: []models.EnvironmentVariable{},
+						ResourceLimits: models.ResourceLimits{
+							Nofile: &fileDescriptorLimit,
+						},
+						Privileged: false,
+					},
+					"Staging...",
+					"Staging Complete",
+					"Staging Failed",
+				)
+			})
+
+			It("creates a cf-app-docker-staging Task with staging instructions", checkStagingInstructionsFunc)
+		})
+
+		Context("when Docker Registry is secure", func() {
+			BeforeEach(func() {
+				dockerRegistryURL = fmt.Sprintf("https://%s:%d", dockerRegistryIPs[0], dockerRegistryPort)
+			})
+
+			JustBeforeEach(func() {
+				fileDescriptorLimit := uint64(512)
+				dockerRegistries := setupDockerRegistries(dockerRegistryIPs, dockerRegistryPort)
+				runAction = models.EmitProgressFor(
+					&models.RunAction{
+						Path: "/tmp/docker_app_lifecycle/builder",
+						Args: []string{
+							"-outputMetadataJSONFilename",
+							"/tmp/docker-result/result.json",
+							"-dockerRef",
+							"busybox",
+							"-dockerRegistryAddresses",
+							dockerRegistries,
+						},
+						Env: []models.EnvironmentVariable{},
+						ResourceLimits: models.ResourceLimits{
+							Nofile: &fileDescriptorLimit,
+						},
+						Privileged: false,
+					},
+					"Staging...",
+					"Staging Complete",
+					"Staging Failed",
+				)
+			})
+
+			It("creates a cf-app-docker-staging Task with staging instructions", checkStagingInstructionsFunc)
+		})
+
+		Context("with no docker registry URL", func() {
+			BeforeEach(func() {
+				dockerRegistryURL = ""
+			})
+
+			It("creates a cf-app-docker-staging Task with no additional egress rules", func() {
+				desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+				Ω(err).ShouldNot(HaveOccurred())
+				Ω(desiredTask.EgressRules).Should(BeEmpty())
+			})
+		})
+
+		Context("user opted-in for docker image caching", func() {
+			BeforeEach(func() {
+				dockerRegistryURL = fmt.Sprintf("http://%s:%d", dockerRegistryIPs[0], dockerRegistryPort)
+			})
+
+			JustBeforeEach(func() {
+				cachingVar := cc_messages.EnvironmentVariable{Name: "DIEGO_DOCKER_CACHE", Value: "true"}
+				stagingRequest.Environment = append(stagingRequest.Environment, cachingVar)
+			})
+
+			It("creates a cf-app-docker-staging Task with caching instructions", func() {
+				desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				Ω(desiredTask.Privileged).Should(BeTrue())
+				Ω(desiredTask.Action).ShouldNot(BeNil())
+
+				Ω(desiredTask.Privileged).Should(BeTrue())
+
+				actions := actionsFromDesiredTask(desiredTask)
+				Ω(actions).Should(HaveLen(2))
+
+				runProgressAction := actions[1]
+				Ω(runProgressAction).Should(BeAssignableToTypeOf(&models.EmitProgressAction{}))
+				actualRunAction := runProgressAction.(*models.EmitProgressAction).Action
+				Ω(actualRunAction).Should(BeAssignableToTypeOf(&models.RunAction{}))
+
+				Ω(actualRunAction.(*models.RunAction).Args).Should(ContainElement("-cacheDockerImage"))
+			})
+		})
+	})
+
+	Context("when Docker Registry is not running", func() {
+		var (
+			docker         backend.Backend
+			stagingRequest cc_messages.StagingRequestFromCC
+		)
+
+		JustBeforeEach(func() {
+			dockerRegistryURL := fmt.Sprintf("http://%s:%d", dockerRegistryIPs[0], dockerRegistryPort)
+
+			docker = setupDockerBackend(dockerRegistryURL, "[]")
+			stagingRequest = setupStagingRequest()
+		})
+
+		It("errors", func() {
+			_, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+
+			Ω(err).Should(HaveOccurred())
+			Ω(err).Should(Equal(backend.ErrMissingDockerRegistry))
 		})
 	})
 

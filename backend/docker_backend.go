@@ -28,6 +28,7 @@ const (
 )
 
 var ErrMissingDockerImageUrl = errors.New("missing docker image download url")
+var ErrMissingDockerRegistry = errors.New("missing docker registry")
 
 type dockerBackend struct {
 	config Config
@@ -69,6 +70,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 	for _, envVar := range request.Environment {
 		if envVar.Name == "DIEGO_DOCKER_CACHE" && envVar.Value == "true" {
 			cacheDockerImage = true
+			break
 		}
 	}
 
@@ -284,6 +286,10 @@ func getDockerRegistryServices(consulAgentURL string) ([]consulServiceInfo, erro
 	err = json.Unmarshal(body, &ips)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(ips) == 0 {
+		return nil, ErrMissingDockerRegistry
 	}
 
 	return ips, nil
