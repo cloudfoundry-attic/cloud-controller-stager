@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"flag"
 	"net"
@@ -20,6 +19,7 @@ import (
 	cf_lager "github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages/flags"
 	"github.com/cloudfoundry-incubator/stager/backend"
 	"github.com/cloudfoundry-incubator/stager/cc_client"
 	"github.com/cloudfoundry-incubator/stager/handlers"
@@ -47,12 +47,6 @@ var skipCertVerify = flag.Bool(
 	"skipCertVerify",
 	false,
 	"skip SSL certificate verification",
-)
-
-var lifecycles = flag.String(
-	"lifecycles",
-	"{}",
-	"Map of lifecycles for different stacks (lifecycle/stack => bundle filename)",
 )
 
 var diegoAPIURL = flag.String(
@@ -87,6 +81,9 @@ const (
 func main() {
 	cf_debug_server.AddFlags(flag.CommandLine)
 	cf_lager.AddFlags(flag.CommandLine)
+
+	lifecycles := flags.LifecycleMap{}
+	flag.Var(&lifecycles, "lifecycle", "app lifecycle binary bundle mapping (lifecycle[/stack]:bundle-filepath-in-fileserver)")
 	flag.Parse()
 
 	logger, reconfigurableSink := cf_lager.New("stager")
@@ -100,7 +97,7 @@ func main() {
 		logger.Fatal("Invalid stager URL", err)
 	}
 
-	backends := initializeBackends(logger)
+	backends := initializeBackends(logger, lifecycles)
 
 	handler := handlers.New(logger, ccClient, diegoAPIClient, backends, clock.NewClock())
 
@@ -137,13 +134,8 @@ func initializeDropsonde(logger lager.Logger) {
 	}
 }
 
-func initializeBackends(logger lager.Logger) map[string]backend.Backend {
-	lifecyclesMap := make(map[string]string)
-	err := json.Unmarshal([]byte(*lifecycles), &lifecyclesMap)
-	if err != nil {
-		logger.Fatal("Error parsing lifecycles flag", err)
-	}
-	_, err = url.Parse(*stagerURL)
+func initializeBackends(logger lager.Logger, lifecycles flags.LifecycleMap) map[string]backend.Backend {
+	_, err := url.Parse(*stagerURL)
 	if err != nil {
 		logger.Fatal("Error parsing stager URL", err)
 	}
@@ -155,7 +147,7 @@ func initializeBackends(logger lager.Logger) map[string]backend.Backend {
 		TaskDomain:         backend.StagingTaskDomain,
 		StagerURL:          *stagerURL,
 		FileServerURL:      *fileServerURL,
-		Lifecycles:         lifecyclesMap,
+		Lifecycles:         lifecycles,
 		SkipCertVerify:     *skipCertVerify,
 		Sanitizer:          cc_messages.SanitizeErrorMessage,
 		DockerStagingStack: *dockerStagingStack,
