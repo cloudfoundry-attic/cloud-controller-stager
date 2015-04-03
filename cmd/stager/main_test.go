@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages/flags"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/stager"
 	"github.com/cloudfoundry-incubator/stager/backend"
@@ -271,7 +272,7 @@ var _ = Describe("Stager", func() {
 	Describe("-dockerRegistryURL arg", func() {
 		Context("when started with a valid -dockerRegistryURL arg", func() {
 			BeforeEach(func() {
-				runner.Start("-lifecycles", `{"lucid64":"lifecycle.zip"}`,
+				runner.Start("-lifecycle", "lucid64:lifecycle.zip",
 					"-dockerRegistryURL", "http://10.244.2.6:8080")
 				Eventually(runner.Session()).Should(gbytes.Say("Listening for staging requests!"))
 			})
@@ -283,7 +284,7 @@ var _ = Describe("Stager", func() {
 
 		Context("when started with an invalid -dockerRegistryURL arg", func() {
 			BeforeEach(func() {
-				runner.Start("-lifecycles", `{"lucid64":"lifecycle.zip"}`,
+				runner.Start("-lifecycle", "lucid64:lifecycle.zip",
 					"-dockerRegistryURL", "://noscheme:8080")
 			})
 
@@ -297,7 +298,7 @@ var _ = Describe("Stager", func() {
 	Describe("-consulCluster arg", func() {
 		Context("when started with a valid -consulCluster arg", func() {
 			BeforeEach(func() {
-				runner.Start("-lifecycles", `{"lucid64":"lifecycle.zip"}`,
+				runner.Start("-lifecycle", "lucid64:lifecycle.zip",
 					"-consulCluster", "http://localhost:8500")
 				Eventually(runner.Session()).Should(gbytes.Say("Listening for staging requests!"))
 			})
@@ -309,7 +310,7 @@ var _ = Describe("Stager", func() {
 
 		Context("when started with an invalid -consulCluster arg", func() {
 			BeforeEach(func() {
-				runner.Start("-lifecycles", `{"lucid64":"lifecycle.zip"}`,
+				runner.Start("-lifecycle", "lucid64:lifecycle.zip",
 					"-consulCluster", "://noscheme:8500")
 			})
 
@@ -323,12 +324,12 @@ var _ = Describe("Stager", func() {
 	Describe("-lifecycles arg", func() {
 		Context("when started with an invalid -lifecycles arg", func() {
 			BeforeEach(func() {
-				runner.Start("-lifecycles", `{"invalid json"`)
+				runner.Start("-lifecycle", "invalid form")
 			})
 
 			It("logs and errors", func() {
 				Eventually(runner.Session().ExitCode()).ShouldNot(Equal(0))
-				Eventually(runner.Session()).Should(gbytes.Say("Error parsing lifecycles flag"))
+				Eventually(runner.Session().Err).Should(gbytes.Say(flags.ErrLifecycleFormatInvalid.Error()))
 			})
 		})
 	})
