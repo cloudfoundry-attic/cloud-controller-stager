@@ -182,6 +182,7 @@ var _ = Describe("TraditionalBackend", func() {
 			BuildArtifactsCacheUploadUri:   "http://example-uri.com/bunny-uppings",
 			Buildpacks:                     buildpacks,
 			DropletUploadUri:               "http://example-uri.com/droplet-upload",
+			Stack:                          stack,
 		}
 		lifecycleDataJSON, err := json.Marshal(buildpackStagingData)
 		Ω(err).ShouldNot(HaveOccurred())
@@ -193,7 +194,6 @@ var _ = Describe("TraditionalBackend", func() {
 		stagingRequest = cc_messages.StagingRequestFromCC{
 			AppId:           appId,
 			LogGuid:         appId,
-			Stack:           stack,
 			FileDescriptors: fileDescriptors,
 			MemoryMB:        memoryMB,
 			DiskMB:          diskMB,

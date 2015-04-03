@@ -79,7 +79,6 @@ var _ = Describe("Stager", func() {
 
 				req, err := requestGenerator.CreateRequest(stager.StageRoute, rata.Params{"staging_guid": "my-task-guid"}, strings.NewReader(`{
 					"app_id":"my-app-guid",
-					"stack":"lucid64",
 					"file_descriptors":3,
 					"memory_mb" : 1024,
 					"disk_mb" : 128,
@@ -87,6 +86,7 @@ var _ = Describe("Stager", func() {
 					"lifecycle": "buildpack",
 					"lifecycle_data": {
 					  "buildpacks" : [],
+						"stack":"lucid64",
 					  "app_bits_download_uri":"http://example.com/app_bits"
 					}
 				}`))
@@ -116,7 +116,6 @@ var _ = Describe("Stager", func() {
 
 				req, err := requestGenerator.CreateRequest(stager.StageRoute, rata.Params{"staging_guid": "my-task-guid"}, strings.NewReader(`{
 					"app_id":"my-app-guid",
-					"stack":"lucid64",
 					"file_descriptors":3,
 					"memory_mb" : 1024,
 					"disk_mb" : 128,

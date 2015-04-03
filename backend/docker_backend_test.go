@@ -126,7 +126,6 @@ var _ = Describe("DockerBackend", func() {
 		stagingRequest = cc_messages.StagingRequestFromCC{
 			AppId:           appId,
 			LogGuid:         "log-guid",
-			Stack:           "rabbit_hole",
 			FileDescriptors: fileDescriptors,
 			MemoryMB:        memoryMB,
 			DiskMB:          diskMB,
@@ -208,7 +207,7 @@ var _ = Describe("DockerBackend", func() {
 		Ω(desiredTask.EgressRules).Should(ConsistOf(egressRules))
 	})
 
-	It("uses the configured docker staging stack rather than the stack from the staging request", func() {
+	It("uses the configured docker staging stack", func() {
 		desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 		Ω(err).ShouldNot(HaveOccurred())
 

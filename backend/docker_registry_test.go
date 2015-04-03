@@ -60,7 +60,6 @@ var _ = Describe("DockerBackend", func() {
 
 		return cc_messages.StagingRequestFromCC{
 			AppId:           "bunny",
-			Stack:           "rabbit_hole",
 			FileDescriptors: 512,
 			MemoryMB:        512,
 			DiskMB:          512,

@@ -57,7 +57,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 		return receptor.TaskCreateRequest{}, err
 	}
 
-	compilerURL, err := backend.compilerDownloadURL(request)
+	compilerURL, err := backend.compilerDownloadURL(request, lifecycleData)
 	if err != nil {
 		return receptor.TaskCreateRequest{}, err
 	}
@@ -94,7 +94,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 			&models.DownloadAction{
 				From:     compilerURL.String(),
 				To:       path.Dir(builderConfig.ExecutablePath),
-				CacheKey: fmt.Sprintf("builder-%s", request.Stack),
+				CacheKey: fmt.Sprintf("builder-%s", lifecycleData.Stack),
 			},
 			"",
 			"",
@@ -215,7 +215,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 	task := receptor.TaskCreateRequest{
 		TaskGuid:              stagingGuid,
 		Domain:                backend.config.TaskDomain,
-		RootFS:                models.PreloadedRootFS(request.Stack),
+		RootFS:                models.PreloadedRootFS(lifecycleData.Stack),
 		ResultFile:            builderConfig.OutputMetadata(),
 		MemoryMB:              request.MemoryMB,
 		DiskMB:                request.DiskMB,
@@ -272,8 +272,8 @@ func (backend *traditionalBackend) BuildStagingResponse(taskResponse receptor.Ta
 	return response, nil
 }
 
-func (backend *traditionalBackend) compilerDownloadURL(request cc_messages.StagingRequestFromCC) (*url.URL, error) {
-	compilerPath, ok := backend.config.Lifecycles[request.Lifecycle+"/"+request.Stack]
+func (backend *traditionalBackend) compilerDownloadURL(request cc_messages.StagingRequestFromCC, buildpackData cc_messages.BuildpackStagingData) (*url.URL, error) {
+	compilerPath, ok := backend.config.Lifecycles[request.Lifecycle+"/"+buildpackData.Stack]
 	if !ok {
 		return nil, ErrNoCompilerDefined
 	}
