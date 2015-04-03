@@ -93,7 +93,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 
 	runActionArguments := []string{"-outputMetadataJSONFilename", DockerBuilderOutputPath, "-dockerRef", lifecycleData.DockerImageUrl}
 	if backend.config.DockerRegistry != nil {
-		registryServices, err := getDockerRegistryServices(backend.config.ConsulAgentURL)
+		registryServices, err := getDockerRegistryServices(backend.config.ConsulCluster)
 		if err != nil {
 			return receptor.TaskCreateRequest{}, err
 		}
@@ -270,8 +270,8 @@ func buildDockerRegistryAddresses(services []consulServiceInfo) []string {
 	return registries
 }
 
-func getDockerRegistryServices(consulAgentURL string) ([]consulServiceInfo, error) {
-	response, err := http.Get(consulAgentURL + "/v1/catalog/service/docker_registry")
+func getDockerRegistryServices(consulCluster string) ([]consulServiceInfo, error) {
+	response, err := http.Get(consulCluster + "/v1/catalog/service/docker_registry")
 	if err != nil {
 		return nil, err
 	}

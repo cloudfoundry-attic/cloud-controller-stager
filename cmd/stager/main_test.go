@@ -295,11 +295,11 @@ var _ = Describe("Stager", func() {
 		})
 	})
 
-	Describe("-consulAgentURL arg", func() {
-		Context("when started with a valid -consulAgentURL arg", func() {
+	Describe("-consulCluster arg", func() {
+		Context("when started with a valid -consulCluster arg", func() {
 			BeforeEach(func() {
 				runner.Start("-lifecycles", `{"lucid64":"lifecycle.zip"}`,
-					"-consulAgentURL", "http://localhost:8500")
+					"-consulCluster", "http://localhost:8500")
 				Eventually(runner.Session()).Should(gbytes.Say("Listening for staging requests!"))
 			})
 
@@ -308,10 +308,10 @@ var _ = Describe("Stager", func() {
 			})
 		})
 
-		Context("when started with an invalid -consulAgentURL arg", func() {
+		Context("when started with an invalid -consulCluster arg", func() {
 			BeforeEach(func() {
 				runner.Start("-lifecycles", `{"lucid64":"lifecycle.zip"}`,
-					"-consulAgentURL", "://noscheme:8500")
+					"-consulCluster", "://noscheme:8500")
 			})
 
 			It("logs and errors", func() {

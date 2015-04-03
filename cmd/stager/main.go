@@ -79,8 +79,8 @@ var dockerRegistryURL = flag.String(
 	"Private Docker Registry URL",
 )
 
-var consulAgentURL = flag.String(
-	"consulAgentURL",
+var consulCluster = flag.String(
+	"consulCluster",
 	"",
 	"Consul Agent URL",
 )
@@ -156,7 +156,7 @@ func initializeBackends(logger lager.Logger) map[string]backend.Backend {
 		logger.Fatal("Error parsing lifecycles flag", err)
 	}
 
-	_, err = url.Parse(*consulAgentURL)
+	_, err = url.Parse(*consulCluster)
 	if err != nil {
 		logger.Fatal("Error parsing consul agent URL", err)
 	}
@@ -188,7 +188,7 @@ func initializeBackends(logger lager.Logger) map[string]backend.Backend {
 		FileServerURL:      *fileServerURL,
 		Lifecycles:         lifecyclesMap,
 		DockerRegistry:     dockerRegistry,
-		ConsulAgentURL:     *consulAgentURL,
+		ConsulCluster:      *consulCluster,
 		SkipCertVerify:     *skipCertVerify,
 		Sanitizer:          cc_messages.SanitizeErrorMessage,
 		DockerStagingStack: *dockerStagingStack,

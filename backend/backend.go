@@ -43,7 +43,7 @@ type Config struct {
 	FileServerURL      string
 	Lifecycles         map[string]string
 	DockerRegistry     *DockerRegistry
-	ConsulAgentURL     string
+	ConsulCluster      string
 	SkipCertVerify     bool
 	Sanitizer          FailureReasonSanitizer
 	DockerStagingStack string

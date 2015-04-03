@@ -34,8 +34,8 @@ var _ = Describe("DockerBackend", func() {
 		)
 
 		config := backend.Config{
-			FileServerURL:  "http://file-server.com",
-			ConsulAgentURL: server.URL(),
+			FileServerURL: "http://file-server.com",
+			ConsulCluster: server.URL(),
 			Lifecycles: map[string]string{
 				"docker": "docker_lifecycle/docker_app_lifecycle.tgz",
 			},
