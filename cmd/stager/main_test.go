@@ -57,11 +57,10 @@ var _ = Describe("Stager", func() {
 
 	Context("when started", func() {
 		BeforeEach(func() {
-			lifecycles := `{
-				"buildpack/lucid64": "lifecycle.zip",
-				"docker": "docker/lifecycle.tgz"
-			}`
-			runner.Start("--lifecycles", lifecycles)
+			runner.Start(
+				"-lifecycle", "buildpack/lucid64:lifecycle.zip",
+				"-lifecycle", "docker:docker/lifecycle.tgz",
+			)
 			Eventually(runner.Session()).Should(gbytes.Say("Listening for staging requests!"))
 		})
 
