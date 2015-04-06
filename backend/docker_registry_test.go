@@ -26,7 +26,7 @@ var _ = Describe("DockerBackend", func() {
 
 		server.AppendHandlers(
 			ghttp.CombineHandlers(
-				ghttp.VerifyRequest("GET", "/v1/catalog/service/docker_registry"),
+				ghttp.VerifyRequest("GET", "/v1/catalog/service/docker-registry"),
 				http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 					w.Write([]byte(payload))
 				}),

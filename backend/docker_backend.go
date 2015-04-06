@@ -271,7 +271,7 @@ func buildDockerRegistryAddresses(services []consulServiceInfo) []string {
 }
 
 func getDockerRegistryServices(consulCluster string) ([]consulServiceInfo, error) {
-	response, err := http.Get(consulCluster + "/v1/catalog/service/docker_registry")
+	response, err := http.Get(consulCluster + "/v1/catalog/service/docker-registry")
 	if err != nil {
 		return nil, err
 	}
