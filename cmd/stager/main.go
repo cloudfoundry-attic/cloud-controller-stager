@@ -174,7 +174,7 @@ func initializeBackends(logger lager.Logger, lifecycles flags.LifecycleMap) map[
 	}
 
 	config := backend.Config{
-		TaskDomain:         backend.StagingTaskDomain,
+		TaskDomain:         cc_messages.StagingTaskDomain,
 		StagerURL:          *stagerURL,
 		FileServerURL:      *fileServerURL,
 		Lifecycles:         lifecycles,

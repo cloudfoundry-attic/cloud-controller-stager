@@ -15,8 +15,6 @@ import (
 const (
 	TaskLogSource         = "STG"
 	DefaultStagingTimeout = 15 * time.Minute
-
-	StagingTaskDomain = "cf-app-staging"
 )
 
 type FailureReasonSanitizer func(string) *cc_messages.StagingError

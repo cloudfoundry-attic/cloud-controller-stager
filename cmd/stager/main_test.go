@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages/flags"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/stager"
-	"github.com/cloudfoundry-incubator/stager/backend"
 	"github.com/cloudfoundry-incubator/stager/cmd/stager/testrunner"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -189,7 +189,7 @@ var _ = Describe("Stager", func() {
 						Action: &models.RunAction{
 							Path: "ls",
 						},
-						Domain: backend.StagingTaskDomain,
+						Domain: cc_messages.StagingTaskDomain,
 						Annotation: `{
 							"lifecycle": "docker"
 						}`,
@@ -238,7 +238,7 @@ var _ = Describe("Stager", func() {
 						Action: &models.RunAction{
 							Path: "ls",
 						},
-						Domain: backend.StagingTaskDomain,
+						Domain: cc_messages.StagingTaskDomain,
 						Annotation: `{
 							"lifecycle": "buildpack"
 						}`,
