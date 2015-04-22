@@ -14,6 +14,7 @@ import (
 	"github.com/cloudfoundry-incubator/docker_app_lifecycle"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
+	"github.com/cloudfoundry-incubator/runtime-schema/diego_errors"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/routes"
 	"github.com/cloudfoundry-incubator/stager/helpers"
@@ -27,8 +28,8 @@ const (
 	DockerBuilderOutputPath     = "/tmp/docker-result/result.json"
 )
 
-var ErrMissingDockerImageUrl = errors.New("missing docker image download url")
-var ErrMissingDockerRegistry = errors.New("missing docker registry")
+var ErrMissingDockerImageUrl = errors.New(diego_errors.MISSING_DOCKER_IMAGE_URL)
+var ErrMissingDockerRegistry = errors.New(diego_errors.MISSING_DOCKER_REGISTRY)
 
 type dockerBackend struct {
 	config Config
@@ -179,7 +180,6 @@ func (backend *dockerBackend) BuildStagingResponse(taskResponse receptor.TaskRes
 		dockerLifecycleData, err := helpers.BuildDockerStagingData(result.DockerImage)
 		if err != nil {
 			return cc_messages.StagingResponseForCC{}, err
-
 		}
 
 		response.ExecutionMetadata = result.ExecutionMetadata

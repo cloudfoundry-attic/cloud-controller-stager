@@ -157,7 +157,7 @@ var _ = Describe("StagingHandler", func() {
 
 						BeforeEach(func() {
 							responseForCC = cc_messages.StagingResponseForCC{
-								Error: cc_messages.SanitizeErrorMessage("Staging failed: " + taskCreateError.Error()),
+								Error: cc_messages.SanitizeErrorMessage(taskCreateError.Error()),
 							}
 						})
 
@@ -198,7 +198,7 @@ var _ = Describe("StagingHandler", func() {
 
 					BeforeEach(func() {
 						responseForCC = cc_messages.StagingResponseForCC{
-							Error: cc_messages.SanitizeErrorMessage("Recipe building failed: " + buildRecipeError.Error()),
+							Error: cc_messages.SanitizeErrorMessage(buildRecipeError.Error()),
 						}
 					})
 

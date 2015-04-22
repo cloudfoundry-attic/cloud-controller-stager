@@ -77,7 +77,7 @@ func (handler *stagingHandler) Stage(resp http.ResponseWriter, req *http.Request
 	taskRequest, err := backend.BuildRecipe(stagingGuid, stagingRequest)
 	if err != nil {
 		logger.Error("recipe-building-failed", err, lager.Data{"staging-request": stagingRequest})
-		handler.doErrorResponse(resp, "Recipe building failed: "+err.Error())
+		handler.doErrorResponse(resp, err.Error())
 		return
 	}
 
@@ -95,7 +95,7 @@ func (handler *stagingHandler) Stage(resp http.ResponseWriter, req *http.Request
 
 	if err != nil {
 		logger.Error("staging-failed", err, lager.Data{"staging-request": stagingRequest})
-		handler.doErrorResponse(resp, "Staging failed: "+err.Error())
+		handler.doErrorResponse(resp, err.Error())
 		return
 	}
 
