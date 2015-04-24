@@ -93,7 +93,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 	)
 
 	runActionArguments := []string{"-outputMetadataJSONFilename", DockerBuilderOutputPath, "-dockerRef", lifecycleData.DockerImageUrl}
-	if backend.config.DockerRegistry != nil {
+	if cacheDockerImage {
 		registryServices, err := getDockerRegistryServices(backend.config.ConsulCluster)
 		if err != nil {
 			return receptor.TaskCreateRequest{}, err
@@ -104,13 +104,11 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 
 		registryAddresses := strings.Join(buildDockerRegistryAddresses(registryServices), ",")
 		runActionArguments = append(runActionArguments, "-dockerRegistryAddresses", registryAddresses)
-		if backend.config.DockerRegistry.Insecure {
+		if backend.config.InsecureDockerRegistry {
 			runActionArguments = append(runActionArguments, "-insecureDockerRegistries", registryAddresses)
 		}
 
-		if cacheDockerImage {
-			runActionArguments = append(runActionArguments, "-cacheDockerImage")
-		}
+		runActionArguments = append(runActionArguments, "-cacheDockerImage")
 	}
 
 	fileDescriptorLimit := uint64(request.FileDescriptors)

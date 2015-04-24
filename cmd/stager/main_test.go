@@ -268,28 +268,15 @@ var _ = Describe("Stager", func() {
 		})
 	})
 
-	Describe("-dockerRegistryURL arg", func() {
-		Context("when started with a valid -dockerRegistryURL arg", func() {
+	Describe("-insecureDockerRegistry arg", func() {
+		Context("when started with -insecureDockerRegistry arg", func() {
 			BeforeEach(func() {
-				runner.Start("-lifecycle", "lucid64:lifecycle.zip",
-					"-dockerRegistryURL", "http://10.244.2.6:8080")
+				runner.Start("-lifecycle", "lucid64:lifecycle.zip", "-insecureDockerRegistry")
 				Eventually(runner.Session()).Should(gbytes.Say("Listening for staging requests!"))
 			})
 
 			It("starts successfully", func() {
 				Consistently(runner.Session()).ShouldNot(gexec.Exit())
-			})
-		})
-
-		Context("when started with an invalid -dockerRegistryURL arg", func() {
-			BeforeEach(func() {
-				runner.Start("-lifecycle", "lucid64:lifecycle.zip",
-					"-dockerRegistryURL", "://noscheme:8080")
-			})
-
-			It("logs and errors", func() {
-				Eventually(runner.Session().ExitCode()).ShouldNot(Equal(0))
-				Eventually(runner.Session()).Should(gbytes.Say("Error parsing docker registry URL"))
 			})
 		})
 	})

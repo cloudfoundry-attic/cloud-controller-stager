@@ -67,10 +67,10 @@ var fileServerURL = flag.String(
 	"URL of the file server",
 )
 
-var dockerRegistryURL = flag.String(
-	"dockerRegistryURL",
-	"",
-	"Private Docker Registry URL",
+var insecureDockerRegistry = flag.Bool(
+	"insecureDockerRegistry",
+	false,
+	"allows use of insecure Private Docker Registry",
 )
 
 var consulCluster = flag.String(
@@ -160,29 +160,16 @@ func initializeBackends(logger lager.Logger, lifecycles flags.LifecycleMap) map[
 		logger.Fatal("Error parsing consul agent URL", err)
 	}
 
-	parts, err := url.Parse(*dockerRegistryURL)
-	if err != nil {
-		logger.Fatal("Error parsing docker registry URL", err)
-	}
-
-	var dockerRegistry *backend.DockerRegistry = nil
-	if len(*dockerRegistryURL) > 0 {
-		dockerRegistry = &backend.DockerRegistry{
-			URL:      *dockerRegistryURL,
-			Insecure: parts.Scheme == "http",
-		}
-	}
-
 	config := backend.Config{
-		TaskDomain:         cc_messages.StagingTaskDomain,
-		StagerURL:          *stagerURL,
-		FileServerURL:      *fileServerURL,
-		Lifecycles:         lifecycles,
-		DockerRegistry:     dockerRegistry,
-		ConsulCluster:      *consulCluster,
-		SkipCertVerify:     *skipCertVerify,
-		Sanitizer:          cc_messages.SanitizeErrorMessage,
-		DockerStagingStack: *dockerStagingStack,
+		TaskDomain:             cc_messages.StagingTaskDomain,
+		StagerURL:              *stagerURL,
+		FileServerURL:          *fileServerURL,
+		Lifecycles:             lifecycles,
+		InsecureDockerRegistry: *insecureDockerRegistry,
+		ConsulCluster:          *consulCluster,
+		SkipCertVerify:         *skipCertVerify,
+		Sanitizer:              cc_messages.SanitizeErrorMessage,
+		DockerStagingStack:     *dockerStagingStack,
 	}
 
 	return map[string]backend.Backend{
