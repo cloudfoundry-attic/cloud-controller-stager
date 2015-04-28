@@ -61,7 +61,7 @@ var _ = Describe("StagingHandler", func() {
 
 		JustBeforeEach(func() {
 			req, err := http.NewRequest("PUT", "/v1/staging/a-staging-guid", bytes.NewReader(stagingRequestJson))
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
 			req.Form = url.Values{":staging_guid": {"a-staging-guid"}}
 
@@ -79,23 +79,23 @@ var _ = Describe("StagingHandler", func() {
 
 				var err error
 				stagingRequestJson, err = json.Marshal(stagingRequest)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("increments the counter to track arriving staging messages", func() {
-				Ω(fakeMetricSender.GetCounter("StagingStartRequestsReceived")).Should(Equal(uint64(1)))
+				Expect(fakeMetricSender.GetCounter("StagingStartRequestsReceived")).To(Equal(uint64(1)))
 			})
 
 			It("returns an Accepted response", func() {
-				Ω(responseRecorder.Code).Should(Equal(http.StatusAccepted))
+				Expect(responseRecorder.Code).To(Equal(http.StatusAccepted))
 			})
 
 			It("builds a staging recipe", func() {
-				Ω(fakeBackend.BuildRecipeCallCount()).To(Equal(1))
+				Expect(fakeBackend.BuildRecipeCallCount()).To(Equal(1))
 
 				guid, request := fakeBackend.BuildRecipeArgsForCall(0)
-				Ω(guid).Should(Equal("a-staging-guid"))
-				Ω(request).Should(Equal(stagingRequest))
+				Expect(guid).To(Equal("a-staging-guid"))
+				Expect(request).To(Equal(stagingRequest))
 			})
 
 			Context("when the recipe was built successfully", func() {
@@ -105,17 +105,17 @@ var _ = Describe("StagingHandler", func() {
 				})
 
 				It("does not send a staging complete message", func() {
-					Ω(fakeCcClient.StagingCompleteCallCount()).To(Equal(0))
+					Expect(fakeCcClient.StagingCompleteCallCount()).To(Equal(0))
 				})
 
 				It("creates a task on Diego", func() {
-					Ω(fakeDiegoClient.CreateTaskCallCount()).To(Equal(1))
-					Ω(fakeDiegoClient.CreateTaskArgsForCall(0)).To(Equal(fakeTaskRequest))
+					Expect(fakeDiegoClient.CreateTaskCallCount()).To(Equal(1))
+					Expect(fakeDiegoClient.CreateTaskArgsForCall(0)).To(Equal(fakeTaskRequest))
 				})
 
 				Context("when creating the task succeeds", func() {
 					It("does not send a staging failure response", func() {
-						Ω(fakeCcClient.StagingCompleteCallCount()).To(Equal(0))
+						Expect(fakeCcClient.StagingCompleteCallCount()).To(Equal(0))
 					})
 				})
 
@@ -128,7 +128,7 @@ var _ = Describe("StagingHandler", func() {
 					})
 
 					It("does not log a failure", func() {
-						Ω(logger).ShouldNot(gbytes.Say("staging-failed"))
+						Expect(logger).NotTo(gbytes.Say("staging-failed"))
 					})
 				})
 
@@ -141,15 +141,15 @@ var _ = Describe("StagingHandler", func() {
 					})
 
 					It("logs the failure", func() {
-						Ω(logger).Should(gbytes.Say("staging-failed"))
+						Expect(logger).To(gbytes.Say("staging-failed"))
 					})
 
 					It("returns an internal service error status code", func() {
-						Ω(responseRecorder.Code).Should(Equal(http.StatusInternalServerError))
+						Expect(responseRecorder.Code).To(Equal(http.StatusInternalServerError))
 					})
 
 					It("should not call staging complete", func() {
-						Ω(fakeCcClient.StagingCompleteCallCount()).To(Equal(0))
+						Expect(fakeCcClient.StagingCompleteCallCount()).To(Equal(0))
 					})
 
 					Context("when the response builder succeeds", func() {
@@ -165,9 +165,9 @@ var _ = Describe("StagingHandler", func() {
 							var response cc_messages.StagingResponseForCC
 							decoder := json.NewDecoder(responseRecorder.Body)
 							err := decoder.Decode(&response)
-							Ω(err).ShouldNot(HaveOccurred())
+							Expect(err).NotTo(HaveOccurred())
 
-							Ω(response).Should(Equal(responseForCC))
+							Expect(response).To(Equal(responseForCC))
 						})
 					})
 				})
@@ -182,15 +182,15 @@ var _ = Describe("StagingHandler", func() {
 				})
 
 				It("logs the failure", func() {
-					Ω(logger).Should(gbytes.Say("recipe-building-failed"))
+					Expect(logger).To(gbytes.Say("recipe-building-failed"))
 				})
 
 				It("returns an internal service error status code", func() {
-					Ω(responseRecorder.Code).Should(Equal(http.StatusInternalServerError))
+					Expect(responseRecorder.Code).To(Equal(http.StatusInternalServerError))
 				})
 
 				It("should not call staging complete", func() {
-					Ω(fakeCcClient.StagingCompleteCallCount()).To(Equal(0))
+					Expect(fakeCcClient.StagingCompleteCallCount()).To(Equal(0))
 				})
 
 				Context("when the response builder succeeds", func() {
@@ -206,9 +206,9 @@ var _ = Describe("StagingHandler", func() {
 						var response cc_messages.StagingResponseForCC
 						decoder := json.NewDecoder(responseRecorder.Body)
 						err := decoder.Decode(&response)
-						Ω(err).ShouldNot(HaveOccurred())
+						Expect(err).NotTo(HaveOccurred())
 
-						Ω(response).Should(Equal(responseForCC))
+						Expect(response).To(Equal(responseForCC))
 					})
 				})
 			})
@@ -221,11 +221,11 @@ var _ = Describe("StagingHandler", func() {
 				})
 
 				It("returns bad request", func() {
-					Ω(responseRecorder.Code).Should(Equal(http.StatusBadRequest))
+					Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
 				})
 
 				It("does not send a staging complete message", func() {
-					Ω(fakeCcClient.StagingCompleteCallCount()).To(Equal(0))
+					Expect(fakeCcClient.StagingCompleteCallCount()).To(Equal(0))
 				})
 			})
 
@@ -238,11 +238,11 @@ var _ = Describe("StagingHandler", func() {
 
 					var err error
 					stagingRequestJson, err = json.Marshal(stagingRequest)
-					Ω(err).ShouldNot(HaveOccurred())
+					Expect(err).NotTo(HaveOccurred())
 				})
 
 				It("returns a Not Found response", func() {
-					Ω(responseRecorder.Code).Should(Equal(http.StatusNotFound))
+					Expect(responseRecorder.Code).To(Equal(http.StatusNotFound))
 				})
 			})
 
@@ -252,7 +252,7 @@ var _ = Describe("StagingHandler", func() {
 				})
 
 				It("returns a BadRequest error", func() {
-					Ω(responseRecorder.Code).Should(Equal(http.StatusBadRequest))
+					Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
 				})
 			})
 		})
@@ -270,7 +270,7 @@ var _ = Describe("StagingHandler", func() {
 
 		JustBeforeEach(func() {
 			req, err := http.NewRequest("DELETE", "/v1/staging/a-staging-guid", nil)
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
 			req.Form = url.Values{":staging_guid": {"a-staging-guid"}}
 
@@ -279,8 +279,8 @@ var _ = Describe("StagingHandler", func() {
 
 		Context("when receiving a stop staging request", func() {
 			It("retrieves the current staging task by guid", func() {
-				Ω(fakeDiegoClient.GetTaskCallCount()).Should(Equal(1))
-				Ω(fakeDiegoClient.GetTaskArgsForCall(0)).Should(Equal("a-staging-guid"))
+				Expect(fakeDiegoClient.GetTaskCallCount()).To(Equal(1))
+				Expect(fakeDiegoClient.GetTaskArgsForCall(0)).To(Equal("a-staging-guid"))
 			})
 
 			Context("when an in-flight staging task is not found", func() {
@@ -289,7 +289,7 @@ var _ = Describe("StagingHandler", func() {
 				})
 
 				It("returns StatusNotFound", func() {
-					Ω(responseRecorder.Code).Should(Equal(http.StatusNotFound))
+					Expect(responseRecorder.Code).To(Equal(http.StatusNotFound))
 				})
 			})
 
@@ -299,7 +299,7 @@ var _ = Describe("StagingHandler", func() {
 				})
 
 				It("returns StatusInternalServerError", func() {
-					Ω(responseRecorder.Code).Should(Equal(http.StatusInternalServerError))
+					Expect(responseRecorder.Code).To(Equal(http.StatusInternalServerError))
 				})
 			})
 
@@ -315,21 +315,21 @@ var _ = Describe("StagingHandler", func() {
 					})
 
 					It("returns StatusInternalServerError", func() {
-						Ω(responseRecorder.Code).Should(Equal(http.StatusInternalServerError))
+						Expect(responseRecorder.Code).To(Equal(http.StatusInternalServerError))
 					})
 				})
 
 				It("increments the counter to track arriving stop staging messages", func() {
-					Ω(fakeMetricSender.GetCounter("StagingStopRequestsReceived")).Should(Equal(uint64(1)))
+					Expect(fakeMetricSender.GetCounter("StagingStopRequestsReceived")).To(Equal(uint64(1)))
 				})
 
 				It("cancels the Diego task", func() {
-					Ω(fakeDiegoClient.CancelTaskCallCount()).To(Equal(1))
-					Ω(fakeDiegoClient.CancelTaskArgsForCall(0)).To(Equal("a-staging-guid"))
+					Expect(fakeDiegoClient.CancelTaskCallCount()).To(Equal(1))
+					Expect(fakeDiegoClient.CancelTaskArgsForCall(0)).To(Equal("a-staging-guid"))
 				})
 
 				It("returns an Accepted response", func() {
-					Ω(responseRecorder.Code).Should(Equal(http.StatusAccepted))
+					Expect(responseRecorder.Code).To(Equal(http.StatusAccepted))
 				})
 
 			})

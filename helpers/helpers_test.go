@@ -12,10 +12,10 @@ var _ = Describe("Stager helpers", func() {
 
 		It("builds the correct json", func() {
 			lifecycleData, err := helpers.BuildDockerStagingData("cloudfoundry/diego-docker-app")
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
 			json := []byte(*lifecycleData)
-			Ω(json).Should(MatchJSON(`{"docker_image":"cloudfoundry/diego-docker-app"}`))
+			Expect(json).To(MatchJSON(`{"docker_image":"cloudfoundry/diego-docker-app"}`))
 		})
 	})
 

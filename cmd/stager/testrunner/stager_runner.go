@@ -48,7 +48,7 @@ func (r *StagerRunner) Start(args ...string) {
 		gexec.NewPrefixedWriter("\x1b[91m[e]\x1b[95m[stager]\x1b[0m ", ginkgo.GinkgoWriter),
 	)
 
-	Ω(err).ShouldNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	r.session = stagerSession
 }

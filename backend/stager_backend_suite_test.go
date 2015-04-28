@@ -11,10 +11,10 @@ import (
 
 func actionsFromDesiredTask(desiredTask receptor.TaskCreateRequest) []models.Action {
 	timeoutAction := desiredTask.Action
-	Ω(timeoutAction).Should(BeAssignableToTypeOf(&models.TimeoutAction{}))
+	Expect(timeoutAction).To(BeAssignableToTypeOf(&models.TimeoutAction{}))
 
 	serialAction := timeoutAction.(*models.TimeoutAction).Action
-	Ω(serialAction).Should(BeAssignableToTypeOf(&models.SerialAction{}))
+	Expect(serialAction).To(BeAssignableToTypeOf(&models.SerialAction{}))
 
 	return serialAction.(*models.SerialAction).Actions
 }

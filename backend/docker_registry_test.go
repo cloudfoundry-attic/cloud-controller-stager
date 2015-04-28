@@ -50,7 +50,7 @@ var _ = Describe("DockerBackend", func() {
 
 	setupStagingRequest := func() cc_messages.StagingRequestFromCC {
 		lifecycleData, err := helpers.BuildDockerStagingData("busybox")
-		Ω(err).ShouldNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
 		return cc_messages.StagingRequestFromCC{
 			AppId:           "bunny",
@@ -118,23 +118,23 @@ var _ = Describe("DockerBackend", func() {
 
 		checkStagingInstructionsFunc := func() {
 			desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
-			Ω(desiredTask.Privileged).Should(BeTrue())
-			Ω(desiredTask.Action).ShouldNot(BeNil())
-			Ω(desiredTask.EgressRules).Should(ConsistOf(expectedEgressRules))
+			Expect(desiredTask.Privileged).To(BeTrue())
+			Expect(desiredTask.Action).NotTo(BeNil())
+			Expect(desiredTask.EgressRules).To(ConsistOf(expectedEgressRules))
 
 			actions := actionsFromDesiredTask(desiredTask)
-			Ω(actions).Should(HaveLen(2))
-			Ω(actions[0]).Should(Equal(downloadBuilderAction))
-			Ω(actions[1]).Should(Equal(expectedRunAction))
+			Expect(actions).To(HaveLen(2))
+			Expect(actions[0]).To(Equal(downloadBuilderAction))
+			Expect(actions[1]).To(Equal(expectedRunAction))
 		}
 
 		Context("user did not opt-in for docker image caching", func() {
 			It("creates a cf-app-docker-staging Task with no additional egress rules", func() {
 				desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
-				Ω(err).ShouldNot(HaveOccurred())
-				Ω(desiredTask.EgressRules).Should(BeEmpty())
+				Expect(err).NotTo(HaveOccurred())
+				Expect(desiredTask.EgressRules).To(BeEmpty())
 			})
 		})
 
@@ -239,15 +239,15 @@ var _ = Describe("DockerBackend", func() {
 
 			It("errors", func() {
 				_, err := docker.BuildRecipe(stagingGuid, stagingRequest)
-				Ω(err).Should(HaveOccurred())
-				Ω(err).Should(Equal(backend.ErrMissingDockerRegistry))
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(Equal(backend.ErrMissingDockerRegistry))
 			})
 		})
 
 		Context("and user did not opt-in for docker image caching", func() {
 			It("does not error", func() {
 				_, err := docker.BuildRecipe(stagingGuid, stagingRequest)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 

@@ -70,11 +70,11 @@ var _ = Describe("Stager", func() {
 				fakeReceptor.RouteToHandler("POST", "/v1/tasks", func(w http.ResponseWriter, req *http.Request) {
 					var taskRequest receptor.TaskCreateRequest
 					err := json.NewDecoder(req.Body).Decode(&taskRequest)
-					Ω(err).ShouldNot(HaveOccurred())
+					Expect(err).NotTo(HaveOccurred())
 
-					Ω(taskRequest.MemoryMB).Should(Equal(1024))
-					Ω(taskRequest.DiskMB).Should(Equal(128))
-					Ω(taskRequest.CompletionCallbackURL).Should(Equal(callbackURL))
+					Expect(taskRequest.MemoryMB).To(Equal(1024))
+					Expect(taskRequest.DiskMB).To(Equal(128))
+					Expect(taskRequest.CompletionCallbackURL).To(Equal(callbackURL))
 				})
 
 				req, err := requestGenerator.CreateRequest(stager.StageRoute, rata.Params{"staging_guid": "my-task-guid"}, strings.NewReader(`{
@@ -90,12 +90,12 @@ var _ = Describe("Stager", func() {
 					  "app_bits_download_uri":"http://example.com/app_bits"
 					}
 				}`))
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 
 				resp, err := httpClient.Do(req)
-				Ω(err).ShouldNot(HaveOccurred())
-				Ω(resp.StatusCode).Should(Equal(http.StatusAccepted))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(http.StatusAccepted))
 
 				Eventually(fakeReceptor.ReceivedRequests).Should(HaveLen(1))
 				Consistently(runner.Session()).ShouldNot(gexec.Exit())
@@ -107,11 +107,11 @@ var _ = Describe("Stager", func() {
 				fakeReceptor.RouteToHandler("POST", "/v1/tasks", func(w http.ResponseWriter, req *http.Request) {
 					var taskRequest receptor.TaskCreateRequest
 					err := json.NewDecoder(req.Body).Decode(&taskRequest)
-					Ω(err).ShouldNot(HaveOccurred())
+					Expect(err).NotTo(HaveOccurred())
 
-					Ω(taskRequest.MemoryMB).Should(Equal(1024))
-					Ω(taskRequest.DiskMB).Should(Equal(128))
-					Ω(taskRequest.CompletionCallbackURL).Should(Equal(callbackURL))
+					Expect(taskRequest.MemoryMB).To(Equal(1024))
+					Expect(taskRequest.DiskMB).To(Equal(128))
+					Expect(taskRequest.CompletionCallbackURL).To(Equal(callbackURL))
 				})
 
 				req, err := requestGenerator.CreateRequest(stager.StageRoute, rata.Params{"staging_guid": "my-task-guid"}, strings.NewReader(`{
@@ -125,12 +125,12 @@ var _ = Describe("Stager", func() {
 					  "docker_image":"http://docker.docker/docker"
 					}
 				}`))
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 
 				resp, err := httpClient.Do(req)
-				Ω(err).ShouldNot(HaveOccurred())
-				Ω(resp.StatusCode).Should(Equal(http.StatusAccepted))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(http.StatusAccepted))
 
 				Eventually(fakeReceptor.ReceivedRequests).Should(HaveLen(1))
 				Consistently(runner.Session()).ShouldNot(gexec.Exit())
@@ -157,12 +157,12 @@ var _ = Describe("Stager", func() {
 
 			It("cancels the staging task via the API", func() {
 				req, err := requestGenerator.CreateRequest(stager.StopStagingRoute, rata.Params{"staging_guid": "the-task-guid"}, nil)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 				req.Header.Set("Content-Type", "application/json")
 
 				resp, err := httpClient.Do(req)
-				Ω(err).ShouldNot(HaveOccurred())
-				Ω(resp.StatusCode).Should(Equal(http.StatusAccepted))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(http.StatusAccepted))
 
 				Eventually(fakeReceptor.ReceivedRequests).Should(HaveLen(2))
 				Consistently(runner.Session()).ShouldNot(gexec.Exit())
@@ -199,16 +199,16 @@ var _ = Describe("Stager", func() {
 							"docker_image": "http://docker.docker/docker"
 						}`,
 					})
-					Ω(err).ShouldNot(HaveOccurred())
+					Expect(err).NotTo(HaveOccurred())
 
 					req, err := requestGenerator.CreateRequest(stager.StagingCompletedRoute, rata.Params{"staging_guid": "the-task-guid"}, bytes.NewReader(taskJSON))
-					Ω(err).ShouldNot(HaveOccurred())
+					Expect(err).NotTo(HaveOccurred())
 
 					req.Header.Set("Content-Type", "application/json")
 
 					resp, err := httpClient.Do(req)
-					Ω(err).ShouldNot(HaveOccurred())
-					Ω(resp.StatusCode).Should(Equal(http.StatusOK))
+					Expect(err).NotTo(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(http.StatusOK))
 				})
 
 				It("POSTs to the CC that staging is complete", func() {
@@ -249,16 +249,16 @@ var _ = Describe("Stager", func() {
 							"detected_start_command": {"a": "b"}
 						}`,
 					})
-					Ω(err).ShouldNot(HaveOccurred())
+					Expect(err).NotTo(HaveOccurred())
 
 					req, err := requestGenerator.CreateRequest(stager.StagingCompletedRoute, rata.Params{"staging_guid": "the-task-guid"}, bytes.NewReader(taskJSON))
-					Ω(err).ShouldNot(HaveOccurred())
+					Expect(err).NotTo(HaveOccurred())
 
 					req.Header.Set("Content-Type", "application/json")
 
 					resp, err := httpClient.Do(req)
-					Ω(err).ShouldNot(HaveOccurred())
-					Ω(resp.StatusCode).Should(Equal(http.StatusOK))
+					Expect(err).NotTo(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(http.StatusOK))
 				})
 
 				It("POSTs to the CC that staging is complete", func() {

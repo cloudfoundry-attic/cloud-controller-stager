@@ -54,8 +54,8 @@ var _ = Describe("CC Client", func() {
 						body, err := ioutil.ReadAll(req.Body)
 						defer req.Body.Close()
 
-						Ω(err).ShouldNot(HaveOccurred())
-						Ω(body).Should(Equal(expectedBody))
+						Expect(err).NotTo(HaveOccurred())
+						Expect(body).To(Equal(expectedBody))
 					},
 				),
 			)
@@ -63,7 +63,7 @@ var _ = Describe("CC Client", func() {
 
 		It("sends the request payload to the CC without modification", func() {
 			err := ccClient.StagingComplete(stagingGuid, expectedBody, logger)
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 
@@ -89,7 +89,7 @@ var _ = Describe("CC Client", func() {
 
 			It("fails with a self-signed certificate", func() {
 				err := ccClient.StagingComplete(stagingGuid, []byte(`{}`), logger)
-				Ω(err).Should(HaveOccurred())
+				Expect(err).To(HaveOccurred())
 			})
 		})
 
@@ -100,7 +100,7 @@ var _ = Describe("CC Client", func() {
 
 			It("Attempts to validate SSL certificates", func() {
 				err := ccClient.StagingComplete(stagingGuid, []byte(`{}`), logger)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 	})
@@ -114,8 +114,8 @@ var _ = Describe("CC Client", func() {
 
 			It("percolates the error", func() {
 				err := ccClient.StagingComplete(stagingGuid, []byte(`{}`), logger)
-				Ω(err).Should(HaveOccurred())
-				Ω(err).Should(BeAssignableToTypeOf(&url.Error{}))
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(BeAssignableToTypeOf(&url.Error{}))
 			})
 		})
 
@@ -131,9 +131,9 @@ var _ = Describe("CC Client", func() {
 
 			It("returns an error with the actual status code", func() {
 				err := ccClient.StagingComplete(stagingGuid, []byte(`{}`), logger)
-				Ω(err).Should(HaveOccurred())
-				Ω(err).Should(BeAssignableToTypeOf(&cc_client.BadResponseError{}))
-				Ω(err.(*cc_client.BadResponseError).StatusCode).Should(Equal(500))
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(BeAssignableToTypeOf(&cc_client.BadResponseError{}))
+				Expect(err.(*cc_client.BadResponseError).StatusCode).To(Equal(500))
 			})
 		})
 	})
@@ -142,20 +142,20 @@ var _ = Describe("CC Client", func() {
 		Context("when the error is a net.Error", func() {
 			It("is not retryable", func() {
 				err := &testNetError{}
-				Ω(cc_client.IsRetryable(err)).To(BeFalse())
+				Expect(cc_client.IsRetryable(err)).To(BeFalse())
 			})
 
 			Context("when the error is temporary", func() {
 				It("is retryable", func() {
 					err := &testNetError{timeout: false, temporary: true}
-					Ω(cc_client.IsRetryable(err)).To(BeTrue())
+					Expect(cc_client.IsRetryable(err)).To(BeTrue())
 				})
 			})
 
 			Context("when the error is a timeout", func() {
 				It("is retryable", func() {
 					err := &testNetError{timeout: true, temporary: false}
-					Ω(cc_client.IsRetryable(err)).To(BeTrue())
+					Expect(cc_client.IsRetryable(err)).To(BeTrue())
 				})
 			})
 		})
@@ -163,20 +163,20 @@ var _ = Describe("CC Client", func() {
 		Context("when the error is a BadResponseError", func() {
 			It("is not retryable", func() {
 				err := &cc_client.BadResponseError{}
-				Ω(cc_client.IsRetryable(err)).To(BeFalse())
+				Expect(cc_client.IsRetryable(err)).To(BeFalse())
 			})
 
 			Context("when the response code is StatusServiceUnavailable", func() {
 				It("is retryable", func() {
 					err := &cc_client.BadResponseError{http.StatusServiceUnavailable}
-					Ω(cc_client.IsRetryable(err)).To(BeTrue())
+					Expect(cc_client.IsRetryable(err)).To(BeTrue())
 				})
 			})
 
 			Context("when the response code is StatusGatewayTimeout", func() {
 				It("is retryable", func() {
 					err := &cc_client.BadResponseError{http.StatusGatewayTimeout}
-					Ω(cc_client.IsRetryable(err)).To(BeTrue())
+					Expect(cc_client.IsRetryable(err)).To(BeTrue())
 				})
 			})
 		})
@@ -184,7 +184,7 @@ var _ = Describe("CC Client", func() {
 		Context("general errors", func() {
 			It("is not retryable", func() {
 				err := fmt.Errorf("A generic error")
-				Ω(cc_client.IsRetryable(err)).To(BeFalse())
+				Expect(cc_client.IsRetryable(err)).To(BeFalse())
 			})
 		})
 	})

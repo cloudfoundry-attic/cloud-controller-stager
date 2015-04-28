@@ -20,7 +20,7 @@ var runner *testrunner.StagerRunner
 
 var _ = SynchronizedBeforeSuite(func() []byte {
 	stager, err := gexec.Build("github.com/cloudfoundry-incubator/stager/cmd/stager", "-race")
-	Ω(err).ShouldNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 	return []byte(stager)
 }, func(stager []byte) {
 	stagerPath = string(stager)

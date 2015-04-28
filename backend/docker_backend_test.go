@@ -121,7 +121,7 @@ var _ = Describe("DockerBackend", func() {
 
 	JustBeforeEach(func() {
 		lifecycleData, err := helpers.BuildDockerStagingData(dockerImageUrl)
-		Ω(err).ShouldNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
 		stagingRequest = cc_messages.StagingRequestFromCC{
 			AppId:           appId,
@@ -148,7 +148,7 @@ var _ = Describe("DockerBackend", func() {
 
 			It("returns an error", func() {
 				_, err := docker.BuildRecipe(stagingGuid, stagingRequest)
-				Ω(err).Should(Equal(backend.ErrMissingDockerImageUrl))
+				Expect(err).To(Equal(backend.ErrMissingDockerImageUrl))
 			})
 		})
 	})
@@ -161,7 +161,7 @@ var _ = Describe("DockerBackend", func() {
 
 			It("returns an error", func() {
 				_, err := docker.BuildRecipe(stagingGuid, stagingRequest)
-				Ω(err).Should(Equal(backend.ErrNoCompilerDefined))
+				Expect(err).To(Equal(backend.ErrNoCompilerDefined))
 			})
 		})
 
@@ -172,53 +172,53 @@ var _ = Describe("DockerBackend", func() {
 
 			It("returns an error", func() {
 				_, err := docker.BuildRecipe(stagingGuid, stagingRequest)
-				Ω(err).Should(Equal(backend.ErrNoCompilerDefined))
+				Expect(err).To(Equal(backend.ErrNoCompilerDefined))
 			})
 		})
 	})
 
 	It("creates a cf-app-docker-staging Task with staging instructions", func() {
 		desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
-		Ω(err).ShouldNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
-		Ω(desiredTask.Domain).To(Equal("config-task-domain"))
-		Ω(desiredTask.TaskGuid).To(Equal(stagingGuid))
-		Ω(desiredTask.LogGuid).To(Equal("log-guid"))
-		Ω(desiredTask.LogSource).To(Equal(backend.TaskLogSource))
-		Ω(desiredTask.ResultFile).To(Equal("/tmp/docker-result/result.json"))
-		Ω(desiredTask.Privileged).Should(BeFalse())
+		Expect(desiredTask.Domain).To(Equal("config-task-domain"))
+		Expect(desiredTask.TaskGuid).To(Equal(stagingGuid))
+		Expect(desiredTask.LogGuid).To(Equal("log-guid"))
+		Expect(desiredTask.LogSource).To(Equal(backend.TaskLogSource))
+		Expect(desiredTask.ResultFile).To(Equal("/tmp/docker-result/result.json"))
+		Expect(desiredTask.Privileged).To(BeFalse())
 
 		var annotation cc_messages.StagingTaskAnnotation
 
 		err = json.Unmarshal([]byte(desiredTask.Annotation), &annotation)
-		Ω(err).ShouldNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
-		Ω(annotation).Should(Equal(cc_messages.StagingTaskAnnotation{
+		Expect(annotation).To(Equal(cc_messages.StagingTaskAnnotation{
 			Lifecycle: "docker",
 		}))
 
 		actions := actionsFromDesiredTask(desiredTask)
-		Ω(actions).Should(HaveLen(2))
-		Ω(actions[0]).Should(Equal(downloadBuilderAction))
-		Ω(actions[1]).Should(Equal(runAction))
+		Expect(actions).To(HaveLen(2))
+		Expect(actions[0]).To(Equal(downloadBuilderAction))
+		Expect(actions[1]).To(Equal(runAction))
 
-		Ω(desiredTask.MemoryMB).To(Equal(memoryMB))
-		Ω(desiredTask.DiskMB).To(Equal(diskMB))
-		Ω(desiredTask.EgressRules).Should(ConsistOf(egressRules))
+		Expect(desiredTask.MemoryMB).To(Equal(memoryMB))
+		Expect(desiredTask.DiskMB).To(Equal(diskMB))
+		Expect(desiredTask.EgressRules).To(ConsistOf(egressRules))
 	})
 
 	It("uses the configured docker staging stack", func() {
 		desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
-		Ω(err).ShouldNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
-		Ω(desiredTask.RootFS).To(Equal(models.PreloadedRootFS("penguin")))
+		Expect(desiredTask.RootFS).To(Equal(models.PreloadedRootFS("penguin")))
 	})
 
 	It("gives the task a callback URL to call it back", func() {
 		desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
-		Ω(err).ShouldNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
-		Ω(desiredTask.CompletionCallbackURL).Should(Equal(fmt.Sprintf("%s/v1/staging/%s/completed", config.StagerURL, stagingGuid)))
+		Expect(desiredTask.CompletionCallbackURL).To(Equal(fmt.Sprintf("%s/v1/staging/%s/completed", config.StagerURL, stagingGuid)))
 	})
 
 	Describe("staging action timeout", func() {
@@ -229,11 +229,11 @@ var _ = Describe("DockerBackend", func() {
 
 			It("passes the timeout along", func() {
 				desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 
 				timeoutAction := desiredTask.Action
-				Ω(timeoutAction).Should(BeAssignableToTypeOf(&models.TimeoutAction{}))
-				Ω(timeoutAction.(*models.TimeoutAction).Timeout).Should(Equal(time.Duration(timeout) * time.Second))
+				Expect(timeoutAction).To(BeAssignableToTypeOf(&models.TimeoutAction{}))
+				Expect(timeoutAction.(*models.TimeoutAction).Timeout).To(Equal(time.Duration(timeout) * time.Second))
 			})
 		})
 
@@ -244,11 +244,11 @@ var _ = Describe("DockerBackend", func() {
 
 			It("uses the default timeout", func() {
 				desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 
 				timeoutAction := desiredTask.Action
-				Ω(timeoutAction).Should(BeAssignableToTypeOf(&models.TimeoutAction{}))
-				Ω(timeoutAction.(*models.TimeoutAction).Timeout).Should(Equal(backend.DefaultStagingTimeout))
+				Expect(timeoutAction).To(BeAssignableToTypeOf(&models.TimeoutAction{}))
+				Expect(timeoutAction.(*models.TimeoutAction).Timeout).To(Equal(backend.DefaultStagingTimeout))
 			})
 		})
 
@@ -259,11 +259,11 @@ var _ = Describe("DockerBackend", func() {
 
 			It("uses the default timeout", func() {
 				desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 
 				timeoutAction := desiredTask.Action
-				Ω(timeoutAction).Should(BeAssignableToTypeOf(&models.TimeoutAction{}))
-				Ω(timeoutAction.(*models.TimeoutAction).Timeout).Should(Equal(backend.DefaultStagingTimeout))
+				Expect(timeoutAction).To(BeAssignableToTypeOf(&models.TimeoutAction{}))
+				Expect(timeoutAction.(*models.TimeoutAction).Timeout).To(Equal(backend.DefaultStagingTimeout))
 			})
 		})
 	})
@@ -296,7 +296,7 @@ var _ = Describe("DockerBackend", func() {
 					}
 					var err error
 					annotationJson, err = json.Marshal(annotation)
-					Ω(err).ShouldNot(HaveOccurred())
+					Expect(err).NotTo(HaveOccurred())
 				})
 
 				Context("with a successful task response", func() {
@@ -316,19 +316,20 @@ var _ = Describe("DockerBackend", func() {
 							}
 							var err error
 							stagingResultJson, err = json.Marshal(stagingResult)
-							Ω(err).ShouldNot(HaveOccurred())
+							Expect(err).NotTo(HaveOccurred())
 
 							lifecycleData, err = helpers.BuildDockerStagingData(dockerImage)
-							Ω(err).ShouldNot(HaveOccurred())
+							Expect(err).NotTo(HaveOccurred())
 						})
 
 						It("populates a staging response correctly", func() {
-							Ω(buildError).ShouldNot(HaveOccurred())
-							Ω(response).Should(Equal(cc_messages.StagingResponseForCC{
+							Expect(buildError).NotTo(HaveOccurred())
+							Expect(response).To(Equal(cc_messages.StagingResponseForCC{
 								ExecutionMetadata:    "metadata",
 								DetectedStartCommand: map[string]string{"a": "b"},
 								LifecycleData:        lifecycleData,
 							}))
+
 						})
 					})
 
@@ -338,8 +339,8 @@ var _ = Describe("DockerBackend", func() {
 						})
 
 						It("returns an error", func() {
-							Ω(buildError).Should(HaveOccurred())
-							Ω(buildError).Should(BeAssignableToTypeOf(&json.SyntaxError{}))
+							Expect(buildError).To(HaveOccurred())
+							Expect(buildError).To(BeAssignableToTypeOf(&json.SyntaxError{}))
 						})
 					})
 
@@ -350,10 +351,11 @@ var _ = Describe("DockerBackend", func() {
 						})
 
 						It("populates a staging response correctly", func() {
-							Ω(buildError).ShouldNot(HaveOccurred())
-							Ω(response).Should(Equal(cc_messages.StagingResponseForCC{
+							Expect(buildError).NotTo(HaveOccurred())
+							Expect(response).To(Equal(cc_messages.StagingResponseForCC{
 								Error: &cc_messages.StagingError{Message: "some-failure-reason was totally sanitized"},
 							}))
+
 						})
 					})
 				})
@@ -365,8 +367,8 @@ var _ = Describe("DockerBackend", func() {
 				})
 
 				It("returns an error", func() {
-					Ω(buildError).Should(HaveOccurred())
-					Ω(buildError).Should(BeAssignableToTypeOf(&json.SyntaxError{}))
+					Expect(buildError).To(HaveOccurred())
+					Expect(buildError).To(BeAssignableToTypeOf(&json.SyntaxError{}))
 				})
 			})
 		})

@@ -73,10 +73,10 @@ var _ = Describe("StagingCompletedHandler", func() {
 
 	postTask := func(task receptor.TaskResponse) *http.Request {
 		taskJSON, err := json.Marshal(task)
-		Ω(err).ShouldNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
 		request, err := http.NewRequest("POST", fmt.Sprintf("/v1/staging/%s/completed", task.TaskGuid), bytes.NewReader(taskJSON))
-		Ω(err).ShouldNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
 		request.Form = url.Values{":staging_guid": {task.TaskGuid}}
 
@@ -92,7 +92,7 @@ var _ = Describe("StagingCompletedHandler", func() {
 			annotationJson, err = json.Marshal(cc_messages.StagingTaskAnnotation{
 				Lifecycle: "fake",
 			})
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		JustBeforeEach(func() {
@@ -120,16 +120,16 @@ var _ = Describe("StagingCompletedHandler", func() {
 
 		It("passes the task response to the matching response builder", func() {
 			Eventually(fakeBackend.BuildStagingResponseCallCount()).Should(Equal(1))
-			Ω(fakeBackend.BuildStagingResponseArgsForCall(0)).Should(Equal(taskResponse))
+			Expect(fakeBackend.BuildStagingResponseArgsForCall(0)).To(Equal(taskResponse))
 		})
 
 		Context("when the guid in the url does not match the task guid", func() {
 			BeforeEach(func() {
 				taskJSON, err := json.Marshal(taskResponse)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 
 				req, err := http.NewRequest("POST", "/v1/staging/an-invalid-guid/completed", bytes.NewReader(taskJSON))
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 
 				req.Form = url.Values{":staging_guid": {"an-invalid-guid"}}
 
@@ -137,7 +137,7 @@ var _ = Describe("StagingCompletedHandler", func() {
 			})
 
 			It("returns StatusBadRequest", func() {
-				Ω(responseRecorder.Code).Should(Equal(http.StatusBadRequest))
+				Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
 			})
 		})
 
@@ -148,11 +148,11 @@ var _ = Describe("StagingCompletedHandler", func() {
 				})
 
 				It("returns bad request", func() {
-					Ω(responseRecorder.Code).Should(Equal(http.StatusBadRequest))
+					Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
 				})
 
 				It("does not post staging complete to the CC", func() {
-					Ω(fakeCCClient.StagingCompleteCallCount()).Should(Equal(0))
+					Expect(fakeCCClient.StagingCompleteCallCount()).To(Equal(0))
 				})
 			})
 
@@ -162,11 +162,11 @@ var _ = Describe("StagingCompletedHandler", func() {
 				})
 
 				It("returns bad request", func() {
-					Ω(responseRecorder.Code).Should(Equal(http.StatusBadRequest))
+					Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
 				})
 
 				It("does not post staging complete to the CC", func() {
-					Ω(fakeCCClient.StagingCompleteCallCount()).Should(Equal(0))
+					Expect(fakeCCClient.StagingCompleteCallCount()).To(Equal(0))
 				})
 			})
 
@@ -179,11 +179,11 @@ var _ = Describe("StagingCompletedHandler", func() {
 				})
 
 				It("returns not found", func() {
-					Ω(responseRecorder.Code).Should(Equal(http.StatusNotFound))
+					Expect(responseRecorder.Code).To(Equal(http.StatusNotFound))
 				})
 
 				It("does not post staging complete to the CC", func() {
-					Ω(fakeCCClient.StagingCompleteCallCount()).Should(Equal(0))
+					Expect(fakeCCClient.StagingCompleteCallCount()).To(Equal(0))
 				})
 			})
 		})
@@ -194,7 +194,7 @@ var _ = Describe("StagingCompletedHandler", func() {
 			})
 
 			It("returns a 400", func() {
-				Ω(responseRecorder.Code).Should(Equal(http.StatusBadRequest))
+				Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
 			})
 		})
 
@@ -206,30 +206,31 @@ var _ = Describe("StagingCompletedHandler", func() {
 
 				var err error
 				backendResponseJson, err = json.Marshal(backendResponse)
-				Ω(err).ShouldNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("posts the response builder's result to CC", func() {
-				Ω(fakeCCClient.StagingCompleteCallCount()).Should(Equal(1))
+				Expect(fakeCCClient.StagingCompleteCallCount()).To(Equal(1))
 				guid, payload, _ := fakeCCClient.StagingCompleteArgsForCall(0)
-				Ω(guid).Should(Equal("the-task-guid"))
-				Ω(payload).Should(Equal(backendResponseJson))
+				Expect(guid).To(Equal("the-task-guid"))
+				Expect(payload).To(Equal(backendResponseJson))
 			})
 
 			Context("when the CC request succeeds", func() {
 				It("increments the staging success counter", func() {
-					Ω(metricSender.GetCounter("StagingRequestsSucceeded")).Should(BeEquivalentTo(1))
+					Expect(metricSender.GetCounter("StagingRequestsSucceeded")).To(BeEquivalentTo(1))
 				})
 
 				It("emits the time it took to stage succesfully", func() {
-					Ω(metricSender.GetValue("StagingRequestSucceededDuration")).Should(Equal(fake.Metric{
+					Expect(metricSender.GetValue("StagingRequestSucceededDuration")).To(Equal(fake.Metric{
 						Value: float64(stagingDurationNano),
 						Unit:  "nanos",
 					}))
+
 				})
 
 				It("returns a 200", func() {
-					Ω(responseRecorder.Code).Should(Equal(200))
+					Expect(responseRecorder.Code).To(Equal(200))
 				})
 			})
 
@@ -239,7 +240,7 @@ var _ = Describe("StagingCompletedHandler", func() {
 				})
 
 				It("responds with the status code that the CC returned", func() {
-					Ω(responseRecorder.Code).Should(Equal(504))
+					Expect(responseRecorder.Code).To(Equal(504))
 				})
 			})
 
@@ -249,15 +250,15 @@ var _ = Describe("StagingCompletedHandler", func() {
 				})
 
 				It("responds with a 503 error", func() {
-					Ω(responseRecorder.Code).Should(Equal(503))
+					Expect(responseRecorder.Code).To(Equal(503))
 				})
 
 				It("does not update the staging counter", func() {
-					Ω(metricSender.GetCounter("StagingRequestsSucceeded")).Should(BeEquivalentTo(0))
+					Expect(metricSender.GetCounter("StagingRequestsSucceeded")).To(BeEquivalentTo(0))
 				})
 
 				It("does not update the staging duration", func() {
-					Ω(metricSender.GetValue("StagingRequestSucceededDuration")).Should(Equal(fake.Metric{}))
+					Expect(metricSender.GetValue("StagingRequestSucceededDuration")).To(Equal(fake.Metric{}))
 				})
 			})
 		})
@@ -271,7 +272,7 @@ var _ = Describe("StagingCompletedHandler", func() {
 
 			var err error
 			backendResponseJson, err = json.Marshal(backendResponse)
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		JustBeforeEach(func() {
@@ -299,26 +300,27 @@ var _ = Describe("StagingCompletedHandler", func() {
 		})
 
 		It("posts the result to CC as an error", func() {
-			Ω(fakeCCClient.StagingCompleteCallCount()).Should(Equal(1))
+			Expect(fakeCCClient.StagingCompleteCallCount()).To(Equal(1))
 			guid, payload, _ := fakeCCClient.StagingCompleteArgsForCall(0)
-			Ω(guid).Should(Equal("the-task-guid"))
-			Ω(payload).Should(Equal(backendResponseJson))
+			Expect(guid).To(Equal("the-task-guid"))
+			Expect(payload).To(Equal(backendResponseJson))
 		})
 
 		It("responds with a 200", func() {
-			Ω(responseRecorder.Code).Should(Equal(http.StatusOK))
+			Expect(responseRecorder.Code).To(Equal(http.StatusOK))
 		})
 
 		It("increments the staging failed counter", func() {
-			Ω(fakeCCClient.StagingCompleteCallCount()).Should(Equal(1))
-			Ω(metricSender.GetCounter("StagingRequestsFailed")).Should(BeEquivalentTo(1))
+			Expect(fakeCCClient.StagingCompleteCallCount()).To(Equal(1))
+			Expect(metricSender.GetCounter("StagingRequestsFailed")).To(BeEquivalentTo(1))
 		})
 
 		It("emits the time it took to stage unsuccesfully", func() {
-			Ω(metricSender.GetValue("StagingRequestFailedDuration")).Should(Equal(fake.Metric{
+			Expect(metricSender.GetValue("StagingRequestFailedDuration")).To(Equal(fake.Metric{
 				Value: 900900,
 				Unit:  "nanos",
 			}))
+
 		})
 	})
 
@@ -339,20 +341,20 @@ var _ = Describe("StagingCompletedHandler", func() {
 		})
 
 		It("responds with a 404", func() {
-			Ω(responseRecorder.Code).Should(Equal(404))
+			Expect(responseRecorder.Code).To(Equal(404))
 		})
 	})
 
 	Context("when invalid JSON is posted instead of a task", func() {
 		JustBeforeEach(func() {
 			request, err := http.NewRequest("POST", "/v1/staging/an-invalid-guid/completed", strings.NewReader("{"))
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
 			handler.StagingComplete(responseRecorder, request)
 		})
 
 		It("responds with a 400", func() {
-			Ω(responseRecorder.Code).Should(Equal(400))
+			Expect(responseRecorder.Code).To(Equal(400))
 		})
 	})
 })
