@@ -94,7 +94,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 			&models.DownloadAction{
 				From:     compilerURL.String(),
 				To:       path.Dir(builderConfig.ExecutablePath),
-				CacheKey: fmt.Sprintf("builder-%s", lifecycleData.Stack),
+				CacheKey: fmt.Sprintf("buildpack-%s-lifecycle", lifecycleData.Stack),
 			},
 			"",
 			"",

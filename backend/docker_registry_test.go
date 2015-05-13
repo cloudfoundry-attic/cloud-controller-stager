@@ -104,7 +104,7 @@ var _ = Describe("DockerBackend", func() {
 				&models.DownloadAction{
 					From:     "http://file-server.com/v1/static/docker_lifecycle/docker_app_lifecycle.tgz",
 					To:       "/tmp/docker_app_lifecycle",
-					CacheKey: "builder-docker",
+					CacheKey: "docker-lifecycle",
 				},
 				"",
 				"",

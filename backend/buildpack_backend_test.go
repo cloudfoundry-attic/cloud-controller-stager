@@ -84,7 +84,7 @@ var _ = Describe("TraditionalBackend", func() {
 			&models.DownloadAction{
 				From:     "http://file-server.com/v1/static/rabbit-hole-compiler",
 				To:       "/tmp/lifecycle",
-				CacheKey: "builder-rabbit_hole",
+				CacheKey: "buildpack-rabbit_hole-lifecycle",
 			},
 			"",
 			"",

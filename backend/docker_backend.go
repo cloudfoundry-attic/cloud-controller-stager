@@ -84,7 +84,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 			&models.DownloadAction{
 				From:     compilerURL.String(),
 				To:       path.Dir(DockerBuilderExecutablePath),
-				CacheKey: "builder-docker",
+				CacheKey: "docker-lifecycle",
 			},
 			"",
 			"",
