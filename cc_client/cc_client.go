@@ -88,23 +88,6 @@ func (cc *ccClient) StagingComplete(stagingGuid string, payload []byte, logger l
 	return nil
 }
 
-func IsRetryable(err error) bool {
-	if nerr, ok := err.(net.Error); ok {
-		return nerr.Temporary() || nerr.Timeout()
-	}
-
-	if berr, ok := err.(*BadResponseError); ok {
-		switch berr.StatusCode {
-		case http.StatusServiceUnavailable, http.StatusGatewayTimeout:
-			return true
-		default:
-			return false
-		}
-	}
-
-	return false
-}
-
 func (cc *ccClient) stagingCompleteURI(stagingGuid string) string {
 	return fmt.Sprintf("%s/internal/staging/%s/completed", cc.baseURI, stagingGuid)
 }
