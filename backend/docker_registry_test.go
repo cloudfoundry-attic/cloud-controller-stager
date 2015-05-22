@@ -1,6 +1,7 @@
 package backend_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -8,7 +9,6 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/stager/backend"
-	"github.com/cloudfoundry-incubator/stager/helpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
@@ -19,7 +19,14 @@ var _ = Describe("DockerBackend", func() {
 
 	const stagingGuid = "staging-guid"
 	const dockerRegistryPort = uint16(8080)
-	var dockerRegistryIPs = []string{"10.244.2.6", "10.244.2.7"}
+	var (
+		dockerRegistryIPs = []string{"10.244.2.6", "10.244.2.7"}
+
+		loginServer string
+		user        string
+		password    string
+		email       string
+	)
 
 	setupDockerBackend := func(insecureDockerRegistry bool, payload string) backend.Backend {
 		server := ghttp.NewServer()
@@ -49,7 +56,16 @@ var _ = Describe("DockerBackend", func() {
 	}
 
 	setupStagingRequest := func() cc_messages.StagingRequestFromCC {
-		lifecycleData, err := helpers.BuildDockerStagingData("busybox")
+		rawJsonBytes, err := json.Marshal(cc_messages.DockerStagingData{
+			DockerImageUrl:    "busybox",
+			DockerLoginServer: loginServer,
+			DockerUser:        user,
+			DockerPassword:    password,
+			DockerEmail:       email,
+		})
+		Expect(err).NotTo(HaveOccurred())
+		lifecycleData := json.RawMessage(rawJsonBytes)
+
 		Expect(err).NotTo(HaveOccurred())
 
 		return cc_messages.StagingRequestFromCC{
@@ -58,9 +74,16 @@ var _ = Describe("DockerBackend", func() {
 			MemoryMB:        512,
 			DiskMB:          512,
 			Timeout:         512,
-			LifecycleData:   lifecycleData,
+			LifecycleData:   &lifecycleData,
 		}
 	}
+
+	BeforeEach(func() {
+		loginServer = ""
+		user = ""
+		password = ""
+		email = ""
+	})
 
 	Context("when docker registry is running", func() {
 		var (
@@ -91,6 +114,10 @@ var _ = Describe("DockerBackend", func() {
 			}
 			return strings.Join(result, ",")
 		}
+
+		BeforeEach(func() {
+			insecureDockerRegistry = false
+		})
 
 		JustBeforeEach(func() {
 			docker = setupDockerBackend(insecureDockerRegistry, fmt.Sprintf(
@@ -140,10 +167,47 @@ var _ = Describe("DockerBackend", func() {
 
 		Context("user opted-in for docker image caching", func() {
 			modelsCachingVar := models.EnvironmentVariable{Name: "DIEGO_DOCKER_CACHE", Value: "true"}
+			var (
+				internalRunAction models.RunAction
+				dockerRegistries  string
+			)
 
 			JustBeforeEach(func() {
 				cachingVar := cc_messages.EnvironmentVariable{Name: "DIEGO_DOCKER_CACHE", Value: "true"}
 				stagingRequest.Environment = append(stagingRequest.Environment, cachingVar)
+				fileDescriptorLimit := uint64(512)
+				dockerRegistries = setupDockerRegistries(dockerRegistryIPs, dockerRegistryPort)
+				internalRunAction = models.RunAction{
+					Path: "/tmp/docker_app_lifecycle/builder",
+					Args: []string{
+						"-outputMetadataJSONFilename",
+						"/tmp/docker-result/result.json",
+						"-dockerRef",
+						"busybox",
+						"-cacheDockerImage",
+						"-dockerRegistryAddresses",
+						dockerRegistries,
+					},
+					Env: []models.EnvironmentVariable{modelsCachingVar},
+					ResourceLimits: models.ResourceLimits{
+						Nofile: &fileDescriptorLimit,
+					},
+					Privileged: true,
+				}
+				expectedRunAction = models.EmitProgressFor(
+					&internalRunAction,
+					"Staging...",
+					"Staging Complete",
+					"Staging Failed",
+				)
+			})
+
+			Context("and Docker Registry is secure", func() {
+				BeforeEach(func() {
+					insecureDockerRegistry = false
+				})
+
+				It("creates a cf-app-docker-staging Task with staging instructions", checkStagingInstructionsFunc)
 			})
 
 			Context("and Docker Registry is insecure", func() {
@@ -152,71 +216,31 @@ var _ = Describe("DockerBackend", func() {
 				})
 
 				JustBeforeEach(func() {
-					fileDescriptorLimit := uint64(512)
-					dockerRegistries := setupDockerRegistries(dockerRegistryIPs, dockerRegistryPort)
-					expectedRunAction = models.EmitProgressFor(
-						&models.RunAction{
-							Path: "/tmp/docker_app_lifecycle/builder",
-							Args: []string{
-								"-outputMetadataJSONFilename",
-								"/tmp/docker-result/result.json",
-								"-dockerRef",
-								"busybox",
-								"-dockerRegistryAddresses",
-								dockerRegistries,
-								"-insecureDockerRegistries",
-								dockerRegistries,
-								"-cacheDockerImage",
-							},
-							Env: []models.EnvironmentVariable{modelsCachingVar},
-							ResourceLimits: models.ResourceLimits{
-								Nofile: &fileDescriptorLimit,
-							},
-							Privileged: true,
-						},
-						"Staging...",
-						"Staging Complete",
-						"Staging Failed",
-					)
+					internalRunAction.Args = append(internalRunAction.Args, "-insecureDockerRegistries", dockerRegistries)
 				})
 
 				It("creates a cf-app-docker-staging Task with staging instructions", checkStagingInstructionsFunc)
 			})
 
-			Context("and Docker Registry is secure", func() {
+			Context("and credentials are provided", func() {
 				BeforeEach(func() {
-					insecureDockerRegistry = false
+					loginServer = "http://loginServer.com"
+					user = "user"
+					password = "password"
+					email = "email@example.com"
 				})
 
 				JustBeforeEach(func() {
-					fileDescriptorLimit := uint64(512)
-					dockerRegistries := setupDockerRegistries(dockerRegistryIPs, dockerRegistryPort)
-					expectedRunAction = models.EmitProgressFor(
-						&models.RunAction{
-							Path: "/tmp/docker_app_lifecycle/builder",
-							Args: []string{
-								"-outputMetadataJSONFilename",
-								"/tmp/docker-result/result.json",
-								"-dockerRef",
-								"busybox",
-								"-dockerRegistryAddresses",
-								dockerRegistries,
-								"-cacheDockerImage",
-							},
-							Env: []models.EnvironmentVariable{modelsCachingVar},
-							ResourceLimits: models.ResourceLimits{
-								Nofile: &fileDescriptorLimit,
-							},
-							Privileged: true,
-						},
-						"Staging...",
-						"Staging Complete",
-						"Staging Failed",
-					)
+					internalRunAction.Args = append(internalRunAction.Args,
+						"-dockerLoginServer", loginServer,
+						"-dockerUser", user,
+						"-dockerPassword", password,
+						"-dockerEmail", email)
 				})
 
 				It("creates a cf-app-docker-staging Task with staging instructions", checkStagingInstructionsFunc)
 			})
+
 		})
 	})
 

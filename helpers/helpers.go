@@ -13,6 +13,6 @@ func BuildDockerStagingData(dockerImage string) (*json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	jsonRawMEssage := json.RawMessage(rawJsonBytes)
-	return &jsonRawMEssage, nil
+	jsonRawMessage := json.RawMessage(rawJsonBytes)
+	return &jsonRawMessage, nil
 }

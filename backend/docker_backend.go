@@ -30,6 +30,7 @@ const (
 
 var ErrMissingDockerImageUrl = errors.New(diego_errors.MISSING_DOCKER_IMAGE_URL)
 var ErrMissingDockerRegistry = errors.New(diego_errors.MISSING_DOCKER_REGISTRY)
+var ErrMissingDockerCredentials = errors.New(diego_errors.MISSING_DOCKER_CREDENTIALS)
 
 type dockerBackend struct {
 	config Config
@@ -98,17 +99,12 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 		if err != nil {
 			return receptor.TaskCreateRequest{}, err
 		}
-
 		registryRules := addDockerRegistryRules(request.EgressRules, registryServices)
 		request.EgressRules = append(request.EgressRules, registryRules...)
 
 		registryAddresses := strings.Join(buildDockerRegistryAddresses(registryServices), ",")
-		runActionArguments = append(runActionArguments, "-dockerRegistryAddresses", registryAddresses)
-		if backend.config.InsecureDockerRegistry {
-			runActionArguments = append(runActionArguments, "-insecureDockerRegistries", registryAddresses)
-		}
 
-		runActionArguments = append(runActionArguments, "-cacheDockerImage")
+		runActionArguments = addDockerCachingArguments(runActionArguments, registryAddresses, backend.config.InsecureDockerRegistry, lifecycleData)
 	}
 
 	fileDescriptorLimit := uint64(request.FileDescriptors)
@@ -232,6 +228,11 @@ func (backend *dockerBackend) validateRequest(stagingRequest cc_messages.Staging
 		return ErrMissingDockerImageUrl
 	}
 
+	credentialsPresent := (len(dockerData.DockerUser) + len(dockerData.DockerPassword) + len(dockerData.DockerEmail)) > 0
+	if credentialsPresent && (len(dockerData.DockerUser) == 0 || len(dockerData.DockerPassword) == 0 || len(dockerData.DockerEmail) == 0) {
+		return ErrMissingDockerCredentials
+	}
+
 	return nil
 }
 
@@ -291,4 +292,24 @@ func getDockerRegistryServices(consulCluster string) ([]consulServiceInfo, error
 	}
 
 	return ips, nil
+}
+
+func addDockerCachingArguments(args []string, registryAddresses string, insecureRegistry bool, stagingData cc_messages.DockerStagingData) []string {
+	args = append(args, "-cacheDockerImage")
+
+	args = append(args, "-dockerRegistryAddresses", registryAddresses)
+	if insecureRegistry {
+		args = append(args, "-insecureDockerRegistries", registryAddresses)
+	}
+
+	if len(stagingData.DockerLoginServer) > 0 {
+		args = append(args, "-dockerLoginServer", stagingData.DockerLoginServer)
+	}
+	if len(stagingData.DockerUser) > 0 {
+		args = append(args, "-dockerUser", stagingData.DockerUser,
+			"-dockerPassword", stagingData.DockerPassword,
+			"-dockerEmail", stagingData.DockerEmail)
+	}
+
+	return args
 }

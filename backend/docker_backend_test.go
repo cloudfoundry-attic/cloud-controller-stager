@@ -24,19 +24,27 @@ var _ = Describe("DockerBackend", func() {
 		config                backend.Config
 		docker                backend.Backend
 
-		stagingGuid     string
-		appId           string
-		dockerImageUrl  string
-		fileDescriptors int
-		memoryMB        int
-		diskMB          int
-		timeout         int
-		egressRules     []models.SecurityGroupRule
+		stagingGuid       string
+		appId             string
+		dockerImageUrl    string
+		dockerLoginServer string
+		dockerUser        string
+		dockerPassword    string
+		dockerEmail       string
+		fileDescriptors   int
+		memoryMB          int
+		diskMB            int
+		timeout           int
+		egressRules       []models.SecurityGroupRule
 	)
 
 	BeforeEach(func() {
 		appId = "bunny"
 		dockerImageUrl = "busybox"
+		dockerLoginServer = ""
+		dockerUser = ""
+		dockerPassword = ""
+		dockerEmail = ""
 		fileDescriptors = 512
 		memoryMB = 2048
 		diskMB = 3072
@@ -120,8 +128,15 @@ var _ = Describe("DockerBackend", func() {
 	})
 
 	JustBeforeEach(func() {
-		lifecycleData, err := helpers.BuildDockerStagingData(dockerImageUrl)
+		rawJsonBytes, err := json.Marshal(cc_messages.DockerStagingData{
+			DockerImageUrl:    dockerImageUrl,
+			DockerLoginServer: dockerLoginServer,
+			DockerUser:        dockerUser,
+			DockerPassword:    dockerPassword,
+			DockerEmail:       dockerEmail,
+		})
 		Expect(err).NotTo(HaveOccurred())
+		lifecycleData := json.RawMessage(rawJsonBytes)
 
 		stagingRequest = cc_messages.StagingRequestFromCC{
 			AppId:           appId,
@@ -136,7 +151,7 @@ var _ = Describe("DockerBackend", func() {
 			EgressRules:   egressRules,
 			Timeout:       timeout,
 			Lifecycle:     "docker",
-			LifecycleData: lifecycleData,
+			LifecycleData: &lifecycleData,
 		}
 	})
 
@@ -150,6 +165,46 @@ var _ = Describe("DockerBackend", func() {
 				_, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).To(Equal(backend.ErrMissingDockerImageUrl))
 			})
+		})
+
+		Context("with a missing credentials set", func() {
+			Context("with missing user", func() {
+				BeforeEach(func() {
+					dockerPassword = "password"
+					dockerEmail = "email@example.com"
+				})
+
+				It("returns an error", func() {
+					_, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+					Expect(err).To(Equal(backend.ErrMissingDockerCredentials))
+				})
+			})
+
+			Context("with missing password", func() {
+				BeforeEach(func() {
+					dockerUser = "user"
+					dockerEmail = "email@example.com"
+				})
+
+				It("returns an error", func() {
+					_, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+					Expect(err).To(Equal(backend.ErrMissingDockerCredentials))
+				})
+
+			})
+
+			Context("with missing email", func() {
+				BeforeEach(func() {
+					dockerUser = "user"
+					dockerPassword = "password"
+				})
+
+				It("returns an error", func() {
+					_, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+					Expect(err).To(Equal(backend.ErrMissingDockerCredentials))
+				})
+			})
+
 		})
 	})
 
