@@ -43,7 +43,7 @@ var _ = Describe("StagingHandler", func() {
 		logger = lagertest.NewTestLogger("test")
 
 		fakeMetricSender = fake_metric_sender.NewFakeMetricSender()
-		metrics.Initialize(fakeMetricSender)
+		metrics.Initialize(fakeMetricSender, nil)
 
 		fakeCcClient = &fakes.FakeCcClient{}
 

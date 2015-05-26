@@ -55,7 +55,7 @@ var _ = Describe("StagingCompletedHandler", func() {
 
 		stagingDurationNano = 900900
 		metricSender = fake.NewFakeMetricSender()
-		metrics.Initialize(metricSender)
+		metrics.Initialize(metricSender, nil)
 
 		fakeCCClient = &fakes.FakeCcClient{}
 		fakeBackend = &fake_backend.FakeBackend{}
