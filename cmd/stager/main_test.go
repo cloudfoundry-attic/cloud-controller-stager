@@ -59,7 +59,7 @@ var _ = Describe("Stager", func() {
 	Context("when started", func() {
 		BeforeEach(func() {
 			runner.Start(
-				"-lifecycle", "buildpack/lucid64:lifecycle.zip",
+				"-lifecycle", "buildpack/linux:lifecycle.zip",
 				"-lifecycle", "docker:docker/lifecycle.tgz",
 			)
 			Eventually(runner.Session()).Should(gbytes.Say("Listening for staging requests!"))
@@ -86,7 +86,7 @@ var _ = Describe("Stager", func() {
 					"lifecycle": "buildpack",
 					"lifecycle_data": {
 					  "buildpacks" : [],
-						"stack":"lucid64",
+						"stack":"linux",
 					  "app_bits_download_uri":"http://example.com/app_bits"
 					}
 				}`))
@@ -271,7 +271,7 @@ var _ = Describe("Stager", func() {
 	Describe("-insecureDockerRegistry arg", func() {
 		Context("when started with -insecureDockerRegistry arg", func() {
 			BeforeEach(func() {
-				runner.Start("-lifecycle", "lucid64:lifecycle.zip", "-insecureDockerRegistry")
+				runner.Start("-lifecycle", "linux:lifecycle.zip", "-insecureDockerRegistry")
 				Eventually(runner.Session()).Should(gbytes.Say("Listening for staging requests!"))
 			})
 
@@ -284,7 +284,7 @@ var _ = Describe("Stager", func() {
 	Describe("-consulCluster arg", func() {
 		Context("when started with a valid -consulCluster arg", func() {
 			BeforeEach(func() {
-				runner.Start("-lifecycle", "lucid64:lifecycle.zip",
+				runner.Start("-lifecycle", "linux:lifecycle.zip",
 					"-consulCluster", "http://localhost:8500")
 				Eventually(runner.Session()).Should(gbytes.Say("Listening for staging requests!"))
 			})
@@ -296,7 +296,7 @@ var _ = Describe("Stager", func() {
 
 		Context("when started with an invalid -consulCluster arg", func() {
 			BeforeEach(func() {
-				runner.Start("-lifecycle", "lucid64:lifecycle.zip",
+				runner.Start("-lifecycle", "linux:lifecycle.zip",
 					"-consulCluster", "://noscheme:8500")
 			})
 
