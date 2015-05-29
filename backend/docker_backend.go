@@ -95,7 +95,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 
 	runActionArguments := []string{"-outputMetadataJSONFilename", DockerBuilderOutputPath, "-dockerRef", lifecycleData.DockerImageUrl}
 	if cacheDockerImage {
-		registryServices, err := getDockerRegistryServices(backend.config.ConsulCluster)
+		registryServices, err := getDockerRegistryServices(backend.config.ConsulCluster, backend.logger)
 		if err != nil {
 			return receptor.TaskCreateRequest{}, err
 		}
@@ -269,7 +269,9 @@ func buildDockerRegistryAddresses(services []consulServiceInfo) []string {
 	return registries
 }
 
-func getDockerRegistryServices(consulCluster string) ([]consulServiceInfo, error) {
+func getDockerRegistryServices(consulCluster string, backendLogger lager.Logger) ([]consulServiceInfo, error) {
+	logger := backendLogger.Session("docker-registry-consul-services")
+
 	response, err := http.Get(consulCluster + "/v1/catalog/service/docker-registry")
 	if err != nil {
 		return nil, err
@@ -290,6 +292,8 @@ func getDockerRegistryServices(consulCluster string) ([]consulServiceInfo, error
 	if len(ips) == 0 {
 		return nil, ErrMissingDockerRegistry
 	}
+
+	logger.Debug("docker-registry-consul-services", lager.Data{"ips": ips})
 
 	return ips, nil
 }
