@@ -111,7 +111,7 @@ var _ = Describe("DockerBackend", func() {
 				ResourceLimits: models.ResourceLimits{
 					Nofile: &fileDescriptorLimit,
 				},
-				Privileged: false,
+				User: "vcap",
 			},
 			"Staging...",
 			"Staging Complete",

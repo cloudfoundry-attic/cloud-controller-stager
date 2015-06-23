@@ -157,6 +157,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 		actions,
 		models.EmitProgressFor(
 			&models.RunAction{
+				User: "vcap",
 				Path: builderConfig.Path(),
 				Args: builderConfig.Args(),
 				Env:  request.Environment.BBSEnvironment(),

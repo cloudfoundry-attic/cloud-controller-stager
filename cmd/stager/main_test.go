@@ -187,6 +187,7 @@ var _ = Describe("Stager", func() {
 					taskJSON, err := json.Marshal(receptor.TaskResponse{
 						TaskGuid: "the-task-guid",
 						Action: &models.RunAction{
+							User: "me",
 							Path: "ls",
 						},
 						Domain: cc_messages.StagingTaskDomain,
@@ -236,6 +237,7 @@ var _ = Describe("Stager", func() {
 					taskJSON, err := json.Marshal(receptor.TaskResponse{
 						TaskGuid: "the-task-guid",
 						Action: &models.RunAction{
+							User: "me",
 							Path: "ls",
 						},
 						Domain: cc_messages.StagingTaskDomain,

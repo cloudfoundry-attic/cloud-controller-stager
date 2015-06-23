@@ -94,7 +94,9 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 	)
 
 	runActionArguments := []string{"-outputMetadataJSONFilename", DockerBuilderOutputPath, "-dockerRef", lifecycleData.DockerImageUrl}
+	runAs := "vcap"
 	if cacheDockerImage {
+		runAs = "root"
 		registryServices, err := getDockerRegistryServices(backend.config.ConsulCluster, backend.logger)
 		if err != nil {
 			return receptor.TaskCreateRequest{}, err
@@ -120,7 +122,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 				ResourceLimits: models.ResourceLimits{
 					Nofile: &fileDescriptorLimit,
 				},
-				Privileged: cacheDockerImage,
+				User: runAs,
 			},
 			"Staging...",
 			"Staging Complete",

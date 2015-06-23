@@ -110,6 +110,7 @@ var _ = Describe("StagingCompletedHandler", func() {
 					"detected_start_command":{"web":"./some-start-command"}
 				}`,
 				Action: &models.RunAction{
+					User: "me",
 					Path: "ls",
 				},
 				Annotation: string(annotationJson),
@@ -291,6 +292,7 @@ var _ = Describe("StagingCompletedHandler", func() {
 					"app_id": "the-app-id"
 				}`,
 				Action: &models.RunAction{
+					User: "me",
 					Path: "ls",
 				},
 				Result: `{}`,
@@ -328,6 +330,7 @@ var _ = Describe("StagingCompletedHandler", func() {
 		JustBeforeEach(func() {
 			taskResponse := receptor.TaskResponse{
 				Action: &models.RunAction{
+					User: "me",
 					Path: "ls",
 				},
 				Domain:        "some-other-crazy-domain",

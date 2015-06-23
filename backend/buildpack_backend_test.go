@@ -153,6 +153,7 @@ var _ = Describe("TraditionalBackend", func() {
 		fileDescriptorLimit := uint64(fileDescriptors)
 		runAction = models.EmitProgressFor(
 			&models.RunAction{
+				User: "vcap",
 				Path: "/tmp/lifecycle/builder",
 				Args: []string{
 					"-buildArtifactsCacheDir=/tmp/cache",
@@ -564,7 +565,7 @@ var _ = Describe("TraditionalBackend", func() {
 			Expect(emitProgressAction).To(BeAssignableToTypeOf(&models.EmitProgressAction{}))
 
 			runAction := emitProgressAction.(*models.EmitProgressAction).Action
-			Expect(runAction).To(BeAssignableToTypeOf(&models.RunAction{}))
+			Expect(runAction).To(BeAssignableToTypeOf(&models.RunAction{User: "me"}))
 			Expect(runAction.(*models.RunAction).Args).To(Equal(args))
 		})
 	})

@@ -192,7 +192,7 @@ var _ = Describe("DockerBackend", func() {
 					ResourceLimits: models.ResourceLimits{
 						Nofile: &fileDescriptorLimit,
 					},
-					Privileged: true,
+					User: "root",
 				}
 				expectedRunAction = models.EmitProgressFor(
 					&internalRunAction,
