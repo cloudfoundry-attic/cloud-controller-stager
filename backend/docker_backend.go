@@ -49,8 +49,8 @@ func NewDockerBackend(config Config, logger lager.Logger) Backend {
 }
 
 func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_messages.StagingRequestFromCC) (receptor.TaskCreateRequest, error) {
-	logger := backend.logger.Session("build-recipe")
-	logger.Info("staging-request", lager.Data{"Request": request})
+	logger := backend.logger.Session("build-recipe", lager.Data{"app-id": request.AppId, "staging-guid": stagingGuid})
+	logger.Info("staging-request")
 
 	var lifecycleData cc_messages.DockerStagingData
 	err := json.Unmarshal(*request.LifecycleData, &lifecycleData)
@@ -150,7 +150,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 		Privileged:            cacheDockerImage,
 	}
 
-	logger.Debug("staging-task-request", lager.Data{"TaskCreateRequest": task})
+	logger.Debug("staging-task-request")
 
 	return task, nil
 }

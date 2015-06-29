@@ -39,8 +39,8 @@ func NewTraditionalBackend(config Config, logger lager.Logger) Backend {
 }
 
 func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_messages.StagingRequestFromCC) (receptor.TaskCreateRequest, error) {
-	logger := backend.logger.Session("build-recipe")
-	logger.Info("staging-request", lager.Data{"Request": request})
+	logger := backend.logger.Session("build-recipe", lager.Data{"app-id": request.AppId, "staging-guid": stagingGuid})
+	logger.Info("staging-request")
 
 	if request.LifecycleData == nil {
 		return receptor.TaskCreateRequest{}, ErrMissingLifecycleData
@@ -231,7 +231,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 		EnvironmentVariables:  []receptor.EnvironmentVariable{{"LANG", DefaultLANG}},
 	}
 
-	logger.Debug("staging-task-request", lager.Data{"TaskCreateRequest": task})
+	logger.Debug("staging-task-request")
 
 	return task, nil
 }
