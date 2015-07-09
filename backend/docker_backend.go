@@ -147,7 +147,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 		LogSource:             TaskLogSource,
 		Annotation:            string(annotationJson),
 		EgressRules:           request.EgressRules,
-		Privileged:            cacheDockerImage,
+		Privileged:            true,
 	}
 
 	logger.Debug("staging-task-request")

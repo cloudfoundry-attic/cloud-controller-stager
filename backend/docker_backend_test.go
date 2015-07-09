@@ -241,7 +241,7 @@ var _ = Describe("DockerBackend", func() {
 		Expect(desiredTask.LogGuid).To(Equal("log-guid"))
 		Expect(desiredTask.LogSource).To(Equal(backend.TaskLogSource))
 		Expect(desiredTask.ResultFile).To(Equal("/tmp/docker-result/result.json"))
-		Expect(desiredTask.Privileged).To(BeFalse())
+		Expect(desiredTask.Privileged).To(BeTrue())
 
 		var annotation cc_messages.StagingTaskAnnotation
 
