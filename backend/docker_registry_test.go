@@ -132,6 +132,7 @@ var _ = Describe("DockerBackend", func() {
 					From:     "http://file-server.com/v1/static/docker_lifecycle/docker_app_lifecycle.tgz",
 					To:       "/tmp/docker_app_lifecycle",
 					CacheKey: "docker-lifecycle",
+					User:     "vcap",
 				},
 				"",
 				"",

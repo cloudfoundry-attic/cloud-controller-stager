@@ -85,6 +85,7 @@ var _ = Describe("TraditionalBackend", func() {
 				From:     "http://file-server.com/v1/static/rabbit-hole-compiler",
 				To:       "/tmp/lifecycle",
 				CacheKey: "buildpack-rabbit_hole-lifecycle",
+				User:     "vcap",
 			},
 			"",
 			"",
@@ -95,6 +96,7 @@ var _ = Describe("TraditionalBackend", func() {
 			Artifact: "app package",
 			From:     "http://example-uri.com/bunny",
 			To:       "/tmp/app",
+			User:     "vcap",
 		}
 
 		downloadFirstBuildpackAction = &models.DownloadAction{
@@ -102,6 +104,7 @@ var _ = Describe("TraditionalBackend", func() {
 			From:     "first-buildpack-url",
 			To:       "/tmp/buildpacks/0fe7d5fc3f73b0ab8682a664da513fbd",
 			CacheKey: "zfirst-buildpack",
+			User:     "vcap",
 		}
 
 		downloadSecondBuildpackAction = &models.DownloadAction{
@@ -109,6 +112,7 @@ var _ = Describe("TraditionalBackend", func() {
 			From:     "second-buildpack-url",
 			To:       "/tmp/buildpacks/58015c32d26f0ad3418f87dd9bf47797",
 			CacheKey: "asecond-buildpack",
+			User:     "vcap",
 		}
 
 		downloadBuildArtifactsAction = models.Try(
@@ -116,6 +120,7 @@ var _ = Describe("TraditionalBackend", func() {
 				Artifact: "build artifacts cache",
 				From:     "http://example-uri.com/bunny-droppings",
 				To:       "/tmp/cache",
+				User:     "vcap",
 			},
 		)
 
@@ -125,6 +130,7 @@ var _ = Describe("TraditionalBackend", func() {
 			Artifact: "droplet",
 			From:     "/tmp/droplet",
 			To:       "http://file-server.com/v1/droplet/bunny?" + models.CcDropletUploadUriKey + "=http%3A%2F%2Fexample-uri.com%2Fdroplet-upload" + "&" + models.CcTimeoutKey + "=" + fmt.Sprintf("%d", timeout),
+			User:     "vcap",
 		}
 
 		uploadBuildArtifactsAction = models.Try(
@@ -132,6 +138,7 @@ var _ = Describe("TraditionalBackend", func() {
 				Artifact: "build artifacts cache",
 				From:     "/tmp/output-cache",
 				To:       "http://file-server.com/v1/build_artifacts/bunny?" + models.CcBuildArtifactsUploadUriKey + "=http%3A%2F%2Fexample-uri.com%2Fbunny-uppings" + "&" + models.CcTimeoutKey + "=" + fmt.Sprintf("%d", timeout),
+				User:     "vcap",
 			},
 		)
 

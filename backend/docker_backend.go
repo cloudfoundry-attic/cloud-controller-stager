@@ -86,6 +86,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 				From:     compilerURL.String(),
 				To:       path.Dir(DockerBuilderExecutablePath),
 				CacheKey: "docker-lifecycle",
+				User:     "vcap",
 			},
 			"",
 			"",

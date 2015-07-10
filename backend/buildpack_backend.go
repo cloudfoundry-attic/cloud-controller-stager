@@ -80,6 +80,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 		Artifact: "app package",
 		From:     lifecycleData.AppBitsDownloadUri,
 		To:       builderConfig.BuildDir(),
+		User:     "vcap",
 	}
 
 	actions = append(actions, appDownloadAction)
@@ -95,6 +96,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 				From:     compilerURL.String(),
 				To:       path.Dir(builderConfig.ExecutablePath),
 				CacheKey: fmt.Sprintf("buildpack-%s-lifecycle", lifecycleData.Stack),
+				User:     "vcap",
 			},
 			"",
 			"",
@@ -120,6 +122,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 					From:     buildpack.Url,
 					To:       builderConfig.BuildpackPath(buildpack.Key),
 					CacheKey: buildpack.Key,
+					User:     "vcap",
 				},
 			)
 		}
@@ -141,6 +144,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 					Artifact: "build artifacts cache",
 					From:     downloadURL.String(),
 					To:       builderConfig.BuildArtifactsCacheDir(),
+					User:     "vcap",
 				},
 			),
 		)
@@ -185,6 +189,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 			Artifact: "droplet",
 			From:     builderConfig.OutputDroplet(), // get the droplet
 			To:       addTimeoutParamToURL(*uploadURL, timeout).String(),
+			User:     "vcap",
 		},
 	)
 	uploadNames = append(uploadNames, "droplet")
@@ -201,6 +206,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 				Artifact: "build artifacts cache",
 				From:     builderConfig.OutputBuildArtifactsCache(), // get the compressed build artifacts cache
 				To:       addTimeoutParamToURL(*uploadURL, timeout).String(),
+				User:     "vcap",
 			},
 		),
 	)
