@@ -73,7 +73,7 @@ var _ = Describe("Stager", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(taskRequest.MemoryMB).To(Equal(1024))
-					Expect(taskRequest.DiskMB).To(Equal(128))
+					Expect(taskRequest.DiskMB).To(Equal(1152))
 					Expect(taskRequest.CompletionCallbackURL).To(Equal(callbackURL))
 				})
 
@@ -110,7 +110,7 @@ var _ = Describe("Stager", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(taskRequest.MemoryMB).To(Equal(1024))
-					Expect(taskRequest.DiskMB).To(Equal(128))
+					Expect(taskRequest.DiskMB).To(Equal(1152))
 					Expect(taskRequest.CompletionCallbackURL).To(Equal(callbackURL))
 				})
 

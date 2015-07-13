@@ -259,7 +259,7 @@ var _ = Describe("DockerBackend", func() {
 		Expect(actions[1]).To(Equal(runAction))
 
 		Expect(desiredTask.MemoryMB).To(Equal(memoryMB))
-		Expect(desiredTask.DiskMB).To(Equal(diskMB))
+		Expect(desiredTask.DiskMB).To(Equal(diskMB + 1024))
 		Expect(desiredTask.EgressRules).To(ConsistOf(egressRules))
 	})
 
@@ -385,7 +385,6 @@ var _ = Describe("DockerBackend", func() {
 								DetectedStartCommand: map[string]string{"a": "b"},
 								LifecycleData:        lifecycleData,
 							}))
-
 						})
 					})
 

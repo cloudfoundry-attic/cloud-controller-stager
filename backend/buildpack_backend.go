@@ -225,7 +225,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 		RootFS:                models.PreloadedRootFS(lifecycleData.Stack),
 		ResultFile:            builderConfig.OutputMetadata(),
 		MemoryMB:              request.MemoryMB,
-		DiskMB:                request.DiskMB,
+		DiskMB:                request.DiskMB + 1024, // TEMPORARY FIX FOR GARDEN-LINUX
 		CPUWeight:             StagingTaskCpuWeight,
 		Action:                models.Timeout(models.Serial(actions...), timeout),
 		LogGuid:               request.LogGuid,

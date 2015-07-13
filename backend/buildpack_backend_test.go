@@ -287,7 +287,7 @@ var _ = Describe("TraditionalBackend", func() {
 		}))
 
 		Expect(desiredTask.MemoryMB).To(Equal(memoryMB))
-		Expect(desiredTask.DiskMB).To(Equal(diskMB))
+		Expect(desiredTask.DiskMB).To(Equal(diskMB + 1024))
 		Expect(desiredTask.CPUWeight).To(Equal(backend.StagingTaskCpuWeight))
 		Expect(desiredTask.EgressRules).To(ConsistOf(egressRules))
 	})
@@ -387,7 +387,7 @@ var _ = Describe("TraditionalBackend", func() {
 			)))
 
 			Expect(desiredTask.MemoryMB).To(Equal(memoryMB))
-			Expect(desiredTask.DiskMB).To(Equal(diskMB))
+			Expect(desiredTask.DiskMB).To(Equal(diskMB + 1024))
 			Expect(desiredTask.CPUWeight).To(Equal(backend.StagingTaskCpuWeight))
 		})
 	})
