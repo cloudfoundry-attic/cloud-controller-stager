@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/buildpack_app_lifecycle"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/stager/backend"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -33,16 +33,16 @@ var _ = Describe("TraditionalBackend", func() {
 		stagingGuid                    string
 		buildpacks                     []cc_messages.Buildpack
 		appBitsDownloadUri             string
-		downloadBuilderAction          models.Action
-		downloadAppAction              models.Action
-		downloadFirstBuildpackAction   models.Action
-		downloadSecondBuildpackAction  models.Action
-		downloadBuildArtifactsAction   models.Action
-		runAction                      models.Action
-		uploadDropletAction            models.Action
-		uploadBuildArtifactsAction     models.Action
-		egressRules                    []models.SecurityGroupRule
-		environment                    cc_messages.Environment
+		downloadBuilderAction          models.ActionInterface
+		downloadAppAction              models.ActionInterface
+		downloadFirstBuildpackAction   models.ActionInterface
+		downloadSecondBuildpackAction  models.ActionInterface
+		downloadBuildArtifactsAction   models.ActionInterface
+		runAction                      models.ActionInterface
+		uploadDropletAction            models.ActionInterface
+		uploadBuildArtifactsAction     models.ActionInterface
+		egressRules                    []*models.SecurityGroupRule
+		environment                    []*models.EnvironmentVariable
 	)
 
 	BeforeEach(func() {
@@ -129,7 +129,7 @@ var _ = Describe("TraditionalBackend", func() {
 		uploadDropletAction = &models.UploadAction{
 			Artifact: "droplet",
 			From:     "/tmp/droplet",
-			To:       "http://file-server.com/v1/droplet/bunny?" + models.CcDropletUploadUriKey + "=http%3A%2F%2Fexample-uri.com%2Fdroplet-upload" + "&" + models.CcTimeoutKey + "=" + fmt.Sprintf("%d", timeout),
+			To:       "http://file-server.com/v1/droplet/bunny?" + cc_messages.CcDropletUploadUriKey + "=http%3A%2F%2Fexample-uri.com%2Fdroplet-upload" + "&" + cc_messages.CcTimeoutKey + "=" + fmt.Sprintf("%d", timeout),
 			User:     "vcap",
 		}
 
@@ -137,12 +137,12 @@ var _ = Describe("TraditionalBackend", func() {
 			&models.UploadAction{
 				Artifact: "build artifacts cache",
 				From:     "/tmp/output-cache",
-				To:       "http://file-server.com/v1/build_artifacts/bunny?" + models.CcBuildArtifactsUploadUriKey + "=http%3A%2F%2Fexample-uri.com%2Fbunny-uppings" + "&" + models.CcTimeoutKey + "=" + fmt.Sprintf("%d", timeout),
+				To:       "http://file-server.com/v1/build_artifacts/bunny?" + cc_messages.CcBuildArtifactsUploadUriKey + "=http%3A%2F%2Fexample-uri.com%2Fbunny-uppings" + "&" + cc_messages.CcTimeoutKey + "=" + fmt.Sprintf("%d", timeout),
 				User:     "vcap",
 			},
 		)
 
-		egressRules = []models.SecurityGroupRule{
+		egressRules = []*models.SecurityGroupRule{
 			{
 				Protocol:     "TCP",
 				Destinations: []string{"0.0.0.0/0"},
@@ -150,7 +150,7 @@ var _ = Describe("TraditionalBackend", func() {
 			},
 		}
 
-		environment = cc_messages.Environment{
+		environment = []*models.EnvironmentVariable{
 			{"VCAP_APPLICATION", "foo"},
 			{"VCAP_SERVICES", "bar"},
 		}
@@ -173,11 +173,11 @@ var _ = Describe("TraditionalBackend", func() {
 					"-skipCertVerify=false",
 					"-skipDetect=" + strconv.FormatBool(buildpacks[0].SkipDetect),
 				},
-				Env: []models.EnvironmentVariable{
+				Env: []*models.EnvironmentVariable{
 					{"VCAP_APPLICATION", "foo"},
 					{"VCAP_SERVICES", "bar"},
 				},
-				ResourceLimits: models.ResourceLimits{Nofile: &fileDescriptorLimit},
+				ResourceLimits: &models.ResourceLimits{Nofile: fileDescriptorLimit},
 			},
 			"Staging...",
 			"Staging complete",
@@ -260,7 +260,7 @@ var _ = Describe("TraditionalBackend", func() {
 		}))
 
 		actions := actionsFromDesiredTask(desiredTask)
-		Expect(actions).To(Equal([]models.Action{
+		Expect(actions).To(Equal(models.Serial(
 			downloadAppAction,
 			models.EmitProgressFor(
 				models.Parallel(
@@ -284,7 +284,7 @@ var _ = Describe("TraditionalBackend", func() {
 				"Uploading complete",
 				"Uploading failed",
 			),
-		}))
+		).Actions))
 
 		Expect(desiredTask.MemoryMB).To(Equal(memoryMB))
 		Expect(desiredTask.DiskMB).To(Equal(diskMB + 1024))
@@ -292,7 +292,7 @@ var _ = Describe("TraditionalBackend", func() {
 		Expect(desiredTask.EgressRules).To(ConsistOf(egressRules))
 	})
 
-	Context("with a speicifed buildpack", func() {
+	Context("with a specified buildpack", func() {
 		BeforeEach(func() {
 			buildpacks = buildpacks[:1]
 			buildpacks[0].SkipDetect = true
@@ -306,8 +306,8 @@ var _ = Describe("TraditionalBackend", func() {
 			actions := actionsFromDesiredTask(desiredTask)
 
 			Expect(actions).To(HaveLen(4))
-			Expect(actions[0]).To(Equal(downloadAppAction))
-			Expect(actions[1]).To(Equal(models.EmitProgressFor(
+			Expect(actions[0].GetDownloadAction()).To(Equal(downloadAppAction))
+			Expect(actions[1].GetEmitProgressAction()).To(Equal(models.EmitProgressFor(
 				models.Parallel(
 					downloadBuilderAction,
 					downloadFirstBuildpackAction,
@@ -318,8 +318,8 @@ var _ = Describe("TraditionalBackend", func() {
 				"Downloading buildpacks failed",
 			)))
 
-			Expect(actions[2]).To(Equal(runAction))
-			Expect(actions[3]).To(Equal(models.EmitProgressFor(
+			Expect(actions[2].GetEmitProgressAction()).To(Equal(runAction))
+			Expect(actions[3].GetEmitProgressAction()).To(Equal(models.EmitProgressFor(
 				models.Parallel(
 					uploadDropletAction,
 					uploadBuildArtifactsAction,
@@ -364,8 +364,8 @@ var _ = Describe("TraditionalBackend", func() {
 			actions := actionsFromDesiredTask(desiredTask)
 
 			Expect(actions).To(HaveLen(4))
-			Expect(actions[0]).To(Equal(downloadAppAction))
-			Expect(actions[1]).To(Equal(models.EmitProgressFor(
+			Expect(actions[0].GetDownloadAction()).To(Equal(downloadAppAction))
+			Expect(actions[1].GetEmitProgressAction()).To(Equal(models.EmitProgressFor(
 				models.Parallel(
 					downloadBuilderAction,
 					downloadBuildArtifactsAction,
@@ -375,8 +375,8 @@ var _ = Describe("TraditionalBackend", func() {
 				"Downloading buildpacks failed",
 			)))
 
-			Expect(actions[2]).To(Equal(runAction))
-			Expect(actions[3]).To(Equal(models.EmitProgressFor(
+			Expect(actions[2].GetEmitProgressAction()).To(Equal(runAction))
+			Expect(actions[3].GetEmitProgressAction()).To(Equal(models.EmitProgressFor(
 				models.Parallel(
 					uploadDropletAction,
 					uploadBuildArtifactsAction,
@@ -408,9 +408,9 @@ var _ = Describe("TraditionalBackend", func() {
 				desiredTask, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).NotTo(HaveOccurred())
 
-				timeoutAction := desiredTask.Action
-				Expect(timeoutAction).To(BeAssignableToTypeOf(&models.TimeoutAction{}))
-				Expect(timeoutAction.(*models.TimeoutAction).Timeout).To(Equal(time.Duration(timeout) * time.Second))
+				timeoutAction := desiredTask.Action.GetTimeoutAction()
+				Expect(timeoutAction).NotTo(BeNil())
+				Expect(timeoutAction.Timeout).To(Equal(int64(time.Duration(timeout) * time.Second)))
 			})
 		})
 
@@ -423,9 +423,9 @@ var _ = Describe("TraditionalBackend", func() {
 				desiredTask, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).NotTo(HaveOccurred())
 
-				timeoutAction := desiredTask.Action
-				Expect(timeoutAction).To(BeAssignableToTypeOf(&models.TimeoutAction{}))
-				Expect(timeoutAction.(*models.TimeoutAction).Timeout).To(Equal(backend.DefaultStagingTimeout))
+				timeoutAction := desiredTask.Action.GetTimeoutAction()
+				Expect(timeoutAction).NotTo(BeNil())
+				Expect(timeoutAction.Timeout).To(Equal(int64(backend.DefaultStagingTimeout)))
 			})
 		})
 
@@ -438,9 +438,9 @@ var _ = Describe("TraditionalBackend", func() {
 				desiredTask, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).NotTo(HaveOccurred())
 
-				timeoutAction := desiredTask.Action
-				Expect(timeoutAction).To(BeAssignableToTypeOf(&models.TimeoutAction{}))
-				Expect(timeoutAction.(*models.TimeoutAction).Timeout).To(Equal(backend.DefaultStagingTimeout))
+				timeoutAction := desiredTask.Action.GetTimeoutAction()
+				Expect(timeoutAction).NotTo(BeNil())
+				Expect(timeoutAction.Timeout).To(Equal(int64(backend.DefaultStagingTimeout)))
 			})
 		})
 	})
@@ -454,7 +454,7 @@ var _ = Describe("TraditionalBackend", func() {
 			desiredTask, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(actionsFromDesiredTask(desiredTask)).To(Equal([]models.Action{
+			Expect(actionsFromDesiredTask(desiredTask)).To(Equal(models.Serial(
 				downloadAppAction,
 				models.EmitProgressFor(
 					models.Parallel(
@@ -477,8 +477,7 @@ var _ = Describe("TraditionalBackend", func() {
 					"Uploading complete",
 					"Uploading failed",
 				),
-			}))
-
+			).Actions))
 		})
 	})
 
@@ -505,7 +504,7 @@ var _ = Describe("TraditionalBackend", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			actions := actionsFromDesiredTask(desiredTask)
-			downloadAction := actions[1].(*models.EmitProgressAction).Action.(*models.ParallelAction).Actions[0].(*models.EmitProgressAction).Action.(*models.DownloadAction)
+			downloadAction := actions[1].GetEmitProgressAction().Action.GetParallelAction().Actions[0].GetEmitProgressAction().Action.GetDownloadAction()
 			Expect(downloadAction.From).To(Equal("http://the-full-compiler-url"))
 		})
 	})
@@ -561,19 +560,19 @@ var _ = Describe("TraditionalBackend", func() {
 
 			Expect(err).NotTo(HaveOccurred())
 
-			timeoutAction := desiredTask.Action
-			Expect(timeoutAction).To(BeAssignableToTypeOf(&models.TimeoutAction{}))
-			Expect(timeoutAction.(*models.TimeoutAction).Timeout).To(Equal(15 * time.Minute))
+			timeoutAction := desiredTask.Action.GetTimeoutAction()
+			Expect(timeoutAction).NotTo(BeNil())
+			Expect(timeoutAction.Timeout).To(Equal(int64(15 * time.Minute)))
 
-			serialAction := timeoutAction.(*models.TimeoutAction).Action
-			Expect(serialAction).To(BeAssignableToTypeOf(&models.SerialAction{}))
+			serialAction := timeoutAction.Action.GetSerialAction()
+			Expect(serialAction).NotTo(BeNil())
 
-			emitProgressAction := serialAction.(*models.SerialAction).Actions[2]
-			Expect(emitProgressAction).To(BeAssignableToTypeOf(&models.EmitProgressAction{}))
+			emitProgressAction := serialAction.Actions[2].GetEmitProgressAction()
+			Expect(emitProgressAction).NotTo(BeNil())
 
-			runAction := emitProgressAction.(*models.EmitProgressAction).Action
-			Expect(runAction).To(BeAssignableToTypeOf(&models.RunAction{User: "me"}))
-			Expect(runAction.(*models.RunAction).Args).To(Equal(args))
+			runAction := emitProgressAction.Action.GetRunAction()
+			Expect(runAction).NotTo(BeNil())
+			Expect(runAction.Args).To(Equal(args))
 		})
 	})
 

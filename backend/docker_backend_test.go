@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/docker_app_lifecycle"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/stager/backend"
 	"github.com/cloudfoundry-incubator/stager/helpers"
 	. "github.com/onsi/ginkgo"
@@ -19,8 +19,8 @@ import (
 var _ = Describe("DockerBackend", func() {
 	var (
 		stagingRequest        cc_messages.StagingRequestFromCC
-		downloadBuilderAction models.Action
-		runAction             models.Action
+		downloadBuilderAction models.ActionInterface
+		runAction             models.ActionInterface
 		config                backend.Config
 		docker                backend.Backend
 
@@ -35,7 +35,7 @@ var _ = Describe("DockerBackend", func() {
 		memoryMB          int
 		diskMB            int
 		timeout           int
-		egressRules       []models.SecurityGroupRule
+		egressRules       []*models.SecurityGroupRule
 	)
 
 	BeforeEach(func() {
@@ -99,7 +99,7 @@ var _ = Describe("DockerBackend", func() {
 					"-dockerRef",
 					"busybox",
 				},
-				Env: []models.EnvironmentVariable{
+				Env: []*models.EnvironmentVariable{
 					{
 						Name:  "VCAP_APPLICATION",
 						Value: "foo",
@@ -109,8 +109,8 @@ var _ = Describe("DockerBackend", func() {
 						Value: "bar",
 					},
 				},
-				ResourceLimits: models.ResourceLimits{
-					Nofile: &fileDescriptorLimit,
+				ResourceLimits: &models.ResourceLimits{
+					Nofile: fileDescriptorLimit,
 				},
 				User: "vcap",
 			},
@@ -119,7 +119,7 @@ var _ = Describe("DockerBackend", func() {
 			"Staging Failed",
 		)
 
-		egressRules = []models.SecurityGroupRule{
+		egressRules = []*models.SecurityGroupRule{
 			{
 				Protocol:     "TCP",
 				Destinations: []string{"0.0.0.0/0"},
@@ -145,7 +145,7 @@ var _ = Describe("DockerBackend", func() {
 			FileDescriptors: fileDescriptors,
 			MemoryMB:        memoryMB,
 			DiskMB:          diskMB,
-			Environment: cc_messages.Environment{
+			Environment: []*models.EnvironmentVariable{
 				{"VCAP_APPLICATION", "foo"},
 				{"VCAP_SERVICES", "bar"},
 			},
@@ -255,8 +255,8 @@ var _ = Describe("DockerBackend", func() {
 
 		actions := actionsFromDesiredTask(desiredTask)
 		Expect(actions).To(HaveLen(2))
-		Expect(actions[0]).To(Equal(downloadBuilderAction))
-		Expect(actions[1]).To(Equal(runAction))
+		Expect(actions[0].GetEmitProgressAction()).To(Equal(downloadBuilderAction))
+		Expect(actions[1].GetEmitProgressAction()).To(Equal(runAction))
 
 		Expect(desiredTask.MemoryMB).To(Equal(memoryMB))
 		Expect(desiredTask.DiskMB).To(Equal(diskMB + 1024))
@@ -287,9 +287,9 @@ var _ = Describe("DockerBackend", func() {
 				desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).NotTo(HaveOccurred())
 
-				timeoutAction := desiredTask.Action
-				Expect(timeoutAction).To(BeAssignableToTypeOf(&models.TimeoutAction{}))
-				Expect(timeoutAction.(*models.TimeoutAction).Timeout).To(Equal(time.Duration(timeout) * time.Second))
+				timeoutAction := desiredTask.Action.GetTimeoutAction()
+				Expect(timeoutAction).NotTo(BeNil())
+				Expect(timeoutAction.Timeout).To(Equal(int64(time.Duration(timeout) * time.Second)))
 			})
 		})
 
@@ -302,9 +302,9 @@ var _ = Describe("DockerBackend", func() {
 				desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).NotTo(HaveOccurred())
 
-				timeoutAction := desiredTask.Action
-				Expect(timeoutAction).To(BeAssignableToTypeOf(&models.TimeoutAction{}))
-				Expect(timeoutAction.(*models.TimeoutAction).Timeout).To(Equal(backend.DefaultStagingTimeout))
+				timeoutAction := desiredTask.Action.GetTimeoutAction()
+				Expect(timeoutAction).NotTo(BeNil())
+				Expect(timeoutAction.Timeout).To(Equal(int64(backend.DefaultStagingTimeout)))
 			})
 		})
 
@@ -317,9 +317,9 @@ var _ = Describe("DockerBackend", func() {
 				desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).NotTo(HaveOccurred())
 
-				timeoutAction := desiredTask.Action
-				Expect(timeoutAction).To(BeAssignableToTypeOf(&models.TimeoutAction{}))
-				Expect(timeoutAction.(*models.TimeoutAction).Timeout).To(Equal(backend.DefaultStagingTimeout))
+				timeoutAction := desiredTask.Action.GetTimeoutAction()
+				Expect(timeoutAction).NotTo(BeNil())
+				Expect(timeoutAction.Timeout).To(Equal(int64(backend.DefaultStagingTimeout)))
 			})
 		})
 	})

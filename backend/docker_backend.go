@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/docker_app_lifecycle"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/diego_errors"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/routes"
 	"github.com/cloudfoundry-incubator/stager/helpers"
 	"github.com/cloudfoundry/gunk/urljoiner"
@@ -76,7 +76,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 		}
 	}
 
-	actions := []models.Action{}
+	actions := []models.ActionInterface{}
 
 	//Download builder
 	actions = append(
@@ -119,9 +119,9 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 			&models.RunAction{
 				Path: DockerBuilderExecutablePath,
 				Args: runActionArguments,
-				Env:  request.Environment.BBSEnvironment(),
-				ResourceLimits: models.ResourceLimits{
-					Nofile: &fileDescriptorLimit,
+				Env:  request.Environment,
+				ResourceLimits: &models.ResourceLimits{
+					Nofile: fileDescriptorLimit,
 				},
 				User: runAs,
 			},
@@ -142,7 +142,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 		RootFS:                models.PreloadedRootFS(backend.config.DockerStagingStack),
 		MemoryMB:              request.MemoryMB,
 		DiskMB:                request.DiskMB + 1024, // TEMPORARY FIX FOR GARDEN-LINUX
-		Action:                models.Timeout(models.Serial(actions...), dockerTimeout(request, backend.logger)),
+		Action:                models.WrapAction(models.Timeout(models.Serial(actions...), dockerTimeout(request, backend.logger))),
 		CompletionCallbackURL: backend.config.CallbackURL(stagingGuid),
 		LogGuid:               request.LogGuid,
 		LogSource:             TaskLogSource,
@@ -252,12 +252,12 @@ func dockerTimeout(request cc_messages.StagingRequestFromCC, logger lager.Logger
 	}
 }
 
-func addDockerRegistryRules(egressRules []models.SecurityGroupRule, registries []consulServiceInfo) []models.SecurityGroupRule {
+func addDockerRegistryRules(egressRules []*models.SecurityGroupRule, registries []consulServiceInfo) []*models.SecurityGroupRule {
 	for _, registry := range registries {
-		egressRules = append(egressRules, models.SecurityGroupRule{
+		egressRules = append(egressRules, &models.SecurityGroupRule{
 			Protocol:     models.TCPProtocol,
 			Destinations: []string{registry.Address},
-			Ports:        []uint16{8080},
+			Ports:        []uint32{8080},
 		})
 	}
 

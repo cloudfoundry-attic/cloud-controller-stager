@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/buildpack_app_lifecycle"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/routes"
 	"github.com/cloudfoundry/gunk/urljoiner"
 	"github.com/pivotal-golang/lager"
@@ -73,7 +73,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 
 	timeout := traditionalTimeout(request, backend.logger)
 
-	actions := []models.Action{}
+	actions := []models.ActionInterface{}
 
 	//Download app package
 	appDownloadAction := &models.DownloadAction{
@@ -85,7 +85,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 
 	actions = append(actions, appDownloadAction)
 
-	downloadActions := []models.Action{}
+	downloadActions := []models.ActionInterface{}
 	downloadNames := []string{}
 
 	//Download builder
@@ -164,9 +164,9 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 				User: "vcap",
 				Path: builderConfig.Path(),
 				Args: builderConfig.Args(),
-				Env:  request.Environment.BBSEnvironment(),
-				ResourceLimits: models.ResourceLimits{
-					Nofile: &fileDescriptorLimit,
+				Env:  request.Environment,
+				ResourceLimits: &models.ResourceLimits{
+					Nofile: fileDescriptorLimit,
 				},
 			},
 			"Staging...",
@@ -176,7 +176,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 	)
 
 	//Upload Droplet
-	uploadActions := []models.Action{}
+	uploadActions := []models.ActionInterface{}
 	uploadNames := []string{}
 	uploadURL, err := backend.dropletUploadURL(request, lifecycleData)
 	if err != nil {
@@ -227,14 +227,14 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 		MemoryMB:              request.MemoryMB,
 		DiskMB:                request.DiskMB + 1024, // TEMPORARY FIX FOR GARDEN-LINUX
 		CPUWeight:             StagingTaskCpuWeight,
-		Action:                models.Timeout(models.Serial(actions...), timeout),
+		Action:                models.WrapAction(models.Timeout(models.Serial(actions...), timeout)),
 		LogGuid:               request.LogGuid,
 		LogSource:             TaskLogSource,
 		CompletionCallbackURL: backend.config.CallbackURL(stagingGuid),
 		EgressRules:           request.EgressRules,
 		Annotation:            string(annotationJson),
 		Privileged:            true,
-		EnvironmentVariables:  []receptor.EnvironmentVariable{{"LANG", DefaultLANG}},
+		EnvironmentVariables:  []*models.EnvironmentVariable{{"LANG", DefaultLANG}},
 	}
 
 	logger.Debug("staging-task-request")
@@ -330,7 +330,7 @@ func (backend *traditionalBackend) dropletUploadURL(request cc_messages.StagingR
 	}
 
 	values := make(url.Values, 1)
-	values.Add(models.CcDropletUploadUriKey, buildpackData.DropletUploadUri)
+	values.Add(cc_messages.CcDropletUploadUriKey, buildpackData.DropletUploadUri)
 	u.RawQuery = values.Encode()
 
 	return u, nil
@@ -352,7 +352,7 @@ func (backend *traditionalBackend) buildArtifactsUploadURL(request cc_messages.S
 	}
 
 	values := make(url.Values, 1)
-	values.Add(models.CcBuildArtifactsUploadUriKey, buildpackData.BuildArtifactsCacheUploadUri)
+	values.Add(cc_messages.CcBuildArtifactsUploadUriKey, buildpackData.BuildArtifactsCacheUploadUri)
 	u.RawQuery = values.Encode()
 
 	return u, nil

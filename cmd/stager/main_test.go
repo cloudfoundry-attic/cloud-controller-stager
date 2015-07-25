@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages/flags"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/stager"
 	"github.com/cloudfoundry-incubator/stager/cmd/stager/testrunner"
 	. "github.com/onsi/ginkgo"
@@ -186,10 +186,10 @@ var _ = Describe("Stager", func() {
 
 					taskJSON, err := json.Marshal(receptor.TaskResponse{
 						TaskGuid: "the-task-guid",
-						Action: &models.RunAction{
+						Action: models.WrapAction(&models.RunAction{
 							User: "me",
 							Path: "ls",
-						},
+						}),
 						Domain: cc_messages.StagingTaskDomain,
 						Annotation: `{
 							"lifecycle": "docker"
@@ -236,10 +236,10 @@ var _ = Describe("Stager", func() {
 
 					taskJSON, err := json.Marshal(receptor.TaskResponse{
 						TaskGuid: "the-task-guid",
-						Action: &models.RunAction{
+						Action: models.WrapAction(&models.RunAction{
 							User: "me",
 							Path: "ls",
-						},
+						}),
 						Domain: cc_messages.StagingTaskDomain,
 						Annotation: `{
 							"lifecycle": "buildpack"

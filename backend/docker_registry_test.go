@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/stager/backend"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -18,7 +18,7 @@ import (
 var _ = Describe("DockerBackend", func() {
 
 	const stagingGuid = "staging-guid"
-	const dockerRegistryPort = uint16(8080)
+	const dockerRegistryPort = uint32(8080)
 	var (
 		dockerRegistryIPs = []string{"10.244.2.6", "10.244.2.7"}
 
@@ -87,27 +87,27 @@ var _ = Describe("DockerBackend", func() {
 
 	Context("when docker registry is running", func() {
 		var (
-			downloadBuilderAction  models.Action
+			downloadBuilderAction  models.ActionInterface
 			docker                 backend.Backend
-			expectedRunAction      models.Action
-			expectedEgressRules    []models.SecurityGroupRule
+			expectedRunAction      models.ActionInterface
+			expectedEgressRules    []*models.SecurityGroupRule
 			insecureDockerRegistry bool
 			stagingRequest         cc_messages.StagingRequestFromCC
 		)
 
-		setupEgressRules := func(ips []string) []models.SecurityGroupRule {
-			rules := []models.SecurityGroupRule{}
+		setupEgressRules := func(ips []string) []*models.SecurityGroupRule {
+			rules := []*models.SecurityGroupRule{}
 			for _, ip := range ips {
-				rules = append(rules, models.SecurityGroupRule{
+				rules = append(rules, &models.SecurityGroupRule{
 					Protocol:     models.TCPProtocol,
 					Destinations: []string{ip},
-					Ports:        []uint16{dockerRegistryPort},
+					Ports:        []uint32{dockerRegistryPort},
 				})
 			}
 			return rules
 		}
 
-		setupDockerRegistries := func(ips []string, port uint16) string {
+		setupDockerRegistries := func(ips []string, port uint32) string {
 			var result []string
 			for _, ip := range ips {
 				result = append(result, fmt.Sprintf("%s:%d", ip, port))
@@ -154,8 +154,8 @@ var _ = Describe("DockerBackend", func() {
 
 			actions := actionsFromDesiredTask(desiredTask)
 			Expect(actions).To(HaveLen(2))
-			Expect(actions[0]).To(Equal(downloadBuilderAction))
-			Expect(actions[1]).To(Equal(expectedRunAction))
+			Expect(actions[0].GetEmitProgressAction()).To(Equal(downloadBuilderAction))
+			Expect(actions[1].GetEmitProgressAction()).To(Equal(expectedRunAction))
 		}
 
 		Context("user did not opt-in for docker image caching", func() {
@@ -167,14 +167,14 @@ var _ = Describe("DockerBackend", func() {
 		})
 
 		Context("user opted-in for docker image caching", func() {
-			modelsCachingVar := models.EnvironmentVariable{Name: "DIEGO_DOCKER_CACHE", Value: "true"}
+			modelsCachingVar := &models.EnvironmentVariable{Name: "DIEGO_DOCKER_CACHE", Value: "true"}
 			var (
 				internalRunAction models.RunAction
 				dockerRegistries  string
 			)
 
 			JustBeforeEach(func() {
-				cachingVar := cc_messages.EnvironmentVariable{Name: "DIEGO_DOCKER_CACHE", Value: "true"}
+				cachingVar := &models.EnvironmentVariable{Name: "DIEGO_DOCKER_CACHE", Value: "true"}
 				stagingRequest.Environment = append(stagingRequest.Environment, cachingVar)
 				fileDescriptorLimit := uint64(512)
 				dockerRegistries = setupDockerRegistries(dockerRegistryIPs, dockerRegistryPort)
@@ -189,9 +189,9 @@ var _ = Describe("DockerBackend", func() {
 						"-dockerRegistryAddresses",
 						dockerRegistries,
 					},
-					Env: []models.EnvironmentVariable{modelsCachingVar},
-					ResourceLimits: models.ResourceLimits{
-						Nofile: &fileDescriptorLimit,
+					Env: []*models.EnvironmentVariable{modelsCachingVar},
+					ResourceLimits: &models.ResourceLimits{
+						Nofile: fileDescriptorLimit,
 					},
 					User: "root",
 				}
@@ -258,7 +258,7 @@ var _ = Describe("DockerBackend", func() {
 
 		Context("and user opted-in for docker image caching", func() {
 			BeforeEach(func() {
-				cachingVar := cc_messages.EnvironmentVariable{Name: "DIEGO_DOCKER_CACHE", Value: "true"}
+				cachingVar := &models.EnvironmentVariable{Name: "DIEGO_DOCKER_CACHE", Value: "true"}
 				stagingRequest.Environment = append(stagingRequest.Environment, cachingVar)
 			})
 
@@ -275,7 +275,5 @@ var _ = Describe("DockerBackend", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
-
 	})
-
 })

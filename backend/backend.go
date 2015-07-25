@@ -9,7 +9,6 @@ import (
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/diego_errors"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
 )
 
 const (
@@ -56,7 +55,7 @@ func max(x, y uint64) uint64 {
 
 func addTimeoutParamToURL(u url.URL, timeout time.Duration) *url.URL {
 	query := u.Query()
-	query.Set(models.CcTimeoutKey, fmt.Sprintf("%.0f", timeout.Seconds()))
+	query.Set(cc_messages.CcTimeoutKey, fmt.Sprintf("%.0f", timeout.Seconds()))
 	u.RawQuery = query.Encode()
 	return &u
 }

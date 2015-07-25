@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	"github.com/cloudfoundry-incubator/stager/backend"
 	"github.com/cloudfoundry-incubator/stager/backend/fake_backend"
 	"github.com/cloudfoundry-incubator/stager/cc_client"
@@ -109,10 +109,10 @@ var _ = Describe("StagingCompletedHandler", func() {
 					"execution_metadata":"{\"start_command\":\"./some-start-command\"}",
 					"detected_start_command":{"web":"./some-start-command"}
 				}`,
-				Action: &models.RunAction{
+				Action: models.WrapAction(&models.RunAction{
 					User: "me",
 					Path: "ls",
-				},
+				}),
 				Annotation: string(annotationJson),
 			}
 
@@ -291,10 +291,10 @@ var _ = Describe("StagingCompletedHandler", func() {
 					"task_id": "the-task-id",
 					"app_id": "the-app-id"
 				}`,
-				Action: &models.RunAction{
+				Action: models.WrapAction(&models.RunAction{
 					User: "me",
 					Path: "ls",
-				},
+				}),
 				Result: `{}`,
 			}
 
@@ -329,10 +329,10 @@ var _ = Describe("StagingCompletedHandler", func() {
 	Context("when a non-staging task is reported", func() {
 		JustBeforeEach(func() {
 			taskResponse := receptor.TaskResponse{
-				Action: &models.RunAction{
+				Action: models.WrapAction(&models.RunAction{
 					User: "me",
 					Path: "ls",
-				},
+				}),
 				Domain:        "some-other-crazy-domain",
 				Failed:        true,
 				FailureReason: "because I said so",
