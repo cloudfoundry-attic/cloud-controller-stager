@@ -191,7 +191,7 @@ var _ = Describe("DockerBackend", func() {
 					},
 					Env: []*models.EnvironmentVariable{modelsCachingVar},
 					ResourceLimits: &models.ResourceLimits{
-						Nofile: fileDescriptorLimit,
+						Nofile: &fileDescriptorLimit,
 					},
 					User: "root",
 				}

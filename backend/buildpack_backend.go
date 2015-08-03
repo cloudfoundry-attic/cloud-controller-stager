@@ -166,7 +166,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 				Args: builderConfig.Args(),
 				Env:  request.Environment,
 				ResourceLimits: &models.ResourceLimits{
-					Nofile: fileDescriptorLimit,
+					Nofile: &fileDescriptorLimit,
 				},
 			},
 			"Staging...",

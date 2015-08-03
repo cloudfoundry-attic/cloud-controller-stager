@@ -110,7 +110,7 @@ var _ = Describe("DockerBackend", func() {
 					},
 				},
 				ResourceLimits: &models.ResourceLimits{
-					Nofile: fileDescriptorLimit,
+					Nofile: &fileDescriptorLimit,
 				},
 				User: "vcap",
 			},

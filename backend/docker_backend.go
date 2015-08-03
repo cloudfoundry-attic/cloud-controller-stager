@@ -121,7 +121,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 				Args: runActionArguments,
 				Env:  request.Environment,
 				ResourceLimits: &models.ResourceLimits{
-					Nofile: fileDescriptorLimit,
+					Nofile: &fileDescriptorLimit,
 				},
 				User: runAs,
 			},

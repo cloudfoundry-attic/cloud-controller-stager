@@ -177,7 +177,7 @@ var _ = Describe("TraditionalBackend", func() {
 					{"VCAP_APPLICATION", "foo"},
 					{"VCAP_SERVICES", "bar"},
 				},
-				ResourceLimits: &models.ResourceLimits{Nofile: fileDescriptorLimit},
+				ResourceLimits: &models.ResourceLimits{Nofile: &fileDescriptorLimit},
 			},
 			"Staging...",
 			"Staging complete",
