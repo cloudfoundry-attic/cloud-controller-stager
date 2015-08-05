@@ -89,5 +89,5 @@ func (cc *ccClient) StagingComplete(stagingGuid string, payload []byte, logger l
 }
 
 func (cc *ccClient) stagingCompleteURI(stagingGuid string) string {
-	return fmt.Sprintf("%s/internal/staging/%s/completed", cc.baseURI, stagingGuid)
+	return fmt.Sprintf("%s/v3/internal/staging/%s/completed", cc.baseURI, stagingGuid)
 }

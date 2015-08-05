@@ -174,7 +174,7 @@ var _ = Describe("Stager", func() {
 				BeforeEach(func() {
 					fakeCC.AppendHandlers(
 						ghttp.CombineHandlers(
-							ghttp.VerifyRequest("POST", "/internal/staging/the-task-guid/completed"),
+							ghttp.VerifyRequest("POST", "/v3/internal/staging/the-task-guid/completed"),
 							ghttp.VerifyContentType("application/json"),
 							ghttp.VerifyJSON(`{
 								"execution_metadata": "metadata",
@@ -221,7 +221,7 @@ var _ = Describe("Stager", func() {
 				BeforeEach(func() {
 					fakeCC.AppendHandlers(
 						ghttp.CombineHandlers(
-							ghttp.VerifyRequest("POST", "/internal/staging/the-task-guid/completed"),
+							ghttp.VerifyRequest("POST", "/v3/internal/staging/the-task-guid/completed"),
 							ghttp.VerifyContentType("application/json"),
 							ghttp.VerifyJSON(`{
 								"execution_metadata": "metadata",
