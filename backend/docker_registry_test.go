@@ -19,8 +19,10 @@ var _ = Describe("DockerBackend", func() {
 
 	const stagingGuid = "staging-guid"
 	const dockerRegistryPort = uint32(8080)
+	const dockerRegistryHost = "docker-registry.service.cf.internal"
 	var (
-		dockerRegistryIPs = []string{"10.244.2.6", "10.244.2.7"}
+		dockerRegistryIPs     = []string{"10.244.2.6", "10.244.2.7"}
+		dockerRegistryAddress = fmt.Sprintf("%s:%d", dockerRegistryHost, dockerRegistryPort)
 
 		loginServer string
 		user        string
@@ -43,6 +45,7 @@ var _ = Describe("DockerBackend", func() {
 		config := backend.Config{
 			FileServerURL:          "http://file-server.com",
 			ConsulCluster:          server.URL(),
+			DockerRegistryAddress:  dockerRegistryAddress,
 			InsecureDockerRegistry: insecureDockerRegistry,
 			Lifecycles: map[string]string{
 				"docker": "docker_lifecycle/docker_app_lifecycle.tgz",
@@ -107,14 +110,6 @@ var _ = Describe("DockerBackend", func() {
 			return rules
 		}
 
-		setupDockerRegistries := func(ips []string, port uint32) string {
-			var result []string
-			for _, ip := range ips {
-				result = append(result, fmt.Sprintf("%s:%d", ip, port))
-			}
-			return strings.Join(result, ",")
-		}
-
 		BeforeEach(func() {
 			insecureDockerRegistry = false
 		})
@@ -170,14 +165,12 @@ var _ = Describe("DockerBackend", func() {
 			modelsCachingVar := &models.EnvironmentVariable{Name: "DIEGO_DOCKER_CACHE", Value: "true"}
 			var (
 				internalRunAction models.RunAction
-				dockerRegistries  string
 			)
 
 			JustBeforeEach(func() {
 				cachingVar := &models.EnvironmentVariable{Name: "DIEGO_DOCKER_CACHE", Value: "true"}
 				stagingRequest.Environment = append(stagingRequest.Environment, cachingVar)
 				fileDescriptorLimit := uint64(512)
-				dockerRegistries = setupDockerRegistries(dockerRegistryIPs, dockerRegistryPort)
 				internalRunAction = models.RunAction{
 					Path: "/tmp/docker_app_lifecycle/builder",
 					Args: []string{
@@ -186,8 +179,12 @@ var _ = Describe("DockerBackend", func() {
 						"-dockerRef",
 						"busybox",
 						"-cacheDockerImage",
-						"-dockerRegistryAddresses",
-						dockerRegistries,
+						"-dockerRegistryHost",
+						dockerRegistryHost,
+						"-dockerRegistryPort",
+						fmt.Sprintf("%d", dockerRegistryPort),
+						"-dockerRegistryIPs",
+						strings.Join(dockerRegistryIPs, ","),
 					},
 					Env: []*models.EnvironmentVariable{modelsCachingVar},
 					ResourceLimits: &models.ResourceLimits{
@@ -217,7 +214,7 @@ var _ = Describe("DockerBackend", func() {
 				})
 
 				JustBeforeEach(func() {
-					internalRunAction.Args = append(internalRunAction.Args, "-insecureDockerRegistries", dockerRegistries)
+					internalRunAction.Args = append(internalRunAction.Args, "-insecureDockerRegistries", dockerRegistryAddress)
 				})
 
 				It("creates a cf-app-docker-staging Task with staging instructions", checkStagingInstructionsFunc)

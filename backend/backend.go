@@ -34,6 +34,7 @@ type Config struct {
 	StagerURL              string
 	FileServerURL          string
 	Lifecycles             map[string]string
+	DockerRegistryAddress  string
 	InsecureDockerRegistry bool
 	ConsulCluster          string
 	SkipCertVerify         bool

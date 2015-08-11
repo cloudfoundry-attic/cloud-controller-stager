@@ -13,7 +13,9 @@ import (
 	"github.com/cloudfoundry-incubator/stager/helpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	"github.com/pivotal-golang/lager"
+	"github.com/pivotal-golang/lager/lagertest"
 )
 
 var _ = Describe("DockerBackend", func() {
@@ -22,6 +24,7 @@ var _ = Describe("DockerBackend", func() {
 		downloadBuilderAction models.ActionInterface
 		runAction             models.ActionInterface
 		config                backend.Config
+		logger                lager.Logger
 		docker                backend.Backend
 
 		stagingGuid       string
@@ -70,11 +73,6 @@ var _ = Describe("DockerBackend", func() {
 				return &cc_messages.StagingError{Message: msg + " was totally sanitized"}
 			},
 		}
-
-		logger := lager.NewLogger("fakelogger")
-		logger.RegisterSink(lager.NewWriterSink(GinkgoWriter, lager.DEBUG))
-
-		docker = backend.NewDockerBackend(config, logger)
 
 		downloadBuilderAction = models.EmitProgressFor(
 			&models.DownloadAction{
@@ -129,6 +127,9 @@ var _ = Describe("DockerBackend", func() {
 	})
 
 	JustBeforeEach(func() {
+		logger = lagertest.NewTestLogger("test")
+		docker = backend.NewDockerBackend(config, logger)
+
 		rawJsonBytes, err := json.Marshal(cc_messages.DockerStagingData{
 			DockerImageUrl:    dockerImageUrl,
 			DockerLoginServer: dockerLoginServer,
@@ -231,6 +232,25 @@ var _ = Describe("DockerBackend", func() {
 				Expect(err).To(Equal(backend.ErrNoCompilerDefined))
 			})
 		})
+
+		Context("with invalid docker registry address", func() {
+			BeforeEach(func() {
+				config.DockerRegistryAddress = "://host:"
+			})
+
+			JustBeforeEach(func() {
+				stagingRequest.Environment = []*models.EnvironmentVariable{
+					{Name: "DIEGO_DOCKER_CACHE", Value: "true"},
+				}
+			})
+
+			It("returns an error", func() {
+				_, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+				Expect(err).To(Equal(backend.ErrInvalidDockerRegistryAddress))
+				Expect(logger).To(gbytes.Say(`{"address":"://host:","app-id":"bunny","error":"too many colons in address ://host:"`))
+			})
+		})
+
 	})
 
 	It("creates a cf-app-docker-staging Task with staging instructions", func() {

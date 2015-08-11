@@ -67,6 +67,12 @@ var fileServerURL = flag.String(
 	"URL of the file server",
 )
 
+var dockerRegistryAddress = flag.String(
+	"dockerRegistryAddress",
+	"",
+	"Address (host:port) of the docker registry",
+)
+
 var insecureDockerRegistry = flag.Bool(
 	"insecureDockerRegistry",
 	false,
@@ -159,12 +165,17 @@ func initializeBackends(logger lager.Logger, lifecycles flags.LifecycleMap) map[
 	if err != nil {
 		logger.Fatal("Error parsing consul agent URL", err)
 	}
+	_, err = url.Parse(*dockerRegistryAddress)
+	if err != nil {
+		logger.Fatal("Error parsing Docker Registry address", err)
+	}
 
 	config := backend.Config{
 		TaskDomain:             cc_messages.StagingTaskDomain,
 		StagerURL:              *stagerURL,
 		FileServerURL:          *fileServerURL,
 		Lifecycles:             lifecycles,
+		DockerRegistryAddress:  *dockerRegistryAddress,
 		InsecureDockerRegistry: *insecureDockerRegistry,
 		ConsulCluster:          *consulCluster,
 		SkipCertVerify:         *skipCertVerify,

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"path"
@@ -31,6 +32,7 @@ const (
 var ErrMissingDockerImageUrl = errors.New(diego_errors.MISSING_DOCKER_IMAGE_URL)
 var ErrMissingDockerRegistry = errors.New(diego_errors.MISSING_DOCKER_REGISTRY)
 var ErrMissingDockerCredentials = errors.New(diego_errors.MISSING_DOCKER_CREDENTIALS)
+var ErrInvalidDockerRegistryAddress = errors.New(diego_errors.INVALID_DOCKER_REGISTRY_ADDRESS)
 
 type dockerBackend struct {
 	config Config
@@ -98,6 +100,13 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 	runAs := "vcap"
 	if cacheDockerImage {
 		runAs = "root"
+
+		host, port, err := net.SplitHostPort(backend.config.DockerRegistryAddress)
+		if err != nil {
+			logger.Debug("invalid docker registry address", lager.Data{"address": backend.config.DockerRegistryAddress, "error": err.Error()})
+			return receptor.TaskCreateRequest{}, ErrInvalidDockerRegistryAddress
+		}
+
 		registryServices, err := getDockerRegistryServices(backend.config.ConsulCluster, backend.logger)
 		if err != nil {
 			return receptor.TaskCreateRequest{}, err
@@ -105,9 +114,12 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 		registryRules := addDockerRegistryRules(request.EgressRules, registryServices)
 		request.EgressRules = append(request.EgressRules, registryRules...)
 
-		registryAddresses := strings.Join(buildDockerRegistryAddresses(registryServices), ",")
+		registryIPs := strings.Join(buildDockerRegistryAddresses(registryServices), ",")
 
-		runActionArguments = addDockerCachingArguments(runActionArguments, registryAddresses, backend.config.InsecureDockerRegistry, lifecycleData)
+		runActionArguments, err = addDockerCachingArguments(runActionArguments, registryIPs, backend.config.InsecureDockerRegistry, host, port, lifecycleData)
+		if err != nil {
+			return receptor.TaskCreateRequest{}, err
+		}
 	}
 
 	fileDescriptorLimit := uint64(request.FileDescriptors)
@@ -267,7 +279,7 @@ func addDockerRegistryRules(egressRules []*models.SecurityGroupRule, registries 
 func buildDockerRegistryAddresses(services []consulServiceInfo) []string {
 	registries := make([]string, 0, len(services))
 	for _, service := range services {
-		registries = append(registries, service.Address+":8080")
+		registries = append(registries, service.Address)
 	}
 	return registries
 }
@@ -301,12 +313,15 @@ func getDockerRegistryServices(consulCluster string, backendLogger lager.Logger)
 	return ips, nil
 }
 
-func addDockerCachingArguments(args []string, registryAddresses string, insecureRegistry bool, stagingData cc_messages.DockerStagingData) []string {
+func addDockerCachingArguments(args []string, registryIPs string, insecureRegistry bool, host string, port string, stagingData cc_messages.DockerStagingData) ([]string, error) {
 	args = append(args, "-cacheDockerImage")
 
-	args = append(args, "-dockerRegistryAddresses", registryAddresses)
+	args = append(args, "-dockerRegistryHost", host)
+	args = append(args, "-dockerRegistryPort", port)
+
+	args = append(args, "-dockerRegistryIPs", registryIPs)
 	if insecureRegistry {
-		args = append(args, "-insecureDockerRegistries", registryAddresses)
+		args = append(args, "-insecureDockerRegistries", fmt.Sprintf("%s:%s", host, port))
 	}
 
 	if len(stagingData.DockerLoginServer) > 0 {
@@ -318,5 +333,5 @@ func addDockerCachingArguments(args []string, registryAddresses string, insecure
 			"-dockerEmail", stagingData.DockerEmail)
 	}
 
-	return args
+	return args, nil
 }
