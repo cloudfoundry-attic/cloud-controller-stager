@@ -153,7 +153,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 		Domain:                backend.config.TaskDomain,
 		RootFS:                models.PreloadedRootFS(backend.config.DockerStagingStack),
 		MemoryMB:              request.MemoryMB,
-		DiskMB:                request.DiskMB + 1024, // TEMPORARY FIX FOR GARDEN-LINUX
+		DiskMB:                request.DiskMB,
 		Action:                models.WrapAction(models.Timeout(models.Serial(actions...), dockerTimeout(request, backend.logger))),
 		CompletionCallbackURL: backend.config.CallbackURL(stagingGuid),
 		LogGuid:               request.LogGuid,

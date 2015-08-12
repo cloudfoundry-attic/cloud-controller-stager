@@ -279,7 +279,7 @@ var _ = Describe("DockerBackend", func() {
 		Expect(actions[1].GetEmitProgressAction()).To(Equal(runAction))
 
 		Expect(desiredTask.MemoryMB).To(Equal(memoryMB))
-		Expect(desiredTask.DiskMB).To(Equal(diskMB + 1024))
+		Expect(desiredTask.DiskMB).To(Equal(diskMB))
 		Expect(desiredTask.EgressRules).To(ConsistOf(egressRules))
 	})
 
