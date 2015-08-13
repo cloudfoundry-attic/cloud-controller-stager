@@ -61,6 +61,7 @@ var _ = Describe("DockerBackend", func() {
 			TaskDomain:         "config-task-domain",
 			StagerURL:          stagerURL,
 			FileServerURL:      "http://file-server.com",
+			CCUploaderURL:      "http://cc-uploader.com",
 			DockerStagingStack: "penguin",
 			Lifecycles: map[string]string{
 				"penguin":                "penguin-compiler",

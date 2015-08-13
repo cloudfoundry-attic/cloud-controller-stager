@@ -67,6 +67,12 @@ var fileServerURL = flag.String(
 	"URL of the file server",
 )
 
+var ccUploaderURL = flag.String(
+	"ccUploaderURL",
+	"",
+	"URL of the cc uploader",
+)
+
 var dockerRegistryAddress = flag.String(
 	"dockerRegistryAddress",
 	"",
@@ -174,6 +180,7 @@ func initializeBackends(logger lager.Logger, lifecycles flags.LifecycleMap) map[
 		TaskDomain:             cc_messages.StagingTaskDomain,
 		StagerURL:              *stagerURL,
 		FileServerURL:          *fileServerURL,
+		CCUploaderURL:          *ccUploaderURL,
 		Lifecycles:             lifecycles,
 		DockerRegistryAddress:  *dockerRegistryAddress,
 		InsecureDockerRegistry: *insecureDockerRegistry,

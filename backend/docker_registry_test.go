@@ -44,6 +44,7 @@ var _ = Describe("DockerBackend", func() {
 
 		config := backend.Config{
 			FileServerURL:          "http://file-server.com",
+			CCUploaderURL:          "http://cc-uploader.com",
 			ConsulCluster:          server.URL(),
 			DockerRegistryAddress:  dockerRegistryAddress,
 			InsecureDockerRegistry: insecureDockerRegistry,

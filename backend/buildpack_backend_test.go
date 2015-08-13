@@ -52,6 +52,7 @@ var _ = Describe("TraditionalBackend", func() {
 			TaskDomain:    "config-task-domain",
 			StagerURL:     stagerURL,
 			FileServerURL: "http://file-server.com",
+			CCUploaderURL: "http://cc-uploader.com",
 			Lifecycles: map[string]string{
 				"buildpack/penguin":                "penguin-compiler",
 				"buildpack/rabbit_hole":            "rabbit-hole-compiler",
@@ -129,7 +130,7 @@ var _ = Describe("TraditionalBackend", func() {
 		uploadDropletAction = &models.UploadAction{
 			Artifact: "droplet",
 			From:     "/tmp/droplet",
-			To:       "http://file-server.com/v1/droplet/bunny?" + cc_messages.CcDropletUploadUriKey + "=http%3A%2F%2Fexample-uri.com%2Fdroplet-upload" + "&" + cc_messages.CcTimeoutKey + "=" + fmt.Sprintf("%d", timeout),
+			To:       "http://cc-uploader.com/v1/droplet/bunny?" + cc_messages.CcDropletUploadUriKey + "=http%3A%2F%2Fexample-uri.com%2Fdroplet-upload" + "&" + cc_messages.CcTimeoutKey + "=" + fmt.Sprintf("%d", timeout),
 			User:     "vcap",
 		}
 
@@ -137,7 +138,7 @@ var _ = Describe("TraditionalBackend", func() {
 			&models.UploadAction{
 				Artifact: "build artifacts cache",
 				From:     "/tmp/output-cache",
-				To:       "http://file-server.com/v1/build_artifacts/bunny?" + cc_messages.CcBuildArtifactsUploadUriKey + "=http%3A%2F%2Fexample-uri.com%2Fbunny-uppings" + "&" + cc_messages.CcTimeoutKey + "=" + fmt.Sprintf("%d", timeout),
+				To:       "http://cc-uploader.com/v1/build_artifacts/bunny?" + cc_messages.CcBuildArtifactsUploadUriKey + "=http%3A%2F%2Fexample-uri.com%2Fbunny-uppings" + "&" + cc_messages.CcTimeoutKey + "=" + fmt.Sprintf("%d", timeout),
 				User:     "vcap",
 			},
 		)

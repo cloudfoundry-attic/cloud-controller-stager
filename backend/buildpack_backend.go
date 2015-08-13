@@ -11,9 +11,10 @@ import (
 
 	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/buildpack_app_lifecycle"
+	"github.com/cloudfoundry-incubator/cc-uploader"
+	"github.com/cloudfoundry-incubator/file-server"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/runtime-schema/routes"
 	"github.com/cloudfoundry/gunk/urljoiner"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/rata"
@@ -299,7 +300,7 @@ func (backend *traditionalBackend) compilerDownloadURL(request cc_messages.Stagi
 		return nil, errors.New("wTF")
 	}
 
-	staticPath, err := routes.FileServerRoutes.CreatePathForRoute(routes.FS_STATIC, nil)
+	staticPath, err := fileserver.Routes.CreatePathForRoute(fileserver.StaticRoute, nil)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't generate the compiler download path: %s", err)
 	}
@@ -315,14 +316,14 @@ func (backend *traditionalBackend) compilerDownloadURL(request cc_messages.Stagi
 }
 
 func (backend *traditionalBackend) dropletUploadURL(request cc_messages.StagingRequestFromCC, buildpackData cc_messages.BuildpackStagingData) (*url.URL, error) {
-	path, err := routes.FileServerRoutes.CreatePathForRoute(routes.FS_UPLOAD_DROPLET, rata.Params{
+	path, err := ccuploader.Routes.CreatePathForRoute(ccuploader.UploadDropletRoute, rata.Params{
 		"guid": request.AppId,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("couldn't generate droplet upload URL: %s", err)
 	}
 
-	urlString := urljoiner.Join(backend.config.FileServerURL, path)
+	urlString := urljoiner.Join(backend.config.CCUploaderURL, path)
 
 	u, err := url.ParseRequestURI(urlString)
 	if err != nil {
@@ -337,14 +338,14 @@ func (backend *traditionalBackend) dropletUploadURL(request cc_messages.StagingR
 }
 
 func (backend *traditionalBackend) buildArtifactsUploadURL(request cc_messages.StagingRequestFromCC, buildpackData cc_messages.BuildpackStagingData) (*url.URL, error) {
-	path, err := routes.FileServerRoutes.CreatePathForRoute(routes.FS_UPLOAD_BUILD_ARTIFACTS, rata.Params{
+	path, err := ccuploader.Routes.CreatePathForRoute(ccuploader.UploadBuildArtifactsRoute, rata.Params{
 		"app_guid": request.AppId,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("couldn't generate build artifacts cache upload URL: %s", err)
 	}
 
-	urlString := urljoiner.Join(backend.config.FileServerURL, path)
+	urlString := urljoiner.Join(backend.config.CCUploaderURL, path)
 
 	u, err := url.ParseRequestURI(urlString)
 	if err != nil {

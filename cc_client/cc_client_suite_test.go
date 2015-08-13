@@ -9,5 +9,5 @@ import (
 
 func TestCcClient(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "CcClient Suite")
+	RunSpecs(t, "CC Client Suite")
 }

@@ -33,6 +33,7 @@ type Config struct {
 	TaskDomain             string
 	StagerURL              string
 	FileServerURL          string
+	CCUploaderURL          string
 	Lifecycles             map[string]string
 	DockerRegistryAddress  string
 	InsecureDockerRegistry bool
