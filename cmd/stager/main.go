@@ -186,7 +186,7 @@ func initializeBackends(logger lager.Logger, lifecycles flags.LifecycleMap) map[
 		InsecureDockerRegistry: *insecureDockerRegistry,
 		ConsulCluster:          *consulCluster,
 		SkipCertVerify:         *skipCertVerify,
-		Sanitizer:              cc_messages.SanitizeErrorMessage,
+		Sanitizer:              backend.SanitizeErrorMessage,
 		DockerStagingStack:     *dockerStagingStack,
 	}
 

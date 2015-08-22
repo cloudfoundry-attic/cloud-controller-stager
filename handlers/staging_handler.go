@@ -104,7 +104,7 @@ func (handler *stagingHandler) Stage(resp http.ResponseWriter, req *http.Request
 
 func (handler *stagingHandler) doErrorResponse(resp http.ResponseWriter, message string) {
 	response := cc_messages.StagingResponseForCC{
-		Error: cc_messages.SanitizeErrorMessage(message),
+		Error: backend.SanitizeErrorMessage(message),
 	}
 	responseJson, _ := json.Marshal(response)
 

@@ -4,8 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/cloudfoundry-incubator/buildpack_app_lifecycle"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/diego_errors"
@@ -60,4 +63,35 @@ func addTimeoutParamToURL(u url.URL, timeout time.Duration) *url.URL {
 	query.Set(cc_messages.CcTimeoutKey, fmt.Sprintf("%.0f", timeout.Seconds()))
 	u.RawQuery = query.Encode()
 	return &u
+}
+
+func SanitizeErrorMessage(message string) *cc_messages.StagingError {
+	const staging_failed = "staging failed"
+	id := cc_messages.STAGING_ERROR
+	switch {
+	case strings.HasSuffix(message, strconv.Itoa(buildpack_app_lifecycle.DETECT_FAIL_CODE)):
+		id = cc_messages.BUILDPACK_DETECT_FAILED
+		message = staging_failed
+	case strings.HasSuffix(message, strconv.Itoa(buildpack_app_lifecycle.COMPILE_FAIL_CODE)):
+		id = cc_messages.BUILDPACK_COMPILE_FAILED
+		message = staging_failed
+	case strings.HasSuffix(message, strconv.Itoa(buildpack_app_lifecycle.RELEASE_FAIL_CODE)):
+		id = cc_messages.BUILDPACK_RELEASE_FAILED
+		message = staging_failed
+	case message == diego_errors.INSUFFICIENT_RESOURCES_MESSAGE:
+		id = cc_messages.INSUFFICIENT_RESOURCES
+	case message == diego_errors.CELL_MISMATCH_MESSAGE:
+		id = cc_messages.NO_COMPATIBLE_CELL
+	case message == diego_errors.MISSING_DOCKER_IMAGE_URL:
+	case message == diego_errors.MISSING_DOCKER_REGISTRY:
+	case message == diego_errors.MISSING_DOCKER_CREDENTIALS:
+	case message == diego_errors.INVALID_DOCKER_REGISTRY_ADDRESS:
+	default:
+		message = "staging failed"
+	}
+
+	return &cc_messages.StagingError{
+		Id:      id,
+		Message: message,
+	}
 }

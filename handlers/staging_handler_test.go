@@ -157,7 +157,7 @@ var _ = Describe("StagingHandler", func() {
 
 						BeforeEach(func() {
 							responseForCC = cc_messages.StagingResponseForCC{
-								Error: cc_messages.SanitizeErrorMessage(taskCreateError.Error()),
+								Error: backend.SanitizeErrorMessage(taskCreateError.Error()),
 							}
 						})
 
@@ -198,7 +198,7 @@ var _ = Describe("StagingHandler", func() {
 
 					BeforeEach(func() {
 						responseForCC = cc_messages.StagingResponseForCC{
-							Error: cc_messages.SanitizeErrorMessage(buildRecipeError.Error()),
+							Error: backend.SanitizeErrorMessage(buildRecipeError.Error()),
 						}
 					})
 
