@@ -4,15 +4,19 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/cloudfoundry-incubator/bbs/models"
+	"github.com/cloudfoundry-incubator/bbs/models/test/model_helpers"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages/flags"
 	"github.com/cloudfoundry-incubator/stager"
 	"github.com/cloudfoundry-incubator/stager/cmd/stager/testrunner"
+	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -23,8 +27,8 @@ import (
 
 var _ = Describe("Stager", func() {
 	var (
-		fakeReceptor *ghttp.Server
-		fakeCC       *ghttp.Server
+		fakeBBS *ghttp.Server
+		fakeCC  *ghttp.Server
 
 		requestGenerator *rata.RequestGenerator
 		httpClient       *http.Client
@@ -37,13 +41,13 @@ var _ = Describe("Stager", func() {
 		stagerURL := fmt.Sprintf("http://127.0.0.1:%d", stagerPort)
 		callbackURL = stagerURL + "/v1/staging/my-task-guid/completed"
 
-		fakeReceptor = ghttp.NewServer()
+		fakeBBS = ghttp.NewServer()
 		fakeCC = ghttp.NewServer()
 
 		runner = testrunner.New(testrunner.Config{
 			StagerBin:          stagerPath,
 			StagerURL:          stagerURL,
-			DiegoAPIURL:        fakeReceptor.URL(),
+			BBSURL:             fakeBBS.URL(),
 			CCBaseURL:          fakeCC.URL(),
 			DockerStagingStack: "docker-staging-stack",
 		})
@@ -67,14 +71,17 @@ var _ = Describe("Stager", func() {
 
 		Describe("when a buildpack staging request is received", func() {
 			It("desires a staging task via the API", func() {
-				fakeReceptor.RouteToHandler("POST", "/v1/tasks", func(w http.ResponseWriter, req *http.Request) {
-					var taskRequest receptor.TaskCreateRequest
-					err := json.NewDecoder(req.Body).Decode(&taskRequest)
+				fakeBBS.RouteToHandler("POST", "/v1/tasks/desire", func(w http.ResponseWriter, req *http.Request) {
+					var desireTaskRequest models.DesireTaskRequest
+					data, err := ioutil.ReadAll(req.Body)
 					Expect(err).NotTo(HaveOccurred())
 
-					Expect(taskRequest.MemoryMB).To(Equal(1024))
-					Expect(taskRequest.DiskMB).To(Equal(128))
-					Expect(taskRequest.CompletionCallbackURL).To(Equal(callbackURL))
+					err = desireTaskRequest.Unmarshal(data)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(desireTaskRequest.TaskDefinition.MemoryMb).To(Equal(int32(1024)))
+					Expect(desireTaskRequest.TaskDefinition.DiskMb).To(Equal(int32(128)))
+					Expect(desireTaskRequest.TaskDefinition.CompletionCallbackUrl).To(Equal(callbackURL))
 				})
 
 				req, err := requestGenerator.CreateRequest(stager.StageRoute, rata.Params{"staging_guid": "my-task-guid"}, strings.NewReader(`{
@@ -97,21 +104,24 @@ var _ = Describe("Stager", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(http.StatusAccepted))
 
-				Eventually(fakeReceptor.ReceivedRequests).Should(HaveLen(1))
+				Eventually(fakeBBS.ReceivedRequests).Should(HaveLen(1))
 				Consistently(runner.Session()).ShouldNot(gexec.Exit())
 			})
 		})
 
 		Describe("when a docker staging request is received", func() {
 			It("desires a staging task via the API", func() {
-				fakeReceptor.RouteToHandler("POST", "/v1/tasks", func(w http.ResponseWriter, req *http.Request) {
-					var taskRequest receptor.TaskCreateRequest
-					err := json.NewDecoder(req.Body).Decode(&taskRequest)
+				fakeBBS.RouteToHandler("POST", "/v1/tasks/desire", func(w http.ResponseWriter, req *http.Request) {
+					var desireTaskRequest models.DesireTaskRequest
+					data, err := ioutil.ReadAll(req.Body)
 					Expect(err).NotTo(HaveOccurred())
 
-					Expect(taskRequest.MemoryMB).To(Equal(1024))
-					Expect(taskRequest.DiskMB).To(Equal(128))
-					Expect(taskRequest.CompletionCallbackURL).To(Equal(callbackURL))
+					err = desireTaskRequest.Unmarshal(data)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(desireTaskRequest.TaskDefinition.MemoryMb).To(Equal(int32(1024)))
+					Expect(desireTaskRequest.TaskDefinition.DiskMb).To(Equal(int32(128)))
+					Expect(desireTaskRequest.TaskDefinition.CompletionCallbackUrl).To(Equal(callbackURL))
 				})
 
 				req, err := requestGenerator.CreateRequest(stager.StageRoute, rata.Params{"staging_guid": "my-task-guid"}, strings.NewReader(`{
@@ -132,27 +142,46 @@ var _ = Describe("Stager", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(http.StatusAccepted))
 
-				Eventually(fakeReceptor.ReceivedRequests).Should(HaveLen(1))
+				Eventually(fakeBBS.ReceivedRequests).Should(HaveLen(1))
 				Consistently(runner.Session()).ShouldNot(gexec.Exit())
 			})
 		})
 
 		Describe("when a stop staging request is recevied", func() {
 			BeforeEach(func() {
-				task := receptor.TaskResponse{
-					TaskGuid:   "the-task-guid",
-					Annotation: `{"lifecycle": "whatever"}`,
+				taskDef := model_helpers.NewValidTaskDefinition()
+				taskDef.Annotation = `{"lifecycle": "whatever"}`
+				task := &models.Task{
+					TaskDefinition: taskDef,
+					TaskGuid:       "the-task-guid",
+				}
+				taskResponse := models.TaskResponse{
+					Task:  task,
+					Error: nil,
 				}
 
-				fakeReceptor.AppendHandlers(
-					ghttp.CombineHandlers(
-						ghttp.VerifyRequest("GET", "/v1/tasks/the-task-guid"),
-						ghttp.RespondWithJSONEncoded(http.StatusOK, task),
-					),
-				)
-				fakeReceptor.AppendHandlers(
-					ghttp.VerifyRequest("POST", "/v1/tasks/the-task-guid/cancel"),
-				)
+				fakeBBS.RouteToHandler("GET", "/v1/tasks/get_by_task_guid", func(w http.ResponseWriter, req *http.Request) {
+					var taskByGuidRequest models.TaskByGuidRequest
+					data, err := ioutil.ReadAll(req.Body)
+					Expect(err).NotTo(HaveOccurred())
+
+					err = taskByGuidRequest.Unmarshal(data)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(taskByGuidRequest.TaskGuid).To(Equal("the-task-guid"))
+					writeResponse(w, &taskResponse)
+				})
+				fakeBBS.RouteToHandler("POST", "/v1/tasks/cancel", func(w http.ResponseWriter, req *http.Request) {
+					var taskGuidRequest models.TaskByGuidRequest
+					data, err := ioutil.ReadAll(req.Body)
+					Expect(err).NotTo(HaveOccurred())
+
+					err = taskGuidRequest.Unmarshal(data)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(taskGuidRequest.TaskGuid).To(Equal("the-task-guid"))
+				})
+
 			})
 
 			It("cancels the staging task via the API", func() {
@@ -161,10 +190,11 @@ var _ = Describe("Stager", func() {
 				req.Header.Set("Content-Type", "application/json")
 
 				resp, err := httpClient.Do(req)
+				Eventually(fakeBBS.ReceivedRequests).Should(HaveLen(2))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(http.StatusAccepted))
 
-				Eventually(fakeReceptor.ReceivedRequests).Should(HaveLen(2))
+				Eventually(fakeBBS.ReceivedRequests).Should(HaveLen(2))
 				Consistently(runner.Session()).ShouldNot(gexec.Exit())
 			})
 		})
@@ -184,13 +214,9 @@ var _ = Describe("Stager", func() {
 						),
 					)
 
-					taskJSON, err := json.Marshal(receptor.TaskResponse{
+					taskJSON, err := json.Marshal(&models.TaskCallbackResponse{
 						TaskGuid: "the-task-guid",
-						Action: models.WrapAction(&models.RunAction{
-							User: "me",
-							Path: "ls",
-						}),
-						Domain: cc_messages.StagingTaskDomain,
+						Failed:   false,
 						Annotation: `{
 							"lifecycle": "docker"
 						}`,
@@ -362,3 +388,16 @@ var _ = Describe("Stager", func() {
 	})
 
 })
+
+func writeResponse(w http.ResponseWriter, message proto.Message) {
+	responseBytes, err := proto.Marshal(message)
+	if err != nil {
+		panic("Unable to encode Proto: " + err.Error())
+	}
+
+	w.Header().Set("Content-Length", strconv.Itoa(len(responseBytes)))
+	w.Header().Set("Content-Type", "application/x-protobuf")
+	w.WriteHeader(http.StatusOK)
+
+	w.Write(responseBytes)
+}

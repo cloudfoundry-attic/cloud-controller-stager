@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/buildpack_app_lifecycle"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
@@ -23,7 +24,7 @@ type FailureReasonSanitizer func(string) *cc_messages.StagingError
 
 //go:generate counterfeiter -o fake_backend/fake_backend.go . Backend
 type Backend interface {
-	BuildRecipe(stagingGuid string, request cc_messages.StagingRequestFromCC) (receptor.TaskCreateRequest, error)
+	BuildRecipe(stagingGuid string, request cc_messages.StagingRequestFromCC) (*models.TaskDefinition, string, string, error)
 	BuildStagingResponse(receptor.TaskResponse) (cc_messages.StagingResponseForCC, error)
 }
 

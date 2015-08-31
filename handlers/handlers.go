@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/bbs"
 	"github.com/cloudfoundry-incubator/stager"
 	"github.com/cloudfoundry-incubator/stager/backend"
 	"github.com/cloudfoundry-incubator/stager/cc_client"
@@ -12,9 +12,9 @@ import (
 	"github.com/tedsuo/rata"
 )
 
-func New(logger lager.Logger, ccClient cc_client.CcClient, diegoClient receptor.Client, backends map[string]backend.Backend, clock clock.Clock) http.Handler {
+func New(logger lager.Logger, ccClient cc_client.CcClient, bbsClient bbs.Client, backends map[string]backend.Backend, clock clock.Clock) http.Handler {
 
-	stagingHandler := NewStagingHandler(logger, backends, ccClient, diegoClient)
+	stagingHandler := NewStagingHandler(logger, backends, ccClient, bbsClient)
 	stagingCompletedHandler := NewStagingCompletionHandler(logger, ccClient, backends, clock)
 
 	actions := rata.Handlers{

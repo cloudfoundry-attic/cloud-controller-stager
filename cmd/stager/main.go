@@ -15,9 +15,9 @@ import (
 	"github.com/tedsuo/ifrit/http_server"
 	"github.com/tedsuo/ifrit/sigmon"
 
+	"github.com/cloudfoundry-incubator/bbs"
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	cf_lager "github.com/cloudfoundry-incubator/cf-lager"
-	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages/flags"
 	"github.com/cloudfoundry-incubator/stager/backend"
@@ -49,10 +49,10 @@ var skipCertVerify = flag.Bool(
 	"skip SSL certificate verification",
 )
 
-var diegoAPIURL = flag.String(
-	"diegoAPIURL",
+var bbsAddress = flag.String(
+	"bbsAddress",
 	"",
-	"URL of diego API",
+	"Address to the BBS Server",
 )
 
 var stagerURL = flag.String(
@@ -114,7 +114,7 @@ func main() {
 	initializeDropsonde(logger)
 
 	ccClient := cc_client.NewCcClient(*ccBaseURL, *ccUsername, *ccPassword, *skipCertVerify)
-	diegoAPIClient := receptor.NewClient(*diegoAPIURL)
+	bbsClient := bbs.NewClient(*bbsAddress)
 
 	address, err := getStagerAddress()
 	if err != nil {
@@ -123,7 +123,7 @@ func main() {
 
 	backends := initializeBackends(logger, lifecycles)
 
-	handler := handlers.New(logger, ccClient, diegoAPIClient, backends, clock.NewClock())
+	handler := handlers.New(logger, ccClient, bbsClient, backends, clock.NewClock())
 
 	members := grouper.Members{
 		{"server", http_server.New(address, handler)},

@@ -50,24 +50,24 @@ func NewDockerBackend(config Config, logger lager.Logger) Backend {
 	}
 }
 
-func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_messages.StagingRequestFromCC) (receptor.TaskCreateRequest, error) {
+func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_messages.StagingRequestFromCC) (*models.TaskDefinition, string, string, error) {
 	logger := backend.logger.Session("build-recipe", lager.Data{"app-id": request.AppId, "staging-guid": stagingGuid})
 	logger.Info("staging-request")
 
 	var lifecycleData cc_messages.DockerStagingData
 	err := json.Unmarshal(*request.LifecycleData, &lifecycleData)
 	if err != nil {
-		return receptor.TaskCreateRequest{}, err
+		return &models.TaskDefinition{}, "", "", err
 	}
 
 	err = backend.validateRequest(request, lifecycleData)
 	if err != nil {
-		return receptor.TaskCreateRequest{}, err
+		return &models.TaskDefinition{}, "", "", err
 	}
 
 	compilerURL, err := backend.compilerDownloadURL()
 	if err != nil {
-		return receptor.TaskCreateRequest{}, err
+		return &models.TaskDefinition{}, "", "", err
 	}
 
 	cacheDockerImage := false
@@ -104,12 +104,12 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 		host, port, err := net.SplitHostPort(backend.config.DockerRegistryAddress)
 		if err != nil {
 			logger.Debug("invalid docker registry address", lager.Data{"address": backend.config.DockerRegistryAddress, "error": err.Error()})
-			return receptor.TaskCreateRequest{}, ErrInvalidDockerRegistryAddress
+			return &models.TaskDefinition{}, "", "", ErrInvalidDockerRegistryAddress
 		}
 
 		registryServices, err := getDockerRegistryServices(backend.config.ConsulCluster, backend.logger)
 		if err != nil {
-			return receptor.TaskCreateRequest{}, err
+			return &models.TaskDefinition{}, "", "", err
 		}
 		registryRules := addDockerRegistryRules(request.EgressRules, registryServices)
 		request.EgressRules = append(request.EgressRules, registryRules...)
@@ -118,7 +118,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 
 		runActionArguments, err = addDockerCachingArguments(runActionArguments, registryIPs, backend.config.InsecureDockerRegistry, host, port, lifecycleData)
 		if err != nil {
-			return receptor.TaskCreateRequest{}, err
+			return &models.TaskDefinition{}, "", "", err
 		}
 	}
 
@@ -147,25 +147,22 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 		Lifecycle: DockerLifecycleName,
 	})
 
-	task := receptor.TaskCreateRequest{
-		TaskGuid:              stagingGuid,
+	taskDefinition := &models.TaskDefinition{
+		RootFs:                models.PreloadedRootFS(backend.config.DockerStagingStack),
 		ResultFile:            DockerBuilderOutputPath,
-		Domain:                backend.config.TaskDomain,
-		RootFS:                models.PreloadedRootFS(backend.config.DockerStagingStack),
-		MemoryMB:              request.MemoryMB,
-		DiskMB:                request.DiskMB,
-		Action:                models.WrapAction(models.Timeout(models.Serial(actions...), dockerTimeout(request, backend.logger))),
-		CompletionCallbackURL: backend.config.CallbackURL(stagingGuid),
-		LogGuid:               request.LogGuid,
-		LogSource:             TaskLogSource,
-		Annotation:            string(annotationJson),
-		EgressRules:           request.EgressRules,
 		Privileged:            true,
+		MemoryMb:              int32(request.MemoryMB),
+		LogSource:             TaskLogSource,
+		LogGuid:               request.LogGuid,
+		EgressRules:           request.EgressRules,
+		DiskMb:                int32(request.DiskMB),
+		CompletionCallbackUrl: backend.config.CallbackURL(stagingGuid),
+		Annotation:            string(annotationJson),
+		Action:                models.WrapAction(models.Timeout(models.Serial(actions...), dockerTimeout(request, backend.logger))),
 	}
-
 	logger.Debug("staging-task-request")
 
-	return task, nil
+	return taskDefinition, stagingGuid, backend.config.TaskDomain, nil
 }
 
 func (backend *dockerBackend) BuildStagingResponse(taskResponse receptor.TaskResponse) (cc_messages.StagingResponseForCC, error) {

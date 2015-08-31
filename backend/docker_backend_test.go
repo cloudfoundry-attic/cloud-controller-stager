@@ -35,8 +35,8 @@ var _ = Describe("DockerBackend", func() {
 		dockerPassword    string
 		dockerEmail       string
 		fileDescriptors   int
-		memoryMB          int
-		diskMB            int
+		memoryMb          int32
+		diskMb            int32
 		timeout           int
 		egressRules       []*models.SecurityGroupRule
 	)
@@ -49,8 +49,8 @@ var _ = Describe("DockerBackend", func() {
 		dockerPassword = ""
 		dockerEmail = ""
 		fileDescriptors = 512
-		memoryMB = 2048
-		diskMB = 3072
+		memoryMb = 2048
+		diskMb = 3072
 		timeout = 900
 
 		stagingGuid = "a-staging-guid"
@@ -145,8 +145,8 @@ var _ = Describe("DockerBackend", func() {
 			AppId:           appId,
 			LogGuid:         "log-guid",
 			FileDescriptors: fileDescriptors,
-			MemoryMB:        memoryMB,
-			DiskMB:          diskMB,
+			MemoryMB:        int(memoryMb),
+			DiskMB:          int(diskMb),
 			Environment: []*models.EnvironmentVariable{
 				{"VCAP_APPLICATION", "foo"},
 				{"VCAP_SERVICES", "bar"},
@@ -165,7 +165,7 @@ var _ = Describe("DockerBackend", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+				_, _, _, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).To(Equal(backend.ErrMissingDockerImageUrl))
 			})
 		})
@@ -178,7 +178,7 @@ var _ = Describe("DockerBackend", func() {
 				})
 
 				It("returns an error", func() {
-					_, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+					_, _, _, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 					Expect(err).To(Equal(backend.ErrMissingDockerCredentials))
 				})
 			})
@@ -190,7 +190,7 @@ var _ = Describe("DockerBackend", func() {
 				})
 
 				It("returns an error", func() {
-					_, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+					_, _, _, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 					Expect(err).To(Equal(backend.ErrMissingDockerCredentials))
 				})
 
@@ -203,7 +203,7 @@ var _ = Describe("DockerBackend", func() {
 				})
 
 				It("returns an error", func() {
-					_, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+					_, _, _, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 					Expect(err).To(Equal(backend.ErrMissingDockerCredentials))
 				})
 			})
@@ -218,7 +218,7 @@ var _ = Describe("DockerBackend", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+				_, _, _, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).To(Equal(backend.ErrNoCompilerDefined))
 			})
 		})
@@ -229,7 +229,7 @@ var _ = Describe("DockerBackend", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+				_, _, _, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).To(Equal(backend.ErrNoCompilerDefined))
 			})
 		})
@@ -246,7 +246,7 @@ var _ = Describe("DockerBackend", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+				_, _, _, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).To(Equal(backend.ErrInvalidDockerRegistryAddress))
 				Expect(logger).To(gbytes.Say(`{"address":"://host:","app-id":"bunny","error":"too many colons in address ://host:"`))
 			})
@@ -255,47 +255,47 @@ var _ = Describe("DockerBackend", func() {
 	})
 
 	It("creates a cf-app-docker-staging Task with staging instructions", func() {
-		desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+		taskDef, guid, domain, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(desiredTask.Domain).To(Equal("config-task-domain"))
-		Expect(desiredTask.TaskGuid).To(Equal(stagingGuid))
-		Expect(desiredTask.LogGuid).To(Equal("log-guid"))
-		Expect(desiredTask.LogSource).To(Equal(backend.TaskLogSource))
-		Expect(desiredTask.ResultFile).To(Equal("/tmp/docker-result/result.json"))
-		Expect(desiredTask.Privileged).To(BeTrue())
+		Expect(domain).To(Equal("config-task-domain"))
+		Expect(guid).To(Equal(stagingGuid))
+		Expect(taskDef.LogGuid).To(Equal("log-guid"))
+		Expect(taskDef.LogSource).To(Equal(backend.TaskLogSource))
+		Expect(taskDef.ResultFile).To(Equal("/tmp/docker-result/result.json"))
+		Expect(taskDef.Privileged).To(BeTrue())
 
 		var annotation cc_messages.StagingTaskAnnotation
 
-		err = json.Unmarshal([]byte(desiredTask.Annotation), &annotation)
+		err = json.Unmarshal([]byte(taskDef.Annotation), &annotation)
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(annotation).To(Equal(cc_messages.StagingTaskAnnotation{
 			Lifecycle: "docker",
 		}))
 
-		actions := actionsFromDesiredTask(desiredTask)
+		actions := actionsFromTaskDef(taskDef)
 		Expect(actions).To(HaveLen(2))
 		Expect(actions[0].GetEmitProgressAction()).To(Equal(downloadBuilderAction))
 		Expect(actions[1].GetEmitProgressAction()).To(Equal(runAction))
 
-		Expect(desiredTask.MemoryMB).To(Equal(memoryMB))
-		Expect(desiredTask.DiskMB).To(Equal(diskMB))
-		Expect(desiredTask.EgressRules).To(ConsistOf(egressRules))
+		Expect(taskDef.MemoryMb).To(Equal(memoryMb))
+		Expect(taskDef.DiskMb).To(Equal(diskMb))
+		Expect(taskDef.EgressRules).To(ConsistOf(egressRules))
 	})
 
 	It("uses the configured docker staging stack", func() {
-		desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+		taskDef, _, _, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(desiredTask.RootFS).To(Equal(models.PreloadedRootFS("penguin")))
+		Expect(taskDef.RootFs).To(Equal(models.PreloadedRootFS("penguin")))
 	})
 
 	It("gives the task a callback URL to call it back", func() {
-		desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+		taskDef, _, _, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(desiredTask.CompletionCallbackURL).To(Equal(fmt.Sprintf("%s/v1/staging/%s/completed", config.StagerURL, stagingGuid)))
+		Expect(taskDef.CompletionCallbackUrl).To(Equal(fmt.Sprintf("%s/v1/staging/%s/completed", config.StagerURL, stagingGuid)))
 	})
 
 	Describe("staging action timeout", func() {
@@ -305,10 +305,10 @@ var _ = Describe("DockerBackend", func() {
 			})
 
 			It("passes the timeout along", func() {
-				desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+				taskDef, _, _, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).NotTo(HaveOccurred())
 
-				timeoutAction := desiredTask.Action.GetTimeoutAction()
+				timeoutAction := taskDef.Action.GetTimeoutAction()
 				Expect(timeoutAction).NotTo(BeNil())
 				Expect(timeoutAction.Timeout).To(Equal(int64(time.Duration(timeout) * time.Second)))
 			})
@@ -320,10 +320,10 @@ var _ = Describe("DockerBackend", func() {
 			})
 
 			It("uses the default timeout", func() {
-				desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+				taskDef, _, _, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).NotTo(HaveOccurred())
 
-				timeoutAction := desiredTask.Action.GetTimeoutAction()
+				timeoutAction := taskDef.Action.GetTimeoutAction()
 				Expect(timeoutAction).NotTo(BeNil())
 				Expect(timeoutAction.Timeout).To(Equal(int64(backend.DefaultStagingTimeout)))
 			})
@@ -335,10 +335,10 @@ var _ = Describe("DockerBackend", func() {
 			})
 
 			It("uses the default timeout", func() {
-				desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+				taskDef, _, _, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).NotTo(HaveOccurred())
 
-				timeoutAction := desiredTask.Action.GetTimeoutAction()
+				timeoutAction := taskDef.Action.GetTimeoutAction()
 				Expect(timeoutAction).NotTo(BeNil())
 				Expect(timeoutAction.Timeout).To(Equal(int64(backend.DefaultStagingTimeout)))
 			})

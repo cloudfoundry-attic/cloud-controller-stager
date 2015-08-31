@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"net/url"
 
-	"github.com/cloudfoundry-incubator/receptor"
-	"github.com/cloudfoundry-incubator/receptor/fake_receptor"
+	"github.com/cloudfoundry-incubator/bbs/fake_bbs"
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/stager/backend"
 	"github.com/cloudfoundry-incubator/stager/backend/fake_backend"
@@ -31,7 +31,7 @@ var _ = Describe("StagingHandler", func() {
 		fakeMetricSender *fake_metric_sender.FakeMetricSender
 
 		logger          lager.Logger
-		fakeDiegoClient *fake_receptor.FakeClient
+		fakeDiegoClient *fake_bbs.FakeClient
 		fakeCcClient    *fakes.FakeCcClient
 		fakeBackend     *fake_backend.FakeBackend
 
@@ -48,7 +48,9 @@ var _ = Describe("StagingHandler", func() {
 		fakeCcClient = &fakes.FakeCcClient{}
 
 		fakeBackend = &fake_backend.FakeBackend{}
-		fakeDiegoClient = &fake_receptor.FakeClient{}
+		fakeBackend.BuildRecipeReturns(&models.TaskDefinition{}, "", "", nil)
+
+		fakeDiegoClient = &fake_bbs.FakeClient{}
 
 		responseRecorder = httptest.NewRecorder()
 		handler = handlers.NewStagingHandler(logger, map[string]backend.Backend{"fake-backend": fakeBackend}, fakeCcClient, fakeDiegoClient)
@@ -99,9 +101,9 @@ var _ = Describe("StagingHandler", func() {
 			})
 
 			Context("when the recipe was built successfully", func() {
-				var fakeTaskRequest = receptor.TaskCreateRequest{Annotation: "test annotation"}
+				var fakeTaskDef = &models.TaskDefinition{Annotation: "test annotation"}
 				BeforeEach(func() {
-					fakeBackend.BuildRecipeReturns(fakeTaskRequest, nil)
+					fakeBackend.BuildRecipeReturns(fakeTaskDef, "a-guid", "a-domain", nil)
 				})
 
 				It("does not send a staging complete message", func() {
@@ -109,8 +111,9 @@ var _ = Describe("StagingHandler", func() {
 				})
 
 				It("creates a task on Diego", func() {
-					Expect(fakeDiegoClient.CreateTaskCallCount()).To(Equal(1))
-					Expect(fakeDiegoClient.CreateTaskArgsForCall(0)).To(Equal(fakeTaskRequest))
+					Expect(fakeDiegoClient.DesireTaskCallCount()).To(Equal(1))
+					_, _, resultingTaskDef := fakeDiegoClient.DesireTaskArgsForCall(0)
+					Expect(resultingTaskDef).To(Equal(fakeTaskDef))
 				})
 
 				Context("when creating the task succeeds", func() {
@@ -121,8 +124,8 @@ var _ = Describe("StagingHandler", func() {
 
 				Context("when the task has already been created", func() {
 					BeforeEach(func() {
-						fakeDiegoClient.CreateTaskReturns(receptor.Error{
-							Type:    receptor.TaskGuidAlreadyExists,
+						fakeDiegoClient.DesireTaskReturns(&models.Error{
+							Type:    models.ResourceExists,
 							Message: "ok, this task already exists",
 						})
 					})
@@ -133,11 +136,11 @@ var _ = Describe("StagingHandler", func() {
 				})
 
 				Context("create task fails for any other reason", func() {
-					var taskCreateError error
+					var desireError error
 
 					BeforeEach(func() {
-						taskCreateError = errors.New("some task create error")
-						fakeDiegoClient.CreateTaskReturns(taskCreateError)
+						desireError = errors.New("some task create error")
+						fakeDiegoClient.DesireTaskReturns(desireError)
 					})
 
 					It("logs the failure", func() {
@@ -157,7 +160,7 @@ var _ = Describe("StagingHandler", func() {
 
 						BeforeEach(func() {
 							responseForCC = cc_messages.StagingResponseForCC{
-								Error: backend.SanitizeErrorMessage(taskCreateError.Error()),
+								Error: backend.SanitizeErrorMessage(desireError.Error()),
 							}
 						})
 
@@ -178,7 +181,7 @@ var _ = Describe("StagingHandler", func() {
 
 				BeforeEach(func() {
 					buildRecipeError = errors.New("some build recipe error")
-					fakeBackend.BuildRecipeReturns(receptor.TaskCreateRequest{}, buildRecipeError)
+					fakeBackend.BuildRecipeReturns(&models.TaskDefinition{}, "", "", buildRecipeError)
 				})
 
 				It("logs the failure", func() {
@@ -260,16 +263,16 @@ var _ = Describe("StagingHandler", func() {
 
 	Describe("StopStaging", func() {
 		BeforeEach(func() {
-			stagingTask := receptor.TaskResponse{
-				TaskGuid:   "a-staging-guid",
-				Annotation: `{"lifecycle": "fake-backend"}`,
+			stagingTask := &models.Task{
+				TaskGuid:       "a-staging-guid",
+				TaskDefinition: &models.TaskDefinition{Annotation: `{"lifecycle": "fake-backend"}`},
 			}
 
-			fakeDiegoClient.GetTaskReturns(stagingTask, nil)
+			fakeDiegoClient.TaskByGuidReturns(stagingTask, nil)
 		})
 
 		JustBeforeEach(func() {
-			req, err := http.NewRequest("DELETE", "/v1/staging/a-staging-guid", nil)
+			req, err := http.NewRequest("POST", "/v1/staging/a-staging-guid", nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			req.Form = url.Values{":staging_guid": {"a-staging-guid"}}
@@ -279,13 +282,13 @@ var _ = Describe("StagingHandler", func() {
 
 		Context("when receiving a stop staging request", func() {
 			It("retrieves the current staging task by guid", func() {
-				Expect(fakeDiegoClient.GetTaskCallCount()).To(Equal(1))
-				Expect(fakeDiegoClient.GetTaskArgsForCall(0)).To(Equal("a-staging-guid"))
+				Expect(fakeDiegoClient.TaskByGuidCallCount()).To(Equal(1))
+				Expect(fakeDiegoClient.TaskByGuidArgsForCall(0)).To(Equal("a-staging-guid"))
 			})
 
 			Context("when an in-flight staging task is not found", func() {
 				BeforeEach(func() {
-					fakeDiegoClient.GetTaskReturns(receptor.TaskResponse{}, receptor.Error{Type: receptor.TaskNotFound})
+					fakeDiegoClient.TaskByGuidReturns(&models.Task{}, models.ErrResourceNotFound)
 				})
 
 				It("returns StatusNotFound", func() {
@@ -295,7 +298,7 @@ var _ = Describe("StagingHandler", func() {
 
 			Context("when retrieving the current task fails", func() {
 				BeforeEach(func() {
-					fakeDiegoClient.GetTaskReturns(receptor.TaskResponse{}, errors.New("boom"))
+					fakeDiegoClient.TaskByGuidReturns(&models.Task{}, errors.New("boom"))
 				})
 
 				It("returns StatusInternalServerError", func() {
@@ -306,12 +309,12 @@ var _ = Describe("StagingHandler", func() {
 			Context("when retrieving the current task is sucessful", func() {
 				Context("when the task annotation fails to unmarshal", func() {
 					BeforeEach(func() {
-						stagingTask := receptor.TaskResponse{
-							TaskGuid:   "a-staging-guid",
-							Annotation: `,"lifecycle}`,
+						stagingTask := &models.Task{
+							TaskGuid:       "a-staging-guid",
+							TaskDefinition: &models.TaskDefinition{Annotation: `"fake-backend"}`},
 						}
 
-						fakeDiegoClient.GetTaskReturns(stagingTask, nil)
+						fakeDiegoClient.TaskByGuidReturns(stagingTask, nil)
 					})
 
 					It("returns StatusInternalServerError", func() {

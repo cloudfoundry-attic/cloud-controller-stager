@@ -2,15 +2,14 @@ package backend_test
 
 import (
 	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/receptor"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	"testing"
 )
 
-func actionsFromDesiredTask(desiredTask receptor.TaskCreateRequest) []*models.Action {
-	timeoutAction := desiredTask.Action.GetTimeoutAction()
+func actionsFromTaskDef(taskDef *models.TaskDefinition) []*models.Action {
+	timeoutAction := taskDef.Action.GetTimeoutAction()
 	Expect(timeoutAction).NotTo(BeNil())
 	serialAction := timeoutAction.Action.GetSerialAction()
 	Expect(serialAction).NotTo(BeNil())

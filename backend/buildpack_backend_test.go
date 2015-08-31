@@ -26,8 +26,8 @@ var _ = Describe("TraditionalBackend", func() {
 		buildpackOrder                 string
 		timeout                        int
 		stack                          string
-		memoryMB                       int
-		diskMB                         int
+		memoryMb                       int32
+		diskMb                         int32
 		fileDescriptors                int
 		buildArtifactsCacheDownloadUri string
 		appId                          string
@@ -71,8 +71,8 @@ var _ = Describe("TraditionalBackend", func() {
 
 		timeout = 900
 		stack = "rabbit_hole"
-		memoryMB = 2048
-		diskMB = 3072
+		memoryMb = 2048
+		diskMb = 3072
 		fileDescriptors = 512
 		buildArtifactsCacheDownloadUri = "http://example-uri.com/bunny-droppings"
 		appId = "bunny"
@@ -205,8 +205,8 @@ var _ = Describe("TraditionalBackend", func() {
 			AppId:           appId,
 			LogGuid:         appId,
 			FileDescriptors: fileDescriptors,
-			MemoryMB:        memoryMB,
-			DiskMB:          diskMB,
+			MemoryMB:        int(memoryMb),
+			DiskMB:          int(diskMb),
 			Environment:     environment,
 			EgressRules:     egressRules,
 			Timeout:         timeout,
@@ -222,7 +222,7 @@ var _ = Describe("TraditionalBackend", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
+				_, _, _, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).To(Equal(backend.ErrMissingAppBitsDownloadUri))
 			})
 		})
@@ -233,35 +233,35 @@ var _ = Describe("TraditionalBackend", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
+				_, _, _, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).To(Equal(backend.ErrMissingLifecycleData))
 			})
 		})
 	})
 
 	It("creates a cf-app-staging Task with staging instructions", func() {
-		desiredTask, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
+		taskDef, guid, domain, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(desiredTask.Domain).To(Equal("config-task-domain"))
-		Expect(desiredTask.TaskGuid).To(Equal(stagingGuid))
-		Expect(desiredTask.RootFS).To(Equal(models.PreloadedRootFS("rabbit_hole")))
-		Expect(desiredTask.LogGuid).To(Equal("bunny"))
-		Expect(desiredTask.MetricsGuid).To(BeEmpty()) // do not emit metrics for staging!
-		Expect(desiredTask.LogSource).To(Equal(backend.TaskLogSource))
-		Expect(desiredTask.ResultFile).To(Equal("/tmp/result.json"))
-		Expect(desiredTask.Privileged).To(BeTrue())
+		Expect(domain).To(Equal("config-task-domain"))
+		Expect(guid).To(Equal(stagingGuid))
+		Expect(taskDef.RootFs).To(Equal(models.PreloadedRootFS("rabbit_hole")))
+		Expect(taskDef.LogGuid).To(Equal("bunny"))
+		Expect(taskDef.MetricsGuid).To(BeEmpty()) // do not emit metrics for staging!
+		Expect(taskDef.LogSource).To(Equal(backend.TaskLogSource))
+		Expect(taskDef.ResultFile).To(Equal("/tmp/result.json"))
+		Expect(taskDef.Privileged).To(BeTrue())
 
 		var annotation cc_messages.StagingTaskAnnotation
 
-		err = json.Unmarshal([]byte(desiredTask.Annotation), &annotation)
+		err = json.Unmarshal([]byte(taskDef.Annotation), &annotation)
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(annotation).To(Equal(cc_messages.StagingTaskAnnotation{
 			Lifecycle: "buildpack",
 		}))
 
-		actions := actionsFromDesiredTask(desiredTask)
+		actions := actionsFromTaskDef(taskDef)
 		Expect(actions).To(Equal(models.Serial(
 			downloadAppAction,
 			models.EmitProgressFor(
@@ -288,10 +288,10 @@ var _ = Describe("TraditionalBackend", func() {
 			),
 		).Actions))
 
-		Expect(desiredTask.MemoryMB).To(Equal(memoryMB))
-		Expect(desiredTask.DiskMB).To(Equal(diskMB))
-		Expect(desiredTask.CPUWeight).To(Equal(backend.StagingTaskCpuWeight))
-		Expect(desiredTask.EgressRules).To(ConsistOf(egressRules))
+		Expect(taskDef.MemoryMb).To(Equal(memoryMb))
+		Expect(taskDef.DiskMb).To(Equal(diskMb))
+		Expect(taskDef.CpuWeight).To(Equal(backend.StagingTaskCpuWeight))
+		Expect(taskDef.EgressRules).To(ConsistOf(egressRules))
 	})
 
 	Context("with a specified buildpack", func() {
@@ -302,10 +302,10 @@ var _ = Describe("TraditionalBackend", func() {
 		})
 
 		It("it downloads the buildpack and skips detect", func() {
-			desiredTask, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
+			taskDef, _, _, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
 			Expect(err).NotTo(HaveOccurred())
 
-			actions := actionsFromDesiredTask(desiredTask)
+			actions := actionsFromTaskDef(taskDef)
 
 			Expect(actions).To(HaveLen(4))
 			Expect(actions[0].GetDownloadAction()).To(Equal(downloadAppAction))
@@ -344,26 +344,26 @@ var _ = Describe("TraditionalBackend", func() {
 		})
 
 		It("does not download any buildpacks and skips detect", func() {
-			desiredTask, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
+			taskDef, guid, domain, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(desiredTask.Domain).To(Equal("config-task-domain"))
-			Expect(desiredTask.TaskGuid).To(Equal(stagingGuid))
-			Expect(desiredTask.RootFS).To(Equal(models.PreloadedRootFS("rabbit_hole")))
-			Expect(desiredTask.LogGuid).To(Equal("bunny"))
-			Expect(desiredTask.LogSource).To(Equal(backend.TaskLogSource))
-			Expect(desiredTask.ResultFile).To(Equal("/tmp/result.json"))
+			Expect(domain).To(Equal("config-task-domain"))
+			Expect(guid).To(Equal(stagingGuid))
+			Expect(taskDef.RootFs).To(Equal(models.PreloadedRootFS("rabbit_hole")))
+			Expect(taskDef.LogGuid).To(Equal("bunny"))
+			Expect(taskDef.LogSource).To(Equal(backend.TaskLogSource))
+			Expect(taskDef.ResultFile).To(Equal("/tmp/result.json"))
 
 			var annotation cc_messages.StagingTaskAnnotation
 
-			err = json.Unmarshal([]byte(desiredTask.Annotation), &annotation)
+			err = json.Unmarshal([]byte(taskDef.Annotation), &annotation)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(annotation).To(Equal(cc_messages.StagingTaskAnnotation{
 				Lifecycle: "buildpack",
 			}))
 
-			actions := actionsFromDesiredTask(desiredTask)
+			actions := actionsFromTaskDef(taskDef)
 
 			Expect(actions).To(HaveLen(4))
 			Expect(actions[0].GetDownloadAction()).To(Equal(downloadAppAction))
@@ -388,16 +388,16 @@ var _ = Describe("TraditionalBackend", func() {
 				"Uploading failed",
 			)))
 
-			Expect(desiredTask.MemoryMB).To(Equal(memoryMB))
-			Expect(desiredTask.DiskMB).To(Equal(diskMB))
-			Expect(desiredTask.CPUWeight).To(Equal(backend.StagingTaskCpuWeight))
+			Expect(taskDef.MemoryMb).To(Equal(memoryMb))
+			Expect(taskDef.DiskMb).To(Equal(diskMb))
+			Expect(taskDef.CpuWeight).To(Equal(backend.StagingTaskCpuWeight))
 		})
 	})
 
 	It("gives the task a callback URL to call it back", func() {
-		desiredTask, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
+		taskDef, _, _, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(desiredTask.CompletionCallbackURL).To(Equal(fmt.Sprintf("%s/v1/staging/%s/completed", config.StagerURL, stagingGuid)))
+		Expect(taskDef.CompletionCallbackUrl).To(Equal(fmt.Sprintf("%s/v1/staging/%s/completed", config.StagerURL, stagingGuid)))
 	})
 
 	Describe("staging action timeout", func() {
@@ -407,10 +407,10 @@ var _ = Describe("TraditionalBackend", func() {
 			})
 
 			It("passes the timeout along", func() {
-				desiredTask, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
+				taskDef, _, _, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).NotTo(HaveOccurred())
 
-				timeoutAction := desiredTask.Action.GetTimeoutAction()
+				timeoutAction := taskDef.Action.GetTimeoutAction()
 				Expect(timeoutAction).NotTo(BeNil())
 				Expect(timeoutAction.Timeout).To(Equal(int64(time.Duration(timeout) * time.Second)))
 			})
@@ -422,10 +422,10 @@ var _ = Describe("TraditionalBackend", func() {
 			})
 
 			It("uses the default timeout", func() {
-				desiredTask, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
+				taskDef, _, _, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).NotTo(HaveOccurred())
 
-				timeoutAction := desiredTask.Action.GetTimeoutAction()
+				timeoutAction := taskDef.Action.GetTimeoutAction()
 				Expect(timeoutAction).NotTo(BeNil())
 				Expect(timeoutAction.Timeout).To(Equal(int64(backend.DefaultStagingTimeout)))
 			})
@@ -437,10 +437,10 @@ var _ = Describe("TraditionalBackend", func() {
 			})
 
 			It("uses the default timeout", func() {
-				desiredTask, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
+				taskDef, _, _, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).NotTo(HaveOccurred())
 
-				timeoutAction := desiredTask.Action.GetTimeoutAction()
+				timeoutAction := taskDef.Action.GetTimeoutAction()
 				Expect(timeoutAction).NotTo(BeNil())
 				Expect(timeoutAction.Timeout).To(Equal(int64(backend.DefaultStagingTimeout)))
 			})
@@ -453,10 +453,10 @@ var _ = Describe("TraditionalBackend", func() {
 		})
 
 		It("does not instruct the executor to download the cache", func() {
-			desiredTask, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
+			taskDef, _, _, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(actionsFromDesiredTask(desiredTask)).To(Equal(models.Serial(
+			Expect(actionsFromTaskDef(taskDef)).To(Equal(models.Serial(
 				downloadAppAction,
 				models.EmitProgressFor(
 					models.Parallel(
@@ -489,7 +489,7 @@ var _ = Describe("TraditionalBackend", func() {
 		})
 
 		It("returns an error", func() {
-			_, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
+			_, _, _, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
 
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(Equal("no compiler defined for requested stack"))
@@ -502,10 +502,10 @@ var _ = Describe("TraditionalBackend", func() {
 		})
 
 		It("uses the full URL in the download builder action", func() {
-			desiredTask, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
+			taskDef, _, _, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
 			Expect(err).NotTo(HaveOccurred())
 
-			actions := actionsFromDesiredTask(desiredTask)
+			actions := actionsFromTaskDef(taskDef)
 			downloadAction := actions[1].GetEmitProgressAction().Action.GetParallelAction().Actions[0].GetEmitProgressAction().Action.GetDownloadAction()
 			Expect(downloadAction.From).To(Equal("http://the-full-compiler-url"))
 		})
@@ -517,7 +517,7 @@ var _ = Describe("TraditionalBackend", func() {
 		})
 
 		It("returns an error", func() {
-			_, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
+			_, _, _, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
 			Expect(err).To(HaveOccurred())
 		})
 	})
@@ -528,7 +528,7 @@ var _ = Describe("TraditionalBackend", func() {
 		})
 
 		It("return a url parsing error", func() {
-			_, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
+			_, _, _, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
 
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("invalid URI"))
@@ -558,11 +558,11 @@ var _ = Describe("TraditionalBackend", func() {
 				"-skipDetect=false",
 			}
 
-			desiredTask, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
+			taskDef, _, _, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
 
 			Expect(err).NotTo(HaveOccurred())
 
-			timeoutAction := desiredTask.Action.GetTimeoutAction()
+			timeoutAction := taskDef.Action.GetTimeoutAction()
 			Expect(timeoutAction).NotTo(BeNil())
 			Expect(timeoutAction.Timeout).To(Equal(int64(15 * time.Minute)))
 

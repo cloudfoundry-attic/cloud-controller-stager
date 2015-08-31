@@ -18,7 +18,7 @@ type StagerRunner struct {
 type Config struct {
 	StagerBin          string
 	StagerURL          string
-	DiegoAPIURL        string
+	BBSURL             string
 	CCBaseURL          string
 	DockerStagingStack string
 }
@@ -38,7 +38,7 @@ func (r *StagerRunner) Start(args ...string) {
 		exec.Command(
 			r.Config.StagerBin,
 			append([]string{
-				"-diegoAPIURL", r.Config.DiegoAPIURL,
+				"-bbsAddress", r.Config.BBSURL,
 				"-stagerURL", r.Config.StagerURL,
 				"-ccBaseURL", r.Config.CCBaseURL,
 				"-dockerStagingStack", r.Config.DockerStagingStack,

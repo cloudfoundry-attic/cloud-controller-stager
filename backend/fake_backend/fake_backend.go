@@ -4,21 +4,24 @@ package fake_backend
 import (
 	"sync"
 
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/stager/backend"
 )
 
 type FakeBackend struct {
-	BuildRecipeStub        func(stagingGuid string, request cc_messages.StagingRequestFromCC) (receptor.TaskCreateRequest, error)
+	BuildRecipeStub        func(stagingGuid string, request cc_messages.StagingRequestFromCC) (*models.TaskDefinition, string, string, error)
 	buildRecipeMutex       sync.RWMutex
 	buildRecipeArgsForCall []struct {
 		stagingGuid string
 		request     cc_messages.StagingRequestFromCC
 	}
 	buildRecipeReturns struct {
-		result1 receptor.TaskCreateRequest
-		result2 error
+		result1 *models.TaskDefinition
+		result2 string
+		result3 string
+		result4 error
 	}
 	BuildStagingResponseStub        func(receptor.TaskResponse) (cc_messages.StagingResponseForCC, error)
 	buildStagingResponseMutex       sync.RWMutex
@@ -31,7 +34,7 @@ type FakeBackend struct {
 	}
 }
 
-func (fake *FakeBackend) BuildRecipe(stagingGuid string, request cc_messages.StagingRequestFromCC) (receptor.TaskCreateRequest, error) {
+func (fake *FakeBackend) BuildRecipe(stagingGuid string, request cc_messages.StagingRequestFromCC) (*models.TaskDefinition, string, string, error) {
 	fake.buildRecipeMutex.Lock()
 	fake.buildRecipeArgsForCall = append(fake.buildRecipeArgsForCall, struct {
 		stagingGuid string
@@ -41,7 +44,7 @@ func (fake *FakeBackend) BuildRecipe(stagingGuid string, request cc_messages.Sta
 	if fake.BuildRecipeStub != nil {
 		return fake.BuildRecipeStub(stagingGuid, request)
 	} else {
-		return fake.buildRecipeReturns.result1, fake.buildRecipeReturns.result2
+		return fake.buildRecipeReturns.result1, fake.buildRecipeReturns.result2, fake.buildRecipeReturns.result3, fake.buildRecipeReturns.result4
 	}
 }
 
@@ -57,12 +60,14 @@ func (fake *FakeBackend) BuildRecipeArgsForCall(i int) (string, cc_messages.Stag
 	return fake.buildRecipeArgsForCall[i].stagingGuid, fake.buildRecipeArgsForCall[i].request
 }
 
-func (fake *FakeBackend) BuildRecipeReturns(result1 receptor.TaskCreateRequest, result2 error) {
+func (fake *FakeBackend) BuildRecipeReturns(result1 *models.TaskDefinition, result2 string, result3 string, result4 error) {
 	fake.BuildRecipeStub = nil
 	fake.buildRecipeReturns = struct {
-		result1 receptor.TaskCreateRequest
-		result2 error
-	}{result1, result2}
+		result1 *models.TaskDefinition
+		result2 string
+		result3 string
+		result4 error
+	}{result1, result2, result3, result4}
 }
 
 func (fake *FakeBackend) BuildStagingResponse(arg1 receptor.TaskResponse) (cc_messages.StagingResponseForCC, error) {

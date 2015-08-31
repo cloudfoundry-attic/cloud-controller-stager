@@ -141,14 +141,14 @@ var _ = Describe("DockerBackend", func() {
 		})
 
 		checkStagingInstructionsFunc := func() {
-			desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+			taskDef, _, _, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(desiredTask.Privileged).To(BeTrue())
-			Expect(desiredTask.Action).NotTo(BeNil())
-			Expect(desiredTask.EgressRules).To(ConsistOf(expectedEgressRules))
+			Expect(taskDef.Privileged).To(BeTrue())
+			Expect(taskDef.Action).NotTo(BeNil())
+			Expect(taskDef.EgressRules).To(ConsistOf(expectedEgressRules))
 
-			actions := actionsFromDesiredTask(desiredTask)
+			actions := actionsFromTaskDef(taskDef)
 			Expect(actions).To(HaveLen(2))
 			Expect(actions[0].GetEmitProgressAction()).To(Equal(downloadBuilderAction))
 			Expect(actions[1].GetEmitProgressAction()).To(Equal(expectedRunAction))
@@ -156,9 +156,9 @@ var _ = Describe("DockerBackend", func() {
 
 		Context("user did not opt-in for docker image caching", func() {
 			It("creates a cf-app-docker-staging Task with no additional egress rules", func() {
-				desiredTask, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+				taskDef, _, _, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(desiredTask.EgressRules).To(BeEmpty())
+				Expect(taskDef.EgressRules).To(BeEmpty())
 			})
 		})
 
@@ -261,7 +261,7 @@ var _ = Describe("DockerBackend", func() {
 			})
 
 			It("errors", func() {
-				_, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+				_, _, _, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(Equal(backend.ErrMissingDockerRegistry))
 			})
@@ -269,7 +269,7 @@ var _ = Describe("DockerBackend", func() {
 
 		Context("and user did not opt-in for docker image caching", func() {
 			It("does not error", func() {
-				_, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+				_, _, _, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})

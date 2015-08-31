@@ -22,7 +22,7 @@ import (
 
 const (
 	TraditionalLifecycleName = "buildpack"
-	StagingTaskCpuWeight     = uint(50)
+	StagingTaskCpuWeight     = uint32(50)
 
 	DefaultLANG = "en_US.UTF-8"
 )
@@ -39,28 +39,28 @@ func NewTraditionalBackend(config Config, logger lager.Logger) Backend {
 	}
 }
 
-func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_messages.StagingRequestFromCC) (receptor.TaskCreateRequest, error) {
+func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_messages.StagingRequestFromCC) (*models.TaskDefinition, string, string, error) {
 	logger := backend.logger.Session("build-recipe", lager.Data{"app-id": request.AppId, "staging-guid": stagingGuid})
 	logger.Info("staging-request")
 
 	if request.LifecycleData == nil {
-		return receptor.TaskCreateRequest{}, ErrMissingLifecycleData
+		return &models.TaskDefinition{}, "", "", ErrMissingLifecycleData
 	}
 
 	var lifecycleData cc_messages.BuildpackStagingData
 	err := json.Unmarshal(*request.LifecycleData, &lifecycleData)
 	if err != nil {
-		return receptor.TaskCreateRequest{}, err
+		return &models.TaskDefinition{}, "", "", err
 	}
 
 	err = backend.validateRequest(request, lifecycleData)
 	if err != nil {
-		return receptor.TaskCreateRequest{}, err
+		return &models.TaskDefinition{}, "", "", err
 	}
 
 	compilerURL, err := backend.compilerDownloadURL(request, lifecycleData)
 	if err != nil {
-		return receptor.TaskCreateRequest{}, err
+		return &models.TaskDefinition{}, "", "", err
 	}
 
 	buildpacksOrder := []string{}
@@ -134,7 +134,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 	//Download buildpack artifacts cache
 	downloadURL, err := backend.buildArtifactsDownloadURL(lifecycleData)
 	if err != nil {
-		return receptor.TaskCreateRequest{}, err
+		return &models.TaskDefinition{}, "", "", err
 	}
 
 	if downloadURL != nil {
@@ -181,7 +181,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 	uploadNames := []string{}
 	uploadURL, err := backend.dropletUploadURL(request, lifecycleData)
 	if err != nil {
-		return receptor.TaskCreateRequest{}, err
+		return &models.TaskDefinition{}, "", "", err
 	}
 
 	uploadActions = append(
@@ -198,7 +198,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 	//Upload Buildpack Artifacts Cache
 	uploadURL, err = backend.buildArtifactsUploadURL(request, lifecycleData)
 	if err != nil {
-		return receptor.TaskCreateRequest{}, err
+		return &models.TaskDefinition{}, "", "", err
 	}
 
 	uploadActions = append(uploadActions,
@@ -220,18 +220,16 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 		Lifecycle: TraditionalLifecycleName,
 	})
 
-	task := receptor.TaskCreateRequest{
-		TaskGuid:              stagingGuid,
-		Domain:                backend.config.TaskDomain,
-		RootFS:                models.PreloadedRootFS(lifecycleData.Stack),
+	taskDefinition := &models.TaskDefinition{
+		RootFs:                models.PreloadedRootFS(lifecycleData.Stack),
 		ResultFile:            builderConfig.OutputMetadata(),
-		MemoryMB:              request.MemoryMB,
-		DiskMB:                request.DiskMB,
-		CPUWeight:             StagingTaskCpuWeight,
+		MemoryMb:              int32(request.MemoryMB),
+		DiskMb:                int32(request.DiskMB),
+		CpuWeight:             uint32(StagingTaskCpuWeight),
 		Action:                models.WrapAction(models.Timeout(models.Serial(actions...), timeout)),
 		LogGuid:               request.LogGuid,
 		LogSource:             TaskLogSource,
-		CompletionCallbackURL: backend.config.CallbackURL(stagingGuid),
+		CompletionCallbackUrl: backend.config.CallbackURL(stagingGuid),
 		EgressRules:           request.EgressRules,
 		Annotation:            string(annotationJson),
 		Privileged:            true,
@@ -240,7 +238,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 
 	logger.Debug("staging-task-request")
 
-	return task, nil
+	return taskDefinition, stagingGuid, backend.config.TaskDomain, nil
 }
 
 func (backend *traditionalBackend) BuildStagingResponse(taskResponse receptor.TaskResponse) (cc_messages.StagingResponseForCC, error) {
@@ -297,7 +295,7 @@ func (backend *traditionalBackend) compilerDownloadURL(request cc_messages.Stagi
 	case "":
 		break
 	default:
-		return nil, errors.New("wTF")
+		return nil, errors.New("Unknown Scheme")
 	}
 
 	staticPath, err := fileserver.Routes.CreatePathForRoute(fileserver.StaticRoute, nil)

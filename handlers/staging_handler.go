@@ -5,7 +5,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/bbs"
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry-incubator/stager/backend"
@@ -27,14 +28,14 @@ type stagingHandler struct {
 	logger      lager.Logger
 	backends    map[string]backend.Backend
 	ccClient    cc_client.CcClient
-	diegoClient receptor.Client
+	diegoClient bbs.Client
 }
 
 func NewStagingHandler(
 	logger lager.Logger,
 	backends map[string]backend.Backend,
 	ccClient cc_client.CcClient,
-	diegoClient receptor.Client,
+	bbsClient bbs.Client,
 ) StagingHandler {
 	logger = logger.Session("staging-handler")
 
@@ -42,7 +43,7 @@ func NewStagingHandler(
 		logger:      logger,
 		backends:    backends,
 		ccClient:    ccClient,
-		diegoClient: diegoClient,
+		diegoClient: bbsClient,
 	}
 }
 
@@ -74,7 +75,7 @@ func (handler *stagingHandler) Stage(resp http.ResponseWriter, req *http.Request
 
 	StagingStartRequestsReceivedCounter.Increment()
 
-	taskRequest, err := backend.BuildRecipe(stagingGuid, stagingRequest)
+	taskDef, guid, domain, err := backend.BuildRecipe(stagingGuid, stagingRequest)
 	if err != nil {
 		logger.Error("recipe-building-failed", err, lager.Data{"staging-request": stagingRequest})
 		handler.doErrorResponse(resp, err.Error())
@@ -82,15 +83,13 @@ func (handler *stagingHandler) Stage(resp http.ResponseWriter, req *http.Request
 	}
 
 	logger.Info("desiring-task", lager.Data{
-		"task_guid":    taskRequest.TaskGuid,
-		"callback_url": taskRequest.CompletionCallbackURL,
+		"task_guid":    guid,
+		"callback_url": taskDef.CompletionCallbackUrl,
 	})
 
-	err = handler.diegoClient.CreateTask(taskRequest)
-	if receptorErr, ok := err.(receptor.Error); ok {
-		if receptorErr.Type == receptor.TaskGuidAlreadyExists {
-			err = nil
-		}
+	err = handler.diegoClient.DesireTask(guid, domain, taskDef)
+	if models.ErrResourceExists.Equal(err) {
+		err = nil
 	}
 
 	if err != nil {
@@ -116,13 +115,11 @@ func (handler *stagingHandler) StopStaging(resp http.ResponseWriter, req *http.R
 	taskGuid := req.FormValue(":staging_guid")
 	logger := handler.logger.Session("stop-staging-request", lager.Data{"staging-guid": taskGuid})
 
-	task, err := handler.diegoClient.GetTask(taskGuid)
+	task, err := handler.diegoClient.TaskByGuid(taskGuid)
 	if err != nil {
-		if receptorErr, ok := err.(receptor.Error); ok {
-			if receptorErr.Type == receptor.TaskNotFound {
-				resp.WriteHeader(http.StatusNotFound)
-				return
-			}
+		if models.ErrResourceNotFound.Equal(err) {
+			resp.WriteHeader(http.StatusNotFound)
+			return
 		}
 
 		logger.Error("failed-to-get-task", err)
