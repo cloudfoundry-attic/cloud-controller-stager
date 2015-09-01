@@ -8,7 +8,6 @@ import (
 
 	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/buildpack_app_lifecycle"
-	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/diego_errors"
 	"github.com/cloudfoundry-incubator/stager/backend"
@@ -589,7 +588,7 @@ var _ = Describe("TraditionalBackend", func() {
 			var buildError error
 
 			JustBeforeEach(func() {
-				taskResponse := receptor.TaskResponse{
+				taskResponse := &models.TaskCallbackResponse{
 					Annotation:    string(annotationJson),
 					Failed:        taskResponseFailed,
 					FailureReason: failureReason,

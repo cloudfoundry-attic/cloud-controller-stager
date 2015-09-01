@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/stager/backend"
 	"github.com/cloudfoundry-incubator/stager/backend/fake_backend"
@@ -71,7 +70,7 @@ var _ = Describe("StagingCompletedHandler", func() {
 		fakeBackend.BuildStagingResponseReturns(backendResponse, backendError)
 	})
 
-	postTask := func(task receptor.TaskResponse) *http.Request {
+	postTask := func(task *models.TaskCallbackResponse) *http.Request {
 		taskJSON, err := json.Marshal(task)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -84,7 +83,7 @@ var _ = Describe("StagingCompletedHandler", func() {
 	}
 
 	Context("when a staging task completes", func() {
-		var taskResponse receptor.TaskResponse
+		var taskResponse *models.TaskCallbackResponse
 		var annotationJson []byte
 
 		BeforeEach(func() {
@@ -99,9 +98,8 @@ var _ = Describe("StagingCompletedHandler", func() {
 			createdAt := fakeClock.Now().UnixNano()
 			fakeClock.Increment(stagingDurationNano)
 
-			taskResponse = receptor.TaskResponse{
+			taskResponse = &models.TaskCallbackResponse{
 				TaskGuid:  "the-task-guid",
-				Domain:    "fake-domain",
 				CreatedAt: createdAt,
 				Result: `{
 					"buildpack_key":"buildpack-key",
@@ -109,10 +107,6 @@ var _ = Describe("StagingCompletedHandler", func() {
 					"execution_metadata":"{\"start_command\":\"./some-start-command\"}",
 					"detected_start_command":{"web":"./some-start-command"}
 				}`,
-				Action: models.WrapAction(&models.RunAction{
-					User: "me",
-					Path: "ls",
-				}),
 				Annotation: string(annotationJson),
 			}
 
@@ -280,22 +274,17 @@ var _ = Describe("StagingCompletedHandler", func() {
 			createdAt := fakeClock.Now().UnixNano()
 			fakeClock.Increment(stagingDurationNano)
 
-			taskResponse := receptor.TaskResponse{
+			taskResponse := &models.TaskCallbackResponse{
 				TaskGuid:      "the-task-guid",
-				Domain:        "fake-domain",
-				Failed:        true,
 				CreatedAt:     createdAt,
+				Failed:        true,
 				FailureReason: "because I said so",
+				Result:        `{}`,
 				Annotation: `{
 					"lifecycle": "fake",
 					"task_id": "the-task-id",
 					"app_id": "the-app-id"
 				}`,
-				Action: models.WrapAction(&models.RunAction{
-					User: "me",
-					Path: "ls",
-				}),
-				Result: `{}`,
 			}
 
 			handler.StagingComplete(responseRecorder, postTask(taskResponse))
@@ -328,12 +317,7 @@ var _ = Describe("StagingCompletedHandler", func() {
 
 	Context("when a non-staging task is reported", func() {
 		JustBeforeEach(func() {
-			taskResponse := receptor.TaskResponse{
-				Action: models.WrapAction(&models.RunAction{
-					User: "me",
-					Path: "ls",
-				}),
-				Domain:        "some-other-crazy-domain",
+			taskResponse := &models.TaskCallbackResponse{
 				Failed:        true,
 				FailureReason: "because I said so",
 				Annotation:    `{}`,

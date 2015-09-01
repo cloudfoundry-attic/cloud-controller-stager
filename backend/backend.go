@@ -10,7 +10,6 @@ import (
 
 	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/buildpack_app_lifecycle"
-	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/diego_errors"
 )
@@ -25,7 +24,7 @@ type FailureReasonSanitizer func(string) *cc_messages.StagingError
 //go:generate counterfeiter -o fake_backend/fake_backend.go . Backend
 type Backend interface {
 	BuildRecipe(stagingGuid string, request cc_messages.StagingRequestFromCC) (*models.TaskDefinition, string, string, error)
-	BuildStagingResponse(receptor.TaskResponse) (cc_messages.StagingResponseForCC, error)
+	BuildStagingResponse(*models.TaskCallbackResponse) (cc_messages.StagingResponseForCC, error)
 }
 
 var ErrNoCompilerDefined = errors.New(diego_errors.NO_COMPILER_DEFINED_MESSAGE)

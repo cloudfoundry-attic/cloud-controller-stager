@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cloudfoundry-incubator/receptor"
+	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry-incubator/stager/backend"
@@ -48,8 +48,8 @@ func (handler *completionHandler) StagingComplete(res http.ResponseWriter, req *
 		"guid": taskGuid,
 	})
 
-	var task receptor.TaskResponse
-	err := json.NewDecoder(req.Body).Decode(&task)
+	task := &models.TaskCallbackResponse{}
+	err := json.NewDecoder(req.Body).Decode(task)
 	if err != nil {
 		handler.logger.Error("parsing-incoming-task-failed", err)
 		res.WriteHeader(http.StatusBadRequest)
@@ -118,7 +118,7 @@ func (handler *completionHandler) StagingComplete(res http.ResponseWriter, req *
 	res.WriteHeader(http.StatusOK)
 }
 
-func (handler *completionHandler) reportMetrics(task receptor.TaskResponse) {
+func (handler *completionHandler) reportMetrics(task *models.TaskCallbackResponse) {
 	duration := handler.clock.Now().Sub(time.Unix(0, task.CreatedAt))
 	if task.Failed {
 		stagingFailureCounter.Increment()

@@ -7,7 +7,6 @@ import (
 
 	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/docker_app_lifecycle"
-	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/stager/backend"
 	"github.com/cloudfoundry-incubator/stager/helpers"
@@ -356,7 +355,7 @@ var _ = Describe("DockerBackend", func() {
 			var buildError error
 
 			JustBeforeEach(func() {
-				taskResponse := receptor.TaskResponse{
+				taskResponse := &models.TaskCallbackResponse{
 					Annotation:    string(annotationJson),
 					Failed:        taskResponseFailed,
 					FailureReason: failureReason,

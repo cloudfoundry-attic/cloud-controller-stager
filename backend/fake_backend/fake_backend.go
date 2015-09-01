@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/stager/backend"
 )
@@ -23,10 +22,10 @@ type FakeBackend struct {
 		result3 string
 		result4 error
 	}
-	BuildStagingResponseStub        func(receptor.TaskResponse) (cc_messages.StagingResponseForCC, error)
+	BuildStagingResponseStub        func(*models.TaskCallbackResponse) (cc_messages.StagingResponseForCC, error)
 	buildStagingResponseMutex       sync.RWMutex
 	buildStagingResponseArgsForCall []struct {
-		arg1 receptor.TaskResponse
+		arg1 *models.TaskCallbackResponse
 	}
 	buildStagingResponseReturns struct {
 		result1 cc_messages.StagingResponseForCC
@@ -70,10 +69,10 @@ func (fake *FakeBackend) BuildRecipeReturns(result1 *models.TaskDefinition, resu
 	}{result1, result2, result3, result4}
 }
 
-func (fake *FakeBackend) BuildStagingResponse(arg1 receptor.TaskResponse) (cc_messages.StagingResponseForCC, error) {
+func (fake *FakeBackend) BuildStagingResponse(arg1 *models.TaskCallbackResponse) (cc_messages.StagingResponseForCC, error) {
 	fake.buildStagingResponseMutex.Lock()
 	fake.buildStagingResponseArgsForCall = append(fake.buildStagingResponseArgsForCall, struct {
-		arg1 receptor.TaskResponse
+		arg1 *models.TaskCallbackResponse
 	}{arg1})
 	fake.buildStagingResponseMutex.Unlock()
 	if fake.BuildStagingResponseStub != nil {
@@ -89,7 +88,7 @@ func (fake *FakeBackend) BuildStagingResponseCallCount() int {
 	return len(fake.buildStagingResponseArgsForCall)
 }
 
-func (fake *FakeBackend) BuildStagingResponseArgsForCall(i int) receptor.TaskResponse {
+func (fake *FakeBackend) BuildStagingResponseArgsForCall(i int) *models.TaskCallbackResponse {
 	fake.buildStagingResponseMutex.RLock()
 	defer fake.buildStagingResponseMutex.RUnlock()
 	return fake.buildStagingResponseArgsForCall[i].arg1
