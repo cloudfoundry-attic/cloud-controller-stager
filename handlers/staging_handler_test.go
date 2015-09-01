@@ -124,10 +124,7 @@ var _ = Describe("StagingHandler", func() {
 
 				Context("when the task has already been created", func() {
 					BeforeEach(func() {
-						fakeDiegoClient.DesireTaskReturns(&models.Error{
-							Type:    models.ResourceExists,
-							Message: "ok, this task already exists",
-						})
+						fakeDiegoClient.DesireTaskReturns(models.NewError(models.Error_ResourceExists, "ok, this task already exists"))
 					})
 
 					It("does not log a failure", func() {
