@@ -17,7 +17,7 @@ const (
 
 //go:generate counterfeiter -o fakes/fake_cc_client.go . CcClient
 type CcClient interface {
-	StagingComplete(stagingGuid string, payload []byte, logger lager.Logger) error
+	StagingComplete(stagingGuid string, completionCallback string, payload []byte, logger lager.Logger) error
 }
 
 type ccClient struct {
@@ -60,11 +60,11 @@ func NewCcClient(baseURI string, username string, password string, skipCertVerif
 	}
 }
 
-func (cc *ccClient) StagingComplete(stagingGuid string, payload []byte, logger lager.Logger) error {
+func (cc *ccClient) StagingComplete(stagingGuid string, completionCallback string, payload []byte, logger lager.Logger) error {
 	logger = logger.Session("cc-client")
 	logger.Info("delivering-staging-response", lager.Data{"payload": string(payload)})
 
-	request, err := http.NewRequest("POST", cc.stagingCompleteURI(stagingGuid), bytes.NewReader(payload))
+	request, err := http.NewRequest("POST", cc.stagingCompleteURI(stagingGuid, completionCallback), bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
@@ -88,6 +88,10 @@ func (cc *ccClient) StagingComplete(stagingGuid string, payload []byte, logger l
 	return nil
 }
 
-func (cc *ccClient) stagingCompleteURI(stagingGuid string) string {
+func (cc *ccClient) stagingCompleteURI(stagingGuid string, completionCallback string) string {
+	if completionCallback == "" {
 	return fmt.Sprintf("%s/internal/staging/%s/completed", cc.baseURI, stagingGuid)
+} else {
+	return completionCallback
+}
 }

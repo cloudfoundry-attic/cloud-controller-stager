@@ -216,7 +216,8 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 	actions = append(actions, models.EmitProgressFor(models.Parallel(uploadActions...), uploadMsg, "Uploading complete", "Uploading failed"))
 
 	annotationJson, _ := json.Marshal(cc_messages.StagingTaskAnnotation{
-		Lifecycle: TraditionalLifecycleName,
+		Lifecycle:          TraditionalLifecycleName,
+		CompletionCallback: request.CompletionCallback,
 	})
 
 	taskDefinition := &models.TaskDefinition{
@@ -228,7 +229,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 		Action:                models.WrapAction(models.Timeout(models.Serial(actions...), timeout)),
 		LogGuid:               request.LogGuid,
 		LogSource:             TaskLogSource,
-		CompletionCallbackUrl: backend.getCallbackURL(stagingGuid, request),
+		CompletionCallbackUrl: backend.config.CallbackURL(stagingGuid),
 		EgressRules:           request.EgressRules,
 		Annotation:            string(annotationJson),
 		Privileged:            true,
@@ -238,14 +239,6 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 	logger.Debug("staging-task-request")
 
 	return taskDefinition, stagingGuid, backend.config.TaskDomain, nil
-}
-
-func (backend *traditionalBackend) getCallbackURL(stagingGuid string, request cc_messages.StagingRequestFromCC) string {
-	if request.CompletionCallback == "" {
-		return backend.config.CallbackURL(stagingGuid)
-	} else {
-		return request.CompletionCallback
-	}
 }
 
 func (backend *traditionalBackend) BuildStagingResponse(taskResponse *models.TaskCallbackResponse) (cc_messages.StagingResponseForCC, error) {

@@ -201,16 +201,17 @@ var _ = Describe("TraditionalBackend", func() {
 		stagingGuid = "a-staging-guid"
 
 		stagingRequest = cc_messages.StagingRequestFromCC{
-			AppId:           appId,
-			LogGuid:         appId,
-			FileDescriptors: fileDescriptors,
-			MemoryMB:        int(memoryMb),
-			DiskMB:          int(diskMb),
-			Environment:     environment,
-			EgressRules:     egressRules,
-			Timeout:         timeout,
-			Lifecycle:       "buildpack",
-			LifecycleData:   &lifecycleData,
+			AppId:              appId,
+			LogGuid:            appId,
+			FileDescriptors:    fileDescriptors,
+			MemoryMB:           int(memoryMb),
+			DiskMB:             int(diskMb),
+			Environment:        environment,
+			EgressRules:        egressRules,
+			Timeout:            timeout,
+			Lifecycle:          "buildpack",
+			LifecycleData:      &lifecycleData,
+			CompletionCallback: "https://api.cc.com/v1/staging/some-staging-guid/droplet_completed",
 		}
 	})
 
@@ -252,12 +253,12 @@ var _ = Describe("TraditionalBackend", func() {
 		Expect(taskDef.Privileged).To(BeTrue())
 
 		var annotation cc_messages.StagingTaskAnnotation
-
 		err = json.Unmarshal([]byte(taskDef.Annotation), &annotation)
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(annotation).To(Equal(cc_messages.StagingTaskAnnotation{
-			Lifecycle: "buildpack",
+			Lifecycle:          "buildpack",
+			CompletionCallback: "https://api.cc.com/v1/staging/some-staging-guid/droplet_completed",
 		}))
 
 		actions := actionsFromTaskDef(taskDef)
@@ -359,7 +360,8 @@ var _ = Describe("TraditionalBackend", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(annotation).To(Equal(cc_messages.StagingTaskAnnotation{
-				Lifecycle: "buildpack",
+				Lifecycle:          "buildpack",
+				CompletionCallback: "https://api.cc.com/v1/staging/some-staging-guid/droplet_completed",
 			}))
 
 			actions := actionsFromTaskDef(taskDef)
@@ -393,25 +395,10 @@ var _ = Describe("TraditionalBackend", func() {
 		})
 	})
 
-	Describe("callback url", func() {
-		Context("when cc does not provide a CompletionCallback", func() {
-			It("gives the task a callback URL to call it back", func() {
-				taskDef, _, _, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(taskDef.CompletionCallbackUrl).To(Equal(fmt.Sprintf("%s/v1/staging/%s/completed", config.StagerURL, stagingGuid)))
-			})
-		})
-
-		Context("when cc provides a CompletionCallback", func() {
-			JustBeforeEach(func() {
-				stagingRequest.CompletionCallback = "https://api.cc.com/v1/staging/some-staging-guid/droplet_completed"
-			})
-			It("sets that value as the callback URL", func() {
-				taskDef, _, _, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(taskDef.CompletionCallbackUrl).To(Equal("https://api.cc.com/v1/staging/some-staging-guid/droplet_completed"))
-			})
-		})
+	It("gives the task a callback URL to call it back", func() {
+		taskDef, _, _, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(taskDef.CompletionCallbackUrl).To(Equal(fmt.Sprintf("%s/v1/staging/%s/completed", config.StagerURL, stagingGuid)))
 	})
 
 	Describe("staging action timeout", func() {

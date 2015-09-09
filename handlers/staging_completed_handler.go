@@ -101,7 +101,7 @@ func (handler *completionHandler) StagingComplete(res http.ResponseWriter, req *
 		"payload": responseJson,
 	})
 
-	err = handler.ccClient.StagingComplete(taskGuid, responseJson, logger)
+	err = handler.ccClient.StagingComplete(taskGuid, annotation.CompletionCallback, responseJson, logger)
 	if err != nil {
 		logger.Error("cc-staging-complete-failed", err)
 		if responseErr, ok := err.(*cc_client.BadResponseError); ok {

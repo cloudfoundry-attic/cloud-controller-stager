@@ -9,28 +9,30 @@ import (
 )
 
 type FakeCcClient struct {
-	StagingCompleteStub        func(stagingGuid string, payload []byte, logger lager.Logger) error
+	StagingCompleteStub        func(stagingGuid string, completionCallback string, payload []byte, logger lager.Logger) error
 	stagingCompleteMutex       sync.RWMutex
 	stagingCompleteArgsForCall []struct {
-		stagingGuid string
-		payload     []byte
-		logger      lager.Logger
+		stagingGuid        string
+		completionCallback string
+		payload            []byte
+		logger             lager.Logger
 	}
 	stagingCompleteReturns struct {
 		result1 error
 	}
 }
 
-func (fake *FakeCcClient) StagingComplete(stagingGuid string, payload []byte, logger lager.Logger) error {
+func (fake *FakeCcClient) StagingComplete(stagingGuid string, completionCallback string, payload []byte, logger lager.Logger) error {
 	fake.stagingCompleteMutex.Lock()
 	fake.stagingCompleteArgsForCall = append(fake.stagingCompleteArgsForCall, struct {
-		stagingGuid string
-		payload     []byte
-		logger      lager.Logger
-	}{stagingGuid, payload, logger})
+		stagingGuid        string
+		completionCallback string
+		payload            []byte
+		logger             lager.Logger
+	}{stagingGuid, completionCallback, payload, logger})
 	fake.stagingCompleteMutex.Unlock()
 	if fake.StagingCompleteStub != nil {
-		return fake.StagingCompleteStub(stagingGuid, payload, logger)
+		return fake.StagingCompleteStub(stagingGuid, completionCallback, payload, logger)
 	} else {
 		return fake.stagingCompleteReturns.result1
 	}

@@ -21,7 +21,8 @@ var _ = Describe("CC Client", func() {
 		logger   lager.Logger
 		ccClient cc_client.CcClient
 
-		stagingGuid string
+		stagingGuid        string
+		completionCallback string
 	)
 
 	BeforeEach(func() {
@@ -33,6 +34,7 @@ var _ = Describe("CC Client", func() {
 		ccClient = cc_client.NewCcClient(fakeCC.URL(), "username", "password", true)
 
 		stagingGuid = "the-staging-guid"
+		completionCallback = ""
 	})
 
 	AfterEach(func() {
@@ -42,28 +44,43 @@ var _ = Describe("CC Client", func() {
 	})
 
 	Describe("Successfully calling the Cloud Controller", func() {
-		var expectedBody = []byte(`{ "key": "value" }`)
+		It("calls the callback URL if it exists", func() {
+			completionCallback = fmt.Sprintf("%s/awesome/potato/staging_complete", fakeCC.URL())
 
-		BeforeEach(func() {
 			fakeCC.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("POST", fmt.Sprintf("/internal/staging/%s/completed", stagingGuid)),
-					ghttp.VerifyBasicAuth("username", "password"),
-					ghttp.RespondWith(200, `{}`),
-					func(w http.ResponseWriter, req *http.Request) {
-						body, err := ioutil.ReadAll(req.Body)
-						defer req.Body.Close()
-
-						Expect(err).NotTo(HaveOccurred())
-						Expect(body).To(Equal(expectedBody))
-					},
+					ghttp.VerifyRequest("POST", "/awesome/potato/staging_complete"),
 				),
 			)
+
+			err := ccClient.StagingComplete(stagingGuid, completionCallback, []byte(`{}`), logger)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("sends the request payload to the CC without modification", func() {
-			err := ccClient.StagingComplete(stagingGuid, expectedBody, logger)
-			Expect(err).NotTo(HaveOccurred())
+		Context("When CC's staging request does not provide a callback URL", func() {
+			var expectedBody = []byte(`{ "key": "value" }`)
+
+			BeforeEach(func() {
+				fakeCC.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("POST", fmt.Sprintf("/internal/staging/%s/completed", stagingGuid)),
+						ghttp.VerifyBasicAuth("username", "password"),
+						ghttp.RespondWith(200, `{}`),
+						func(w http.ResponseWriter, req *http.Request) {
+							body, err := ioutil.ReadAll(req.Body)
+							defer req.Body.Close()
+
+							Expect(err).NotTo(HaveOccurred())
+							Expect(body).To(Equal(expectedBody))
+						},
+					),
+				)
+			})
+
+			It("sends the request payload to the CC without modification", func() {
+				err := ccClient.StagingComplete(stagingGuid, completionCallback, expectedBody, logger)
+				Expect(err).NotTo(HaveOccurred())
+			})
 		})
 	})
 
@@ -88,7 +105,7 @@ var _ = Describe("CC Client", func() {
 			})
 
 			It("fails with a self-signed certificate", func() {
-				err := ccClient.StagingComplete(stagingGuid, []byte(`{}`), logger)
+				err := ccClient.StagingComplete(stagingGuid, completionCallback, []byte(`{}`), logger)
 				Expect(err).To(HaveOccurred())
 			})
 		})
@@ -99,7 +116,7 @@ var _ = Describe("CC Client", func() {
 			})
 
 			It("Attempts to validate SSL certificates", func() {
-				err := ccClient.StagingComplete(stagingGuid, []byte(`{}`), logger)
+				err := ccClient.StagingComplete(stagingGuid, completionCallback, []byte(`{}`), logger)
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
@@ -113,7 +130,7 @@ var _ = Describe("CC Client", func() {
 			})
 
 			It("percolates the error", func() {
-				err := ccClient.StagingComplete(stagingGuid, []byte(`{}`), logger)
+				err := ccClient.StagingComplete(stagingGuid, completionCallback, []byte(`{}`), logger)
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(BeAssignableToTypeOf(&url.Error{}))
 			})
@@ -130,7 +147,7 @@ var _ = Describe("CC Client", func() {
 			})
 
 			It("returns an error with the actual status code", func() {
-				err := ccClient.StagingComplete(stagingGuid, []byte(`{}`), logger)
+				err := ccClient.StagingComplete(stagingGuid, completionCallback, []byte(`{}`), logger)
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(BeAssignableToTypeOf(&cc_client.BadResponseError{}))
 				Expect(err.(*cc_client.BadResponseError).StatusCode).To(Equal(500))
