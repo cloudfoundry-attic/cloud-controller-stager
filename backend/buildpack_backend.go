@@ -228,7 +228,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 		Action:                models.WrapAction(models.Timeout(models.Serial(actions...), timeout)),
 		LogGuid:               request.LogGuid,
 		LogSource:             TaskLogSource,
-		CompletionCallbackUrl: backend.config.CallbackURL(stagingGuid),
+		CompletionCallbackUrl: backend.getCallbackURL(stagingGuid, request),
 		EgressRules:           request.EgressRules,
 		Annotation:            string(annotationJson),
 		Privileged:            true,
@@ -238,6 +238,14 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 	logger.Debug("staging-task-request")
 
 	return taskDefinition, stagingGuid, backend.config.TaskDomain, nil
+}
+
+func (backend *traditionalBackend) getCallbackURL(stagingGuid string, request cc_messages.StagingRequestFromCC) string {
+	if request.CompletionCallback == "" {
+		return backend.config.CallbackURL(stagingGuid)
+	} else {
+		return request.CompletionCallback
+	}
 }
 
 func (backend *traditionalBackend) BuildStagingResponse(taskResponse *models.TaskCallbackResponse) (cc_messages.StagingResponseForCC, error) {
