@@ -97,6 +97,24 @@ var dockerStagingStack = flag.String(
 	"Stack to use for staging Docker applications",
 )
 
+var bbsCACert = flag.String(
+	"bbsCACert",
+	"",
+	"path to certificate authority cert used for mutually authenticated TLS BBS communication",
+)
+
+var bbsClientCert = flag.String(
+	"bbsClientCert",
+	"",
+	"path to client cert used for mutually authenticated TLS BBS communication",
+)
+
+var bbsClientKey = flag.String(
+	"bbsClientKey",
+	"",
+	"path to client key used for mutually authenticated TLS BBS communication",
+)
+
 const (
 	dropsondeDestination = "localhost:3457"
 	dropsondeOrigin      = "stager"
@@ -114,7 +132,6 @@ func main() {
 	initializeDropsonde(logger)
 
 	ccClient := cc_client.NewCcClient(*ccBaseURL, *ccUsername, *ccPassword, *skipCertVerify)
-	bbsClient := bbs.NewClient(*bbsAddress)
 
 	address, err := getStagerAddress()
 	if err != nil {
@@ -123,7 +140,7 @@ func main() {
 
 	backends := initializeBackends(logger, lifecycles)
 
-	handler := handlers.New(logger, ccClient, bbsClient, backends, clock.NewClock())
+	handler := handlers.New(logger, ccClient, initializeBBSClient(logger), backends, clock.NewClock())
 
 	members := grouper.Members{
 		{"server", http_server.New(address, handler)},
@@ -208,4 +225,21 @@ func getStagerAddress() (string, error) {
 	}
 
 	return "0.0.0.0:" + port, nil
+}
+
+func initializeBBSClient(logger lager.Logger) bbs.Client {
+	bbsURL, err := url.Parse(*bbsAddress)
+	if err != nil {
+		logger.Fatal("Invalid BBS URL", err)
+	}
+
+	if bbsURL.Scheme != "https" {
+		return bbs.NewClient(*bbsAddress)
+	}
+
+	bbsClient, err := bbs.NewSecureClient(*bbsAddress, *bbsCACert, *bbsClientCert, *bbsClientKey)
+	if err != nil {
+		logger.Fatal("Failed to configure secure BBS client", err)
+	}
+	return bbsClient
 }
