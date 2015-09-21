@@ -271,7 +271,6 @@ func (backend *traditionalBackend) BuildStagingResponse(taskResponse *models.Tas
 		lifecycleData := json.RawMessage(lifecycleDataJSON)
 
 		response.ExecutionMetadata = result.ExecutionMetadata
-		response.DetectedStartCommand = result.DetectedStartCommand
 		response.LifecycleData = &lifecycleData
 	}
 
