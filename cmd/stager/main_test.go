@@ -249,7 +249,6 @@ var _ = Describe("Stager", func() {
 							ghttp.VerifyContentType("application/json"),
 							ghttp.VerifyJSON(`{
 								"execution_metadata": "metadata",
-								"detected_start_command": {"a": "b"},
 								"lifecycle_data": {
 									"buildpack_key": "buildpack-key",
 									"detected_buildpack": "detected-buildpack"
@@ -266,8 +265,7 @@ var _ = Describe("Stager", func() {
 						Result: `{
 							"buildpack_key": "buildpack-key",
 							"detected_buildpack": "detected-buildpack",
-							"execution_metadata": "metadata",
-							"detected_start_command": {"a": "b"}
+							"execution_metadata": "metadata"
 						}`,
 					})
 					Expect(err).NotTo(HaveOccurred())

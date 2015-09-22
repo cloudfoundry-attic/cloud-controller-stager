@@ -620,7 +620,6 @@ var _ = Describe("TraditionalBackend", func() {
 								BuildpackKey:         "buildpack-key",
 								DetectedBuildpack:    "detected-buildpack",
 								ExecutionMetadata:    "metadata",
-								DetectedStartCommand: map[string]string{"a": "b"},
 							}
 							var err error
 							stagingResultJson, err = json.Marshal(stagingResult)
@@ -640,7 +639,6 @@ var _ = Describe("TraditionalBackend", func() {
 							Expect(buildError).NotTo(HaveOccurred())
 							Expect(response).To(Equal(cc_messages.StagingResponseForCC{
 								ExecutionMetadata:    "metadata",
-								DetectedStartCommand: map[string]string{"a": "b"},
 								LifecycleData:        &responseLifecycleData,
 							}))
 
