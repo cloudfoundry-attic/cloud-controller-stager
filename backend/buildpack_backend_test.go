@@ -580,108 +580,62 @@ var _ = Describe("TraditionalBackend", func() {
 		})
 	})
 
-	Describe("response building", func() {
+	Describe("BuildStagingResponse", func() {
 		var response cc_messages.StagingResponseForCC
+		var stagingResultJson []byte
+		var taskResponseFailed bool
+		var failureReason string
+		var buildError error
 
-		Describe("BuildStagingResponse", func() {
-			var annotationJson []byte
-			var stagingResultJson []byte
-			var taskResponseFailed bool
-			var failureReason string
-			var buildError error
+		JustBeforeEach(func() {
+			taskResponse := &models.TaskCallbackResponse{
+				Failed:        taskResponseFailed,
+				FailureReason: failureReason,
+				Result:        string(stagingResultJson),
+			}
+			response, buildError = traditional.BuildStagingResponse(taskResponse)
+		})
 
-			JustBeforeEach(func() {
-				taskResponse := &models.TaskCallbackResponse{
-					Annotation:    string(annotationJson),
-					Failed:        taskResponseFailed,
-					FailureReason: failureReason,
-					Result:        string(stagingResultJson),
-				}
-				response, buildError = traditional.BuildStagingResponse(taskResponse)
+		Context("with a successful task response", func() {
+			BeforeEach(func() {
+				taskResponseFailed = false
 			})
 
-			Context("with a valid annotation", func() {
+			Context("with a valid staging result", func() {
 				BeforeEach(func() {
-					annotation := cc_messages.StagingTaskAnnotation{
-						Lifecycle: "buildpack",
-					}
+					stagingResult := buildpack_app_lifecycle.NewStagingResult(
+						buildpack_app_lifecycle.ProcessTypes{
+							"web": "rm -rf /*",
+						},
+						buildpack_app_lifecycle.LifecycleMetadata{
+							BuildpackKey:      "buildpack-key",
+							DetectedBuildpack: "detected-buildpack",
+						},
+					)
 					var err error
-					annotationJson, err = json.Marshal(annotation)
+					stagingResultJson, err = json.Marshal(stagingResult)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				Context("with a successful task response", func() {
-					BeforeEach(func() {
-						taskResponseFailed = false
-					})
-
-					Context("with a valid staging result", func() {
-						BeforeEach(func() {
-							stagingResult := buildpack_app_lifecycle.StagingResult{
-								BuildpackKey:      "buildpack-key",
-								DetectedBuildpack: "detected-buildpack",
-								ExecutionMetadata: "metadata",
-							}
-							var err error
-							stagingResultJson, err = json.Marshal(stagingResult)
-							Expect(err).NotTo(HaveOccurred())
-						})
-
-						It("populates a staging response correctly", func() {
-							expectedBuildpackResponse := cc_messages.BuildpackStagingResponse{
-								BuildpackKey:      "buildpack-key",
-								DetectedBuildpack: "detected-buildpack",
-							}
-							lifecycleDataJSON, err := json.Marshal(expectedBuildpackResponse)
-							Expect(err).NotTo(HaveOccurred())
-
-							responseLifecycleData := json.RawMessage(lifecycleDataJSON)
-
-							Expect(buildError).NotTo(HaveOccurred())
-							Expect(response).To(Equal(cc_messages.StagingResponseForCC{
-								ExecutionMetadata: "metadata",
-								LifecycleData:     &responseLifecycleData,
-							}))
-
-						})
-					})
-
-					Context("with an invalid staging result", func() {
-						BeforeEach(func() {
-							stagingResultJson = []byte("invalid-json")
-						})
-
-						It("returns an error", func() {
-							Expect(buildError).To(HaveOccurred())
-							Expect(buildError).To(BeAssignableToTypeOf(&json.SyntaxError{}))
-						})
-					})
-
-					Context("with a failed task response", func() {
-						BeforeEach(func() {
-							taskResponseFailed = true
-							failureReason = "some-failure-reason"
-						})
-
-						It("populates a staging response correctly", func() {
-							Expect(buildError).NotTo(HaveOccurred())
-							Expect(response).To(Equal(cc_messages.StagingResponseForCC{
-								Error: &cc_messages.StagingError{Message: "some-failure-reason was totally sanitized"},
-							}))
-
-						})
-					})
+				It("populates a staging response correctly", func() {
+					result := json.RawMessage(stagingResultJson)
+					Expect(response).To(Equal(cc_messages.StagingResponseForCC{
+						Result: &result,
+					}))
 				})
 			})
 
-			Context("with an invalid annotation", func() {
+			Context("with a failed task response", func() {
 				BeforeEach(func() {
-					annotationJson = []byte("invalid-json")
+					taskResponseFailed = true
+					failureReason = "some-failure-reason"
 				})
 
-				It("returns an error", func() {
-					Expect(buildError).To(HaveOccurred())
-					Expect(buildError).To(BeAssignableToTypeOf(&json.SyntaxError{}))
+				It("populates a staging response correctly", func() {
+					Expect(buildError).NotTo(HaveOccurred())
+					Expect(response).To(Equal(cc_messages.StagingResponseForCC{
+						Error: &cc_messages.StagingError{Message: "some-failure-reason was totally sanitized"},
+					}))
 				})
 			})
 		})

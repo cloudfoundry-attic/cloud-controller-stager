@@ -205,9 +205,13 @@ var _ = Describe("Stager", func() {
 							ghttp.VerifyRequest("POST", "/internal/staging/the-task-guid/completed"),
 							ghttp.VerifyContentType("application/json"),
 							ghttp.VerifyJSON(`{
-								"execution_metadata": "metadata",
-								"detected_start_command": {"a": "b"},
-								"lifecycle_data": {"docker_image": "http://docker.docker/docker"}
+								"result": {
+									"execution_metadata": "metadata",
+									"process_types": {"a": "b"},
+									"lifecycle_metadata": {
+										"docker_image": "http://docker.docker/docker"
+									}
+								}
 							}`),
 						),
 					)
@@ -220,8 +224,10 @@ var _ = Describe("Stager", func() {
 						}`,
 						Result: `{
 							"execution_metadata": "metadata",
-							"detected_start_command": {"a": "b"},
-							"docker_image": "http://docker.docker/docker"
+							"process_types": {"a": "b"},
+							"lifecycle_metadata": {
+								"docker_image": "http://docker.docker/docker"
+							}
 						}`,
 					})
 					Expect(err).NotTo(HaveOccurred())
@@ -248,10 +254,13 @@ var _ = Describe("Stager", func() {
 							ghttp.VerifyRequest("POST", "/internal/staging/the-task-guid/completed"),
 							ghttp.VerifyContentType("application/json"),
 							ghttp.VerifyJSON(`{
-								"execution_metadata": "metadata",
-								"lifecycle_data": {
-									"buildpack_key": "buildpack-key",
-									"detected_buildpack": "detected-buildpack"
+								"result": {
+									"process_types": {"a": "b"},
+									"lifecycle_metadata": {
+										"buildpack_key": "buildpack-key",
+										"detected_buildpack": "detected-buildpack"
+									},
+									"execution_metadata": "metadata"
 								}
 							}`),
 						),
@@ -263,8 +272,11 @@ var _ = Describe("Stager", func() {
 							"lifecycle": "buildpack"
 						}`,
 						Result: `{
-							"buildpack_key": "buildpack-key",
-							"detected_buildpack": "detected-buildpack",
+							"process_types": {"a": "b"},
+							"lifecycle_metadata": {
+								"buildpack_key": "buildpack-key",
+								"detected_buildpack": "detected-buildpack"
+							},
 							"execution_metadata": "metadata"
 						}`,
 					})

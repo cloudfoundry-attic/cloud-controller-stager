@@ -245,34 +245,11 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 func (backend *traditionalBackend) BuildStagingResponse(taskResponse *models.TaskCallbackResponse) (cc_messages.StagingResponseForCC, error) {
 	var response cc_messages.StagingResponseForCC
 
-	var annotation cc_messages.StagingTaskAnnotation
-	err := json.Unmarshal([]byte(taskResponse.Annotation), &annotation)
-	if err != nil {
-		return cc_messages.StagingResponseForCC{}, err
-	}
-
 	if taskResponse.Failed {
 		response.Error = backend.config.Sanitizer(taskResponse.FailureReason)
 	} else {
-		var result buildpack_app_lifecycle.StagingResult
-		err := json.Unmarshal([]byte(taskResponse.Result), &result)
-		if err != nil {
-			return cc_messages.StagingResponseForCC{}, err
-		}
-
-		buildpackResponse := cc_messages.BuildpackStagingResponse{
-			BuildpackKey:      result.BuildpackKey,
-			DetectedBuildpack: result.DetectedBuildpack,
-		}
-
-		lifecycleDataJSON, err := json.Marshal(buildpackResponse)
-		if err != nil {
-			return cc_messages.StagingResponseForCC{}, err
-		}
-		lifecycleData := json.RawMessage(lifecycleDataJSON)
-
-		response.ExecutionMetadata = result.ExecutionMetadata
-		response.LifecycleData = &lifecycleData
+		result := json.RawMessage([]byte(taskResponse.Result))
+		response.Result = &result
 	}
 
 	return response, nil

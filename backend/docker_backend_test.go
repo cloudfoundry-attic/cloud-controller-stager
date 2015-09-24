@@ -9,7 +9,6 @@ import (
 	"github.com/cloudfoundry-incubator/docker_app_lifecycle"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/stager/backend"
-	"github.com/cloudfoundry-incubator/stager/helpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -348,7 +347,6 @@ var _ = Describe("DockerBackend", func() {
 		var response cc_messages.StagingResponseForCC
 
 		Describe("BuildStagingResponse", func() {
-			var annotationJson []byte
 			var stagingResultJson []byte
 			var taskResponseFailed bool
 			var failureReason string
@@ -356,7 +354,6 @@ var _ = Describe("DockerBackend", func() {
 
 			JustBeforeEach(func() {
 				taskResponse := &models.TaskCallbackResponse{
-					Annotation:    string(annotationJson),
 					Failed:        taskResponseFailed,
 					FailureReason: failureReason,
 					Result:        string(stagingResultJson),
@@ -365,85 +362,47 @@ var _ = Describe("DockerBackend", func() {
 				response, buildError = docker.BuildStagingResponse(taskResponse)
 			})
 
-			Context("with a valid annotation", func() {
+			Context("with a successful task response", func() {
 				BeforeEach(func() {
-					annotation := cc_messages.StagingTaskAnnotation{
-						Lifecycle: "docker",
-					}
-					var err error
-					annotationJson, err = json.Marshal(annotation)
-					Expect(err).NotTo(HaveOccurred())
+					taskResponseFailed = false
 				})
 
-				Context("with a successful task response", func() {
+				Context("with a valid staging result", func() {
+					const dockerImage = "cloudfoundry/diego-docker-app"
+
 					BeforeEach(func() {
-						taskResponseFailed = false
+						stagingResult := docker_app_lifecycle.NewStagingResult(
+							docker_app_lifecycle.ProcessTypes{"a": "b"},
+							docker_app_lifecycle.LifecycleMetadata{
+								DockerImage: dockerImage,
+							},
+							"metadata",
+						)
+						var err error
+						stagingResultJson, err = json.Marshal(stagingResult)
+						Expect(err).NotTo(HaveOccurred())
 					})
 
-					Context("with a valid staging result", func() {
-						const dockerImage = "cloudfoundry/diego-docker-app"
-						var lifecycleData *json.RawMessage
-
-						BeforeEach(func() {
-							stagingResult := docker_app_lifecycle.StagingDockerResult{
-								ExecutionMetadata:    "metadata",
-								DetectedStartCommand: map[string]string{"a": "b"},
-								DockerImage:          dockerImage,
-							}
-							var err error
-							stagingResultJson, err = json.Marshal(stagingResult)
-							Expect(err).NotTo(HaveOccurred())
-
-							lifecycleData, err = helpers.BuildDockerStagingData(dockerImage)
-							Expect(err).NotTo(HaveOccurred())
-						})
-
-						It("populates a staging response correctly", func() {
-							Expect(buildError).NotTo(HaveOccurred())
-							Expect(response).To(Equal(cc_messages.StagingResponseForCC{
-								ExecutionMetadata:    "metadata",
-								DetectedStartCommand: map[string]string{"a": "b"},
-								LifecycleData:        lifecycleData,
-							}))
-						})
-					})
-
-					Context("with an invalid staging result", func() {
-						BeforeEach(func() {
-							stagingResultJson = []byte("invalid-json")
-						})
-
-						It("returns an error", func() {
-							Expect(buildError).To(HaveOccurred())
-							Expect(buildError).To(BeAssignableToTypeOf(&json.SyntaxError{}))
-						})
-					})
-
-					Context("with a failed task response", func() {
-						BeforeEach(func() {
-							taskResponseFailed = true
-							failureReason = "some-failure-reason"
-						})
-
-						It("populates a staging response correctly", func() {
-							Expect(buildError).NotTo(HaveOccurred())
-							Expect(response).To(Equal(cc_messages.StagingResponseForCC{
-								Error: &cc_messages.StagingError{Message: "some-failure-reason was totally sanitized"},
-							}))
-
-						})
+					It("populates a staging response correctly", func() {
+						result := json.RawMessage(stagingResultJson)
+						Expect(response).To(Equal(cc_messages.StagingResponseForCC{
+							Result: &result,
+						}))
 					})
 				})
-			})
 
-			Context("with an invalid annotation", func() {
-				BeforeEach(func() {
-					annotationJson = []byte("invalid-json")
-				})
+				Context("with a failed task response", func() {
+					BeforeEach(func() {
+						taskResponseFailed = true
+						failureReason = "some-failure-reason"
+					})
 
-				It("returns an error", func() {
-					Expect(buildError).To(HaveOccurred())
-					Expect(buildError).To(BeAssignableToTypeOf(&json.SyntaxError{}))
+					It("populates a staging response correctly", func() {
+						Expect(buildError).NotTo(HaveOccurred())
+						Expect(response).To(Equal(cc_messages.StagingResponseForCC{
+							Error: &cc_messages.StagingError{Message: "some-failure-reason was totally sanitized"},
+						}))
+					})
 				})
 			})
 		})

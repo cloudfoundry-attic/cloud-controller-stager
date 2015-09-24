@@ -13,11 +13,9 @@ import (
 	"time"
 
 	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/docker_app_lifecycle"
 	"github.com/cloudfoundry-incubator/file-server"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/diego_errors"
-	"github.com/cloudfoundry-incubator/stager/helpers"
 	"github.com/cloudfoundry/gunk/urljoiner"
 	"github.com/pivotal-golang/lager"
 )
@@ -167,29 +165,11 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 func (backend *dockerBackend) BuildStagingResponse(taskResponse *models.TaskCallbackResponse) (cc_messages.StagingResponseForCC, error) {
 	var response cc_messages.StagingResponseForCC
 
-	var annotation cc_messages.StagingTaskAnnotation
-	err := json.Unmarshal([]byte(taskResponse.Annotation), &annotation)
-	if err != nil {
-		return cc_messages.StagingResponseForCC{}, err
-	}
-
 	if taskResponse.Failed {
 		response.Error = backend.config.Sanitizer(taskResponse.FailureReason)
 	} else {
-		var result docker_app_lifecycle.StagingDockerResult
-		err := json.Unmarshal([]byte(taskResponse.Result), &result)
-		if err != nil {
-			return cc_messages.StagingResponseForCC{}, err
-		}
-
-		dockerLifecycleData, err := helpers.BuildDockerStagingData(result.DockerImage)
-		if err != nil {
-			return cc_messages.StagingResponseForCC{}, err
-		}
-
-		response.ExecutionMetadata = result.ExecutionMetadata
-		response.DetectedStartCommand = result.DetectedStartCommand
-		response.LifecycleData = dockerLifecycleData
+		result := json.RawMessage([]byte(taskResponse.Result))
+		response.Result = &result
 	}
 
 	return response, nil
