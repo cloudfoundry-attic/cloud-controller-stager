@@ -157,6 +157,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 	fileDescriptorLimit := uint64(request.FileDescriptors)
 
 	//Run Builder
+	runEnv := append(request.Environment, &models.EnvironmentVariable{"CF_STACK", lifecycleData.Stack})
 	actions = append(
 		actions,
 		models.EmitProgressFor(
@@ -164,7 +165,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 				User: "vcap",
 				Path: builderConfig.Path(),
 				Args: builderConfig.Args(),
-				Env:  request.Environment,
+				Env:  runEnv,
 				ResourceLimits: &models.ResourceLimits{
 					Nofile: &fileDescriptorLimit,
 				},

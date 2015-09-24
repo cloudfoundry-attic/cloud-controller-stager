@@ -177,6 +177,7 @@ var _ = Describe("TraditionalBackend", func() {
 				Env: []*models.EnvironmentVariable{
 					{"VCAP_APPLICATION", "foo"},
 					{"VCAP_SERVICES", "bar"},
+					{"CF_STACK", stack},
 				},
 				ResourceLimits: &models.ResourceLimits{Nofile: &fileDescriptorLimit},
 			},
@@ -617,9 +618,9 @@ var _ = Describe("TraditionalBackend", func() {
 					Context("with a valid staging result", func() {
 						BeforeEach(func() {
 							stagingResult := buildpack_app_lifecycle.StagingResult{
-								BuildpackKey:         "buildpack-key",
-								DetectedBuildpack:    "detected-buildpack",
-								ExecutionMetadata:    "metadata",
+								BuildpackKey:      "buildpack-key",
+								DetectedBuildpack: "detected-buildpack",
+								ExecutionMetadata: "metadata",
 							}
 							var err error
 							stagingResultJson, err = json.Marshal(stagingResult)
@@ -638,8 +639,8 @@ var _ = Describe("TraditionalBackend", func() {
 
 							Expect(buildError).NotTo(HaveOccurred())
 							Expect(response).To(Equal(cc_messages.StagingResponseForCC{
-								ExecutionMetadata:    "metadata",
-								LifecycleData:        &responseLifecycleData,
+								ExecutionMetadata: "metadata",
+								LifecycleData:     &responseLifecycleData,
 							}))
 
 						})
