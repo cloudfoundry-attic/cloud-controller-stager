@@ -23,7 +23,6 @@ var _ = Describe("DockerBackend", func() {
 	)
 
 	var (
-		dockerRegistryIPs     = []string{"10.244.2.6", "10.244.2.7"}
 		dockerRegistryAddress = fmt.Sprintf("%s:%d", dockerRegistryHost, dockerRegistryPort)
 
 		loginServer string
@@ -32,8 +31,18 @@ var _ = Describe("DockerBackend", func() {
 		email       string
 	)
 
-	setupDockerBackend := func(insecureDockerRegistry bool, payload string) backend.Backend {
+	newConsulCluster := func(ips []string) *ghttp.Server {
 		server := ghttp.NewServer()
+		type service struct {
+			Address string
+		}
+		services := []service{}
+		for i, _ := range ips {
+			services = append(services, service{Address: ips[i]})
+		}
+
+		payload, err := json.Marshal(services)
+		Expect(err).NotTo(HaveOccurred())
 
 		server.AppendHandlers(
 			ghttp.CombineHandlers(
@@ -44,10 +53,14 @@ var _ = Describe("DockerBackend", func() {
 			),
 		)
 
+		return server
+	}
+
+	setupDockerBackend := func(insecureDockerRegistry bool, consulCluster *ghttp.Server) backend.Backend {
 		config := backend.Config{
 			FileServerURL:          "http://file-server.com",
 			CCUploaderURL:          "http://cc-uploader.com",
-			ConsulCluster:          server.URL(),
+			ConsulCluster:          consulCluster.URL(),
 			DockerRegistryAddress:  dockerRegistryAddress,
 			InsecureDockerRegistry: insecureDockerRegistry,
 			Lifecycles: map[string]string{
@@ -122,6 +135,8 @@ var _ = Describe("DockerBackend", func() {
 
 		var (
 			dockerBackend             backend.Backend
+			dockerRegistryIPs         []string
+			consulCluster             *ghttp.Server
 			dockerImageCachingEnabled bool
 			expectedEgressRules       []*models.SecurityGroupRule
 			insecureDockerRegistry    bool
@@ -130,6 +145,8 @@ var _ = Describe("DockerBackend", func() {
 
 		BeforeEach(func() {
 			insecureDockerRegistry = false
+			dockerRegistryIPs = []string{"10.244.2.6", "10.244.2.7"}
+			consulCluster = newConsulCluster(dockerRegistryIPs)
 		})
 
 		AfterEach(func() {
@@ -139,14 +156,7 @@ var _ = Describe("DockerBackend", func() {
 		JustBeforeEach(func() {
 			dockerBackend = setupDockerBackend(
 				insecureDockerRegistry,
-				fmt.Sprintf(
-					`[
-						{"Address": "%s"},
-						{"Address": "%s"}
-				 ]`,
-					dockerRegistryIPs[0],
-					dockerRegistryIPs[1],
-				),
+				consulCluster,
 			)
 
 			stagingRequest = setupStagingRequest(dockerImageCachingEnabled)
@@ -336,7 +346,7 @@ var _ = Describe("DockerBackend", func() {
 		)
 
 		BeforeEach(func() {
-			docker = setupDockerBackend(true, "[]")
+			docker = setupDockerBackend(true, newConsulCluster([]string{}))
 		})
 
 		Context("and user opted-in for docker image caching", func() {
