@@ -22,14 +22,7 @@ var _ = Describe("DockerBackend", func() {
 		dockerRegistryHost = "docker-registry.service.cf.internal"
 	)
 
-	var (
-		dockerRegistryAddress = fmt.Sprintf("%s:%d", dockerRegistryHost, dockerRegistryPort)
-
-		loginServer string
-		user        string
-		password    string
-		email       string
-	)
+	var dockerRegistryAddress = fmt.Sprintf("%s:%d", dockerRegistryHost, dockerRegistryPort)
 
 	newConsulCluster := func(ips []string) *ghttp.Server {
 		server := ghttp.NewServer()
@@ -74,7 +67,7 @@ var _ = Describe("DockerBackend", func() {
 		return backend.NewDockerBackend(config, logger)
 	}
 
-	setupStagingRequest := func(dockerImageCachingEnabled bool) cc_messages.StagingRequestFromCC {
+	setupStagingRequest := func(dockerImageCachingEnabled bool, loginServer, user, password, email string) cc_messages.StagingRequestFromCC {
 		rawJsonBytes, err := json.Marshal(cc_messages.DockerStagingData{
 			DockerImageUrl:    "busybox",
 			DockerLoginServer: loginServer,
@@ -113,13 +106,6 @@ var _ = Describe("DockerBackend", func() {
 		return stagingRequest
 	}
 
-	BeforeEach(func() {
-		loginServer = ""
-		user = ""
-		password = ""
-		email = ""
-	})
-
 	Context("when docker registry is running", func() {
 		var dockerDownloadAction = models.EmitProgressFor(
 			&models.DownloadAction{
@@ -134,12 +120,11 @@ var _ = Describe("DockerBackend", func() {
 		)
 
 		var (
-			dockerBackend             backend.Backend
-			dockerRegistryIPs         []string
-			consulCluster             *ghttp.Server
-			dockerImageCachingEnabled bool
-			insecureDockerRegistry    bool
-			stagingRequest            cc_messages.StagingRequestFromCC
+			dockerBackend          backend.Backend
+			dockerRegistryIPs      []string
+			consulCluster          *ghttp.Server
+			insecureDockerRegistry bool
+			stagingRequest         cc_messages.StagingRequestFromCC
 		)
 
 		BeforeEach(func() {
@@ -149,17 +134,12 @@ var _ = Describe("DockerBackend", func() {
 		})
 
 		JustBeforeEach(func() {
-			dockerBackend = setupDockerBackend(
-				insecureDockerRegistry,
-				consulCluster,
-			)
-
-			stagingRequest = setupStagingRequest(dockerImageCachingEnabled)
+			dockerBackend = setupDockerBackend(insecureDockerRegistry, consulCluster)
 		})
 
 		Context("user did not opt-in for docker image caching", func() {
 			BeforeEach(func() {
-				dockerImageCachingEnabled = false
+				stagingRequest = setupStagingRequest(false, "", "", "", "")
 			})
 
 			It("creates a cf-app-docker-staging Task with no additional egress rules", func() {
@@ -171,7 +151,7 @@ var _ = Describe("DockerBackend", func() {
 
 		Context("user opted-in for docker image caching", func() {
 			BeforeEach(func() {
-				dockerImageCachingEnabled = true
+				stagingRequest = setupStagingRequest(true, "", "", "", "")
 			})
 
 			Context("and Docker Registry is secure", func() {
@@ -346,11 +326,15 @@ var _ = Describe("DockerBackend", func() {
 			})
 
 			Context("and credentials are provided", func() {
-				BeforeEach(func() {
+				var (
 					loginServer = "http://loginServer.com"
-					user = "user"
-					password = "password"
-					email = "email@example.com"
+					user        = "user"
+					password    = "password"
+					email       = "email@example.com"
+				)
+
+				BeforeEach(func() {
+					stagingRequest = setupStagingRequest(true, loginServer, user, password, email)
 				})
 
 				It("runs as privileged", func() {
@@ -450,7 +434,7 @@ var _ = Describe("DockerBackend", func() {
 
 		Context("and user opted-in for docker image caching", func() {
 			BeforeEach(func() {
-				stagingRequest = setupStagingRequest(true)
+				stagingRequest = setupStagingRequest(true, "", "", "", "")
 			})
 
 			It("errors", func() {
@@ -462,7 +446,7 @@ var _ = Describe("DockerBackend", func() {
 
 		Context("and user did not opt-in for docker image caching", func() {
 			BeforeEach(func() {
-				stagingRequest = setupStagingRequest(false)
+				stagingRequest = setupStagingRequest(false, "", "", "", "")
 			})
 
 			It("does not error", func() {
