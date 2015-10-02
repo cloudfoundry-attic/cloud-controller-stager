@@ -138,7 +138,6 @@ var _ = Describe("DockerBackend", func() {
 			dockerRegistryIPs         []string
 			consulCluster             *ghttp.Server
 			dockerImageCachingEnabled bool
-			expectedEgressRules       []*models.SecurityGroupRule
 			insecureDockerRegistry    bool
 			stagingRequest            cc_messages.StagingRequestFromCC
 		)
@@ -149,10 +148,6 @@ var _ = Describe("DockerBackend", func() {
 			consulCluster = newConsulCluster(dockerRegistryIPs)
 		})
 
-		AfterEach(func() {
-			expectedEgressRules = []*models.SecurityGroupRule{}
-		})
-
 		JustBeforeEach(func() {
 			dockerBackend = setupDockerBackend(
 				insecureDockerRegistry,
@@ -160,18 +155,6 @@ var _ = Describe("DockerBackend", func() {
 			)
 
 			stagingRequest = setupStagingRequest(dockerImageCachingEnabled)
-
-			for i, _ := range stagingRequest.EgressRules {
-				expectedEgressRules = append(expectedEgressRules, stagingRequest.EgressRules[i])
-			}
-
-			for _, ip := range dockerRegistryIPs {
-				expectedEgressRules = append(expectedEgressRules, &models.SecurityGroupRule{
-					Protocol:     models.TCPProtocol,
-					Destinations: []string{ip},
-					Ports:        []uint32{dockerRegistryPort},
-				})
-			}
 		})
 
 		Context("user did not opt-in for docker image caching", func() {
@@ -196,17 +179,56 @@ var _ = Describe("DockerBackend", func() {
 					insecureDockerRegistry = false
 				})
 
-				It("does not include a -insecureDockerRegistries flag without the dockerRegistryAddress", func() {
+				It("runs as privileged", func() {
 					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(taskDef.Privileged).To(BeTrue())
+				})
+
+				It("has an Action", func() {
+					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					Expect(err).NotTo(HaveOccurred())
+
 					Expect(taskDef.Action).NotTo(BeNil())
+				})
+
+				It("has expected EgressRules", func() {
+					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					Expect(err).NotTo(HaveOccurred())
+
+					expectedEgressRules := []*models.SecurityGroupRule{}
+					for i, _ := range stagingRequest.EgressRules {
+						expectedEgressRules = append(expectedEgressRules, stagingRequest.EgressRules[i])
+					}
+
+					for _, ip := range dockerRegistryIPs {
+						expectedEgressRules = append(expectedEgressRules, &models.SecurityGroupRule{
+							Protocol:     models.TCPProtocol,
+							Destinations: []string{ip},
+							Ports:        []uint32{dockerRegistryPort},
+						})
+					}
+
 					Expect(taskDef.EgressRules).To(Equal(expectedEgressRules))
+				})
+
+				It("includes the expected Docker DownloadAction", func() {
+					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					Expect(err).NotTo(HaveOccurred())
 
 					actions := actionsFromTaskDef(taskDef)
 					Expect(actions).To(HaveLen(2))
 					Expect(actions[0].GetEmitProgressAction()).To(Equal(dockerDownloadAction))
+				})
+
+				It("includes the expected Run action", func() {
+					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					Expect(err).NotTo(HaveOccurred())
+
+					actions := actionsFromTaskDef(taskDef)
+					Expect(actions).To(HaveLen(2))
+
 					fileDescriptorLimit := uint64(512)
 					internalRunAction := models.RunAction{
 						Path: "/tmp/docker_app_lifecycle/builder",
@@ -242,17 +264,55 @@ var _ = Describe("DockerBackend", func() {
 					insecureDockerRegistry = true
 				})
 
-				It("includes a -insecureDockerRegistries flag with the dockerRegistryAddress", func() {
+				It("runs as privileged", func() {
 					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(taskDef.Privileged).To(BeTrue())
+				})
+
+				It("has an Action", func() {
+					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					Expect(err).NotTo(HaveOccurred())
+
 					Expect(taskDef.Action).NotTo(BeNil())
+				})
+
+				It("has expected EgressRules", func() {
+					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					Expect(err).NotTo(HaveOccurred())
+
+					expectedEgressRules := []*models.SecurityGroupRule{}
+					for i, _ := range stagingRequest.EgressRules {
+						expectedEgressRules = append(expectedEgressRules, stagingRequest.EgressRules[i])
+					}
+
+					for _, ip := range dockerRegistryIPs {
+						expectedEgressRules = append(expectedEgressRules, &models.SecurityGroupRule{
+							Protocol:     models.TCPProtocol,
+							Destinations: []string{ip},
+							Ports:        []uint32{dockerRegistryPort},
+						})
+					}
+
 					Expect(taskDef.EgressRules).To(Equal(expectedEgressRules))
+				})
+
+				It("includes the expected Docker DownloadAction", func() {
+					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					Expect(err).NotTo(HaveOccurred())
 
 					actions := actionsFromTaskDef(taskDef)
 					Expect(actions).To(HaveLen(2))
 					Expect(actions[0].GetEmitProgressAction()).To(Equal(dockerDownloadAction))
+				})
+
+				It("includes the expected Run action", func() {
+					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					Expect(err).NotTo(HaveOccurred())
+
+					actions := actionsFromTaskDef(taskDef)
+					Expect(actions).To(HaveLen(2))
 
 					fileDescriptorLimit := uint64(512)
 					internalRunAction := models.RunAction{
@@ -293,17 +353,56 @@ var _ = Describe("DockerBackend", func() {
 					email = "email@example.com"
 				})
 
-				It("includes credentials flags", func() {
+				It("runs as privileged", func() {
 					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(taskDef.Privileged).To(BeTrue())
+				})
+
+				It("has an Action", func() {
+					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					Expect(err).NotTo(HaveOccurred())
+
 					Expect(taskDef.Action).NotTo(BeNil())
+				})
+
+				It("has expected EgressRules", func() {
+					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					Expect(err).NotTo(HaveOccurred())
+
+					expectedEgressRules := []*models.SecurityGroupRule{}
+					for i, _ := range stagingRequest.EgressRules {
+						expectedEgressRules = append(expectedEgressRules, stagingRequest.EgressRules[i])
+					}
+
+					for _, ip := range dockerRegistryIPs {
+						expectedEgressRules = append(expectedEgressRules, &models.SecurityGroupRule{
+							Protocol:     models.TCPProtocol,
+							Destinations: []string{ip},
+							Ports:        []uint32{dockerRegistryPort},
+						})
+					}
+
 					Expect(taskDef.EgressRules).To(Equal(expectedEgressRules))
+				})
+
+				It("includes the expected Docker DownloadAction", func() {
+					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					Expect(err).NotTo(HaveOccurred())
 
 					actions := actionsFromTaskDef(taskDef)
 					Expect(actions).To(HaveLen(2))
 					Expect(actions[0].GetEmitProgressAction()).To(Equal(dockerDownloadAction))
+				})
+
+				It("includes the expected Run action", func() {
+					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					Expect(err).NotTo(HaveOccurred())
+
+					actions := actionsFromTaskDef(taskDef)
+					Expect(actions).To(HaveLen(2))
+
 					fileDescriptorLimit := uint64(512)
 					internalRunAction := models.RunAction{
 						Path: "/tmp/docker_app_lifecycle/builder",
