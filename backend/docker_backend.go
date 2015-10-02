@@ -90,7 +90,6 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 
 		additionalEgressRules, additionalArgs, err := cachingEgressRulesAndArgs(
 			logger,
-			backend.logger,
 			backend.config.DockerRegistryAddress,
 			backend.config.ConsulCluster,
 			backend.config.InsecureDockerRegistry,
@@ -256,7 +255,6 @@ func getDockerRegistryServices(consulCluster string, backendLogger lager.Logger)
 
 func cachingEgressRulesAndArgs(
 	logger lager.Logger,
-	backendLogger lager.Logger,
 	dockerRegistryAddress string,
 	consulCluster string,
 	insecureRegistry bool,
@@ -270,7 +268,7 @@ func cachingEgressRulesAndArgs(
 		return []*models.SecurityGroupRule{}, []string{}, ErrInvalidDockerRegistryAddress
 	}
 
-	registryServices, err := getDockerRegistryServices(consulCluster, backendLogger)
+	registryServices, err := getDockerRegistryServices(consulCluster, logger)
 	if err != nil {
 		logger.Error("failed-getting-docker-registry-services", err)
 		return []*models.SecurityGroupRule{}, []string{}, err
