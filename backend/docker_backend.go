@@ -113,10 +113,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 
 		registryIPs := strings.Join(buildDockerRegistryAddresses(registryServices), ",")
 
-		runActionArguments, err = addDockerCachingArguments(runActionArguments, registryIPs, backend.config.InsecureDockerRegistry, host, port, lifecycleData)
-		if err != nil {
-			return &models.TaskDefinition{}, "", "", err
-		}
+		runActionArguments = addDockerCachingArguments(runActionArguments, registryIPs, backend.config.InsecureDockerRegistry, host, port, lifecycleData)
 	}
 
 	fileDescriptorLimit := uint64(request.FileDescriptors)
@@ -289,7 +286,7 @@ func getDockerRegistryServices(consulCluster string, backendLogger lager.Logger)
 	return ips, nil
 }
 
-func addDockerCachingArguments(args []string, registryIPs string, insecureRegistry bool, host string, port string, stagingData cc_messages.DockerStagingData) ([]string, error) {
+func addDockerCachingArguments(args []string, registryIPs string, insecureRegistry bool, host string, port string, stagingData cc_messages.DockerStagingData) []string {
 	args = append(args, "-cacheDockerImage")
 
 	args = append(args, "-dockerRegistryHost", host)
@@ -309,5 +306,5 @@ func addDockerCachingArguments(args []string, registryIPs string, insecureRegist
 			"-dockerEmail", stagingData.DockerEmail)
 	}
 
-	return args, nil
+	return args
 }
