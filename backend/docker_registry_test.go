@@ -99,7 +99,7 @@ var _ = Describe("DockerBackend", func() {
 	})
 
 	Context("when docker registry is running", func() {
-		var downloadBuilderAction = models.EmitProgressFor(
+		var dockerDownloadAction = models.EmitProgressFor(
 			&models.DownloadAction{
 				From:     "http://file-server.com/v1/static/docker_lifecycle/docker_app_lifecycle.tgz",
 				To:       "/tmp/docker_app_lifecycle",
@@ -113,7 +113,6 @@ var _ = Describe("DockerBackend", func() {
 
 		var (
 			dockerBackend          backend.Backend
-			expectedRunAction      models.ActionInterface
 			expectedEgressRules    []*models.SecurityGroupRule
 			insecureDockerRegistry bool
 			stagingRequest         cc_messages.StagingRequestFromCC
@@ -164,38 +163,11 @@ var _ = Describe("DockerBackend", func() {
 		})
 
 		Context("user opted-in for docker image caching", func() {
-			var internalRunAction models.RunAction
-
 			JustBeforeEach(func() {
 				stagingRequest.Environment = append(stagingRequest.Environment, &models.EnvironmentVariable{
 					Name:  "DIEGO_DOCKER_CACHE",
 					Value: "true",
 				})
-				fileDescriptorLimit := uint64(512)
-				internalRunAction = models.RunAction{
-					Path: "/tmp/docker_app_lifecycle/builder",
-					Args: []string{
-						"-outputMetadataJSONFilename", "/tmp/docker-result/result.json",
-						"-dockerRef", "busybox",
-						"-cacheDockerImage",
-						"-dockerRegistryHost", dockerRegistryHost,
-						"-dockerRegistryPort", fmt.Sprintf("%d", dockerRegistryPort),
-						"-dockerRegistryIPs", strings.Join(dockerRegistryIPs, ","),
-					},
-					Env: []*models.EnvironmentVariable{
-						&models.EnvironmentVariable{Name: "DIEGO_DOCKER_CACHE", Value: "true"},
-					},
-					ResourceLimits: &models.ResourceLimits{
-						Nofile: &fileDescriptorLimit,
-					},
-					User: "root",
-				}
-				expectedRunAction = models.EmitProgressFor(
-					&internalRunAction,
-					"Staging...",
-					"Staging Complete",
-					"Staging Failed",
-				)
 			})
 
 			Context("and Docker Registry is secure", func() {
@@ -203,7 +175,7 @@ var _ = Describe("DockerBackend", func() {
 					insecureDockerRegistry = false
 				})
 
-				It("creates a cf-app-docker-staging Task with staging instructions", func() {
+				It("does not include a -insecureDockerRegistries flag without the dockerRegistryAddress", func() {
 					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -213,7 +185,33 @@ var _ = Describe("DockerBackend", func() {
 
 					actions := actionsFromTaskDef(taskDef)
 					Expect(actions).To(HaveLen(2))
-					Expect(actions[0].GetEmitProgressAction()).To(Equal(downloadBuilderAction))
+					Expect(actions[0].GetEmitProgressAction()).To(Equal(dockerDownloadAction))
+					fileDescriptorLimit := uint64(512)
+					internalRunAction := models.RunAction{
+						Path: "/tmp/docker_app_lifecycle/builder",
+						Args: []string{
+							"-outputMetadataJSONFilename", "/tmp/docker-result/result.json",
+							"-dockerRef", "busybox",
+							"-cacheDockerImage",
+							"-dockerRegistryHost", dockerRegistryHost,
+							"-dockerRegistryPort", fmt.Sprintf("%d", dockerRegistryPort),
+							"-dockerRegistryIPs", strings.Join(dockerRegistryIPs, ","),
+						},
+						Env: []*models.EnvironmentVariable{
+							&models.EnvironmentVariable{Name: "DIEGO_DOCKER_CACHE", Value: "true"},
+						},
+						ResourceLimits: &models.ResourceLimits{
+							Nofile: &fileDescriptorLimit,
+						},
+						User: "root",
+					}
+					expectedRunAction := models.EmitProgressFor(
+						&internalRunAction,
+						"Staging...",
+						"Staging Complete",
+						"Staging Failed",
+					)
+
 					Expect(actions[1].GetEmitProgressAction()).To(Equal(expectedRunAction))
 				})
 			})
@@ -223,11 +221,7 @@ var _ = Describe("DockerBackend", func() {
 					insecureDockerRegistry = true
 				})
 
-				JustBeforeEach(func() {
-					internalRunAction.Args = append(internalRunAction.Args, "-insecureDockerRegistries", dockerRegistryAddress)
-				})
-
-				It("creates a cf-app-docker-staging Task with staging instructions", func() {
+				It("includes a -insecureDockerRegistries flag with the dockerRegistryAddress", func() {
 					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -237,7 +231,35 @@ var _ = Describe("DockerBackend", func() {
 
 					actions := actionsFromTaskDef(taskDef)
 					Expect(actions).To(HaveLen(2))
-					Expect(actions[0].GetEmitProgressAction()).To(Equal(downloadBuilderAction))
+					Expect(actions[0].GetEmitProgressAction()).To(Equal(dockerDownloadAction))
+
+					fileDescriptorLimit := uint64(512)
+					internalRunAction := models.RunAction{
+						Path: "/tmp/docker_app_lifecycle/builder",
+						Args: []string{
+							"-outputMetadataJSONFilename", "/tmp/docker-result/result.json",
+							"-dockerRef", "busybox",
+							"-cacheDockerImage",
+							"-dockerRegistryHost", dockerRegistryHost,
+							"-dockerRegistryPort", fmt.Sprintf("%d", dockerRegistryPort),
+							"-dockerRegistryIPs", strings.Join(dockerRegistryIPs, ","),
+							"-insecureDockerRegistries", dockerRegistryAddress,
+						},
+						Env: []*models.EnvironmentVariable{
+							&models.EnvironmentVariable{Name: "DIEGO_DOCKER_CACHE", Value: "true"},
+						},
+						ResourceLimits: &models.ResourceLimits{
+							Nofile: &fileDescriptorLimit,
+						},
+						User: "root",
+					}
+					expectedRunAction := models.EmitProgressFor(
+						&internalRunAction,
+						"Staging...",
+						"Staging Complete",
+						"Staging Failed",
+					)
+
 					Expect(actions[1].GetEmitProgressAction()).To(Equal(expectedRunAction))
 				})
 			})
@@ -250,16 +272,7 @@ var _ = Describe("DockerBackend", func() {
 					email = "email@example.com"
 				})
 
-				JustBeforeEach(func() {
-					internalRunAction.Args = append(internalRunAction.Args,
-						"-dockerLoginServer", loginServer,
-						"-dockerUser", user,
-						"-dockerPassword", password,
-						"-dockerEmail", email,
-					)
-				})
-
-				It("creates a cf-app-docker-staging Task with staging instructions", func() {
+				It("includes credentials flags", func() {
 					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -269,11 +282,39 @@ var _ = Describe("DockerBackend", func() {
 
 					actions := actionsFromTaskDef(taskDef)
 					Expect(actions).To(HaveLen(2))
-					Expect(actions[0].GetEmitProgressAction()).To(Equal(downloadBuilderAction))
+					Expect(actions[0].GetEmitProgressAction()).To(Equal(dockerDownloadAction))
+					fileDescriptorLimit := uint64(512)
+					internalRunAction := models.RunAction{
+						Path: "/tmp/docker_app_lifecycle/builder",
+						Args: []string{
+							"-outputMetadataJSONFilename", "/tmp/docker-result/result.json",
+							"-dockerRef", "busybox",
+							"-cacheDockerImage",
+							"-dockerRegistryHost", dockerRegistryHost,
+							"-dockerRegistryPort", fmt.Sprintf("%d", dockerRegistryPort),
+							"-dockerRegistryIPs", strings.Join(dockerRegistryIPs, ","),
+							"-dockerLoginServer", loginServer,
+							"-dockerUser", user,
+							"-dockerPassword", password,
+							"-dockerEmail", email,
+						},
+						Env: []*models.EnvironmentVariable{
+							&models.EnvironmentVariable{Name: "DIEGO_DOCKER_CACHE", Value: "true"},
+						},
+						ResourceLimits: &models.ResourceLimits{
+							Nofile: &fileDescriptorLimit,
+						},
+						User: "root",
+					}
+					expectedRunAction := models.EmitProgressFor(
+						&internalRunAction,
+						"Staging...",
+						"Staging Complete",
+						"Staging Failed",
+					)
 					Expect(actions[1].GetEmitProgressAction()).To(Equal(expectedRunAction))
 				})
 			})
-
 		})
 	})
 
