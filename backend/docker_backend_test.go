@@ -11,7 +11,6 @@ import (
 	"github.com/cloudfoundry-incubator/stager/backend"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	"github.com/pivotal-golang/lager"
 	"github.com/pivotal-golang/lager/lagertest"
 )
@@ -246,10 +245,8 @@ var _ = Describe("DockerBackend", func() {
 			It("returns an error", func() {
 				_, _, _, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).To(Equal(backend.ErrInvalidDockerRegistryAddress))
-				Expect(logger).To(gbytes.Say(`{"address":"://host:","app-id":"bunny","error":"too many colons in address ://host:"`))
 			})
 		})
-
 	})
 
 	It("creates a cf-app-docker-staging Task with staging instructions", func() {

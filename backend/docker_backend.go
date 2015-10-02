@@ -100,12 +100,15 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 
 		host, port, err := net.SplitHostPort(backend.config.DockerRegistryAddress)
 		if err != nil {
-			logger.Debug("invalid docker registry address", lager.Data{"address": backend.config.DockerRegistryAddress, "error": err.Error()})
+			logger.Error("invalid-docker-registry-address", err, lager.Data{
+				"registry-address": backend.config.DockerRegistryAddress,
+			})
 			return &models.TaskDefinition{}, "", "", ErrInvalidDockerRegistryAddress
 		}
 
 		registryServices, err := getDockerRegistryServices(backend.config.ConsulCluster, backend.logger)
 		if err != nil {
+			logger.Error("failed-getting-docker-registry-services", err)
 			return &models.TaskDefinition{}, "", "", err
 		}
 		registryRules := addDockerRegistryRules(request.EgressRules, registryServices)
