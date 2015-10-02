@@ -17,7 +17,6 @@ import (
 
 var _ = Describe("DockerBackend", func() {
 	const (
-		stagingGuid        = "staging-guid"
 		dockerRegistryPort = uint32(8080)
 		dockerRegistryHost = "docker-registry.service.cf.internal"
 	)
@@ -143,7 +142,7 @@ var _ = Describe("DockerBackend", func() {
 			})
 
 			It("creates a cf-app-docker-staging Task with no additional egress rules", func() {
-				taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+				taskDef, _, _, err := dockerBackend.BuildRecipe("staging-guid", stagingRequest)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(taskDef.EgressRules).To(Equal(stagingRequest.EgressRules))
 			})
@@ -160,21 +159,21 @@ var _ = Describe("DockerBackend", func() {
 				})
 
 				It("runs as privileged", func() {
-					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					taskDef, _, _, err := dockerBackend.BuildRecipe("staging-guid", stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(taskDef.Privileged).To(BeTrue())
 				})
 
 				It("has an Action", func() {
-					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					taskDef, _, _, err := dockerBackend.BuildRecipe("staging-guid", stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(taskDef.Action).NotTo(BeNil())
 				})
 
 				It("has expected EgressRules", func() {
-					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					taskDef, _, _, err := dockerBackend.BuildRecipe("staging-guid", stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
 					expectedEgressRules := []*models.SecurityGroupRule{}
@@ -194,7 +193,7 @@ var _ = Describe("DockerBackend", func() {
 				})
 
 				It("includes the expected Docker DownloadAction", func() {
-					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					taskDef, _, _, err := dockerBackend.BuildRecipe("staging-guid", stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
 					actions := actionsFromTaskDef(taskDef)
@@ -203,7 +202,7 @@ var _ = Describe("DockerBackend", func() {
 				})
 
 				It("includes the expected Run action", func() {
-					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					taskDef, _, _, err := dockerBackend.BuildRecipe("staging-guid", stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
 					actions := actionsFromTaskDef(taskDef)
@@ -245,21 +244,21 @@ var _ = Describe("DockerBackend", func() {
 				})
 
 				It("runs as privileged", func() {
-					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					taskDef, _, _, err := dockerBackend.BuildRecipe("staging-guid", stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(taskDef.Privileged).To(BeTrue())
 				})
 
 				It("has an Action", func() {
-					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					taskDef, _, _, err := dockerBackend.BuildRecipe("staging-guid", stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(taskDef.Action).NotTo(BeNil())
 				})
 
 				It("has expected EgressRules", func() {
-					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					taskDef, _, _, err := dockerBackend.BuildRecipe("staging-guid", stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
 					expectedEgressRules := []*models.SecurityGroupRule{}
@@ -279,7 +278,7 @@ var _ = Describe("DockerBackend", func() {
 				})
 
 				It("includes the expected Docker DownloadAction", func() {
-					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					taskDef, _, _, err := dockerBackend.BuildRecipe("staging-guid", stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
 					actions := actionsFromTaskDef(taskDef)
@@ -288,7 +287,7 @@ var _ = Describe("DockerBackend", func() {
 				})
 
 				It("includes the expected Run action", func() {
-					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					taskDef, _, _, err := dockerBackend.BuildRecipe("staging-guid", stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
 					actions := actionsFromTaskDef(taskDef)
@@ -338,21 +337,21 @@ var _ = Describe("DockerBackend", func() {
 				})
 
 				It("runs as privileged", func() {
-					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					taskDef, _, _, err := dockerBackend.BuildRecipe("staging-guid", stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(taskDef.Privileged).To(BeTrue())
 				})
 
 				It("has an Action", func() {
-					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					taskDef, _, _, err := dockerBackend.BuildRecipe("staging-guid", stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(taskDef.Action).NotTo(BeNil())
 				})
 
 				It("has expected EgressRules", func() {
-					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					taskDef, _, _, err := dockerBackend.BuildRecipe("staging-guid", stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
 					expectedEgressRules := []*models.SecurityGroupRule{}
@@ -372,7 +371,7 @@ var _ = Describe("DockerBackend", func() {
 				})
 
 				It("includes the expected Docker DownloadAction", func() {
-					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					taskDef, _, _, err := dockerBackend.BuildRecipe("staging-guid", stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
 					actions := actionsFromTaskDef(taskDef)
@@ -381,7 +380,7 @@ var _ = Describe("DockerBackend", func() {
 				})
 
 				It("includes the expected Run action", func() {
-					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					taskDef, _, _, err := dockerBackend.BuildRecipe("staging-guid", stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
 					actions := actionsFromTaskDef(taskDef)
@@ -438,7 +437,7 @@ var _ = Describe("DockerBackend", func() {
 			})
 
 			It("errors", func() {
-				_, _, _, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+				_, _, _, err := docker.BuildRecipe("staging-guid", stagingRequest)
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(Equal(backend.ErrMissingDockerRegistry))
 			})
@@ -450,7 +449,7 @@ var _ = Describe("DockerBackend", func() {
 			})
 
 			It("does not error", func() {
-				_, _, _, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+				_, _, _, err := docker.BuildRecipe("staging-guid", stagingRequest)
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
