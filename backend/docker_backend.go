@@ -67,7 +67,6 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 		return &models.TaskDefinition{}, "", "", err
 	}
 
-	//Download builder
 	actions := []models.ActionInterface{
 		models.EmitProgressFor(
 			&models.DownloadAction{
@@ -104,8 +103,6 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 	}
 
 	fileDescriptorLimit := uint64(request.FileDescriptors)
-
-	// Run builder
 	actions = append(
 		actions,
 		models.EmitProgressFor(
