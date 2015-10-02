@@ -157,20 +157,6 @@ var _ = Describe("DockerBackend", func() {
 			expectedEgressRules = generateExpectedEgressRules(stagingRequest.EgressRules, dockerRegistryIPs)
 		})
 
-		checkStagingInstructionsFunc := func() {
-			taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(taskDef.Privileged).To(BeTrue())
-			Expect(taskDef.Action).NotTo(BeNil())
-			Expect(taskDef.EgressRules).To(Equal(expectedEgressRules))
-
-			actions := actionsFromTaskDef(taskDef)
-			Expect(actions).To(HaveLen(2))
-			Expect(actions[0].GetEmitProgressAction()).To(Equal(downloadBuilderAction))
-			Expect(actions[1].GetEmitProgressAction()).To(Equal(expectedRunAction))
-		}
-
 		Context("user did not opt-in for docker image caching", func() {
 			It("creates a cf-app-docker-staging Task with no additional egress rules", func() {
 				taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
@@ -184,6 +170,20 @@ var _ = Describe("DockerBackend", func() {
 			var (
 				internalRunAction models.RunAction
 			)
+
+			checkStagingInstructionsFunc := func() {
+				taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(taskDef.Privileged).To(BeTrue())
+				Expect(taskDef.Action).NotTo(BeNil())
+				Expect(taskDef.EgressRules).To(Equal(expectedEgressRules))
+
+				actions := actionsFromTaskDef(taskDef)
+				Expect(actions).To(HaveLen(2))
+				Expect(actions[0].GetEmitProgressAction()).To(Equal(downloadBuilderAction))
+				Expect(actions[1].GetEmitProgressAction()).To(Equal(expectedRunAction))
+			}
 
 			JustBeforeEach(func() {
 				cachingVar := &models.EnvironmentVariable{Name: "DIEGO_DOCKER_CACHE", Value: "true"}
