@@ -16,10 +16,12 @@ import (
 )
 
 var _ = Describe("DockerBackend", func() {
+	const (
+		stagingGuid        = "staging-guid"
+		dockerRegistryPort = uint32(8080)
+		dockerRegistryHost = "docker-registry.service.cf.internal"
+	)
 
-	const stagingGuid = "staging-guid"
-	const dockerRegistryPort = uint32(8080)
-	const dockerRegistryHost = "docker-registry.service.cf.internal"
 	var (
 		dockerRegistryIPs     = []string{"10.244.2.6", "10.244.2.7"}
 		dockerRegistryAddress = fmt.Sprintf("%s:%d", dockerRegistryHost, dockerRegistryPort)
@@ -106,26 +108,12 @@ var _ = Describe("DockerBackend", func() {
 			stagingRequest         cc_messages.StagingRequestFromCC
 		)
 
-		generateExpectedEgressRules := func(stagingRequestEgressRules []*models.SecurityGroupRule, ips []string) []*models.SecurityGroupRule {
-			rules := []*models.SecurityGroupRule{}
-
-			for i, _ := range stagingRequestEgressRules {
-				rules = append(rules, stagingRequestEgressRules[i])
-			}
-
-			for _, ip := range ips {
-				rules = append(rules, &models.SecurityGroupRule{
-					Protocol:     models.TCPProtocol,
-					Destinations: []string{ip},
-					Ports:        []uint32{dockerRegistryPort},
-				})
-			}
-
-			return rules
-		}
-
 		BeforeEach(func() {
 			insecureDockerRegistry = false
+		})
+
+		AfterEach(func() {
+			expectedEgressRules = []*models.SecurityGroupRule{}
 		})
 
 		JustBeforeEach(func() {
@@ -154,7 +142,18 @@ var _ = Describe("DockerBackend", func() {
 			)
 
 			stagingRequest = setupStagingRequest()
-			expectedEgressRules = generateExpectedEgressRules(stagingRequest.EgressRules, dockerRegistryIPs)
+
+			for i, _ := range stagingRequest.EgressRules {
+				expectedEgressRules = append(expectedEgressRules, stagingRequest.EgressRules[i])
+			}
+
+			for _, ip := range dockerRegistryIPs {
+				expectedEgressRules = append(expectedEgressRules, &models.SecurityGroupRule{
+					Protocol:     models.TCPProtocol,
+					Destinations: []string{ip},
+					Ports:        []uint32{dockerRegistryPort},
+				})
+			}
 		})
 
 		Context("user did not opt-in for docker image caching", func() {
@@ -166,45 +165,27 @@ var _ = Describe("DockerBackend", func() {
 		})
 
 		Context("user opted-in for docker image caching", func() {
-			modelsCachingVar := &models.EnvironmentVariable{Name: "DIEGO_DOCKER_CACHE", Value: "true"}
-			var (
-				internalRunAction models.RunAction
-			)
-
-			checkStagingInstructionsFunc := func() {
-				taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(taskDef.Privileged).To(BeTrue())
-				Expect(taskDef.Action).NotTo(BeNil())
-				Expect(taskDef.EgressRules).To(Equal(expectedEgressRules))
-
-				actions := actionsFromTaskDef(taskDef)
-				Expect(actions).To(HaveLen(2))
-				Expect(actions[0].GetEmitProgressAction()).To(Equal(downloadBuilderAction))
-				Expect(actions[1].GetEmitProgressAction()).To(Equal(expectedRunAction))
-			}
+			var internalRunAction models.RunAction
 
 			JustBeforeEach(func() {
-				cachingVar := &models.EnvironmentVariable{Name: "DIEGO_DOCKER_CACHE", Value: "true"}
-				stagingRequest.Environment = append(stagingRequest.Environment, cachingVar)
+				stagingRequest.Environment = append(stagingRequest.Environment, &models.EnvironmentVariable{
+					Name:  "DIEGO_DOCKER_CACHE",
+					Value: "true",
+				})
 				fileDescriptorLimit := uint64(512)
 				internalRunAction = models.RunAction{
 					Path: "/tmp/docker_app_lifecycle/builder",
 					Args: []string{
-						"-outputMetadataJSONFilename",
-						"/tmp/docker-result/result.json",
-						"-dockerRef",
-						"busybox",
+						"-outputMetadataJSONFilename", "/tmp/docker-result/result.json",
+						"-dockerRef", "busybox",
 						"-cacheDockerImage",
-						"-dockerRegistryHost",
-						dockerRegistryHost,
-						"-dockerRegistryPort",
-						fmt.Sprintf("%d", dockerRegistryPort),
-						"-dockerRegistryIPs",
-						strings.Join(dockerRegistryIPs, ","),
+						"-dockerRegistryHost", dockerRegistryHost,
+						"-dockerRegistryPort", fmt.Sprintf("%d", dockerRegistryPort),
+						"-dockerRegistryIPs", strings.Join(dockerRegistryIPs, ","),
 					},
-					Env: []*models.EnvironmentVariable{modelsCachingVar},
+					Env: []*models.EnvironmentVariable{
+						&models.EnvironmentVariable{Name: "DIEGO_DOCKER_CACHE", Value: "true"},
+					},
 					ResourceLimits: &models.ResourceLimits{
 						Nofile: &fileDescriptorLimit,
 					},
@@ -223,7 +204,19 @@ var _ = Describe("DockerBackend", func() {
 					insecureDockerRegistry = false
 				})
 
-				It("creates a cf-app-docker-staging Task with staging instructions", checkStagingInstructionsFunc)
+				It("creates a cf-app-docker-staging Task with staging instructions", func() {
+					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(taskDef.Privileged).To(BeTrue())
+					Expect(taskDef.Action).NotTo(BeNil())
+					Expect(taskDef.EgressRules).To(Equal(expectedEgressRules))
+
+					actions := actionsFromTaskDef(taskDef)
+					Expect(actions).To(HaveLen(2))
+					Expect(actions[0].GetEmitProgressAction()).To(Equal(downloadBuilderAction))
+					Expect(actions[1].GetEmitProgressAction()).To(Equal(expectedRunAction))
+				})
 			})
 
 			Context("and Docker Registry is insecure", func() {
@@ -235,7 +228,19 @@ var _ = Describe("DockerBackend", func() {
 					internalRunAction.Args = append(internalRunAction.Args, "-insecureDockerRegistries", dockerRegistryAddress)
 				})
 
-				It("creates a cf-app-docker-staging Task with staging instructions", checkStagingInstructionsFunc)
+				It("creates a cf-app-docker-staging Task with staging instructions", func() {
+					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(taskDef.Privileged).To(BeTrue())
+					Expect(taskDef.Action).NotTo(BeNil())
+					Expect(taskDef.EgressRules).To(Equal(expectedEgressRules))
+
+					actions := actionsFromTaskDef(taskDef)
+					Expect(actions).To(HaveLen(2))
+					Expect(actions[0].GetEmitProgressAction()).To(Equal(downloadBuilderAction))
+					Expect(actions[1].GetEmitProgressAction()).To(Equal(expectedRunAction))
+				})
 			})
 
 			Context("and credentials are provided", func() {
@@ -251,10 +256,23 @@ var _ = Describe("DockerBackend", func() {
 						"-dockerLoginServer", loginServer,
 						"-dockerUser", user,
 						"-dockerPassword", password,
-						"-dockerEmail", email)
+						"-dockerEmail", email,
+					)
 				})
 
-				It("creates a cf-app-docker-staging Task with staging instructions", checkStagingInstructionsFunc)
+				It("creates a cf-app-docker-staging Task with staging instructions", func() {
+					taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(taskDef.Privileged).To(BeTrue())
+					Expect(taskDef.Action).NotTo(BeNil())
+					Expect(taskDef.EgressRules).To(Equal(expectedEgressRules))
+
+					actions := actionsFromTaskDef(taskDef)
+					Expect(actions).To(HaveLen(2))
+					Expect(actions[0].GetEmitProgressAction()).To(Equal(downloadBuilderAction))
+					Expect(actions[1].GetEmitProgressAction()).To(Equal(expectedRunAction))
+				})
 			})
 
 		})
@@ -273,8 +291,10 @@ var _ = Describe("DockerBackend", func() {
 
 		Context("and user opted-in for docker image caching", func() {
 			BeforeEach(func() {
-				cachingVar := &models.EnvironmentVariable{Name: "DIEGO_DOCKER_CACHE", Value: "true"}
-				stagingRequest.Environment = append(stagingRequest.Environment, cachingVar)
+				stagingRequest.Environment = append(stagingRequest.Environment, &models.EnvironmentVariable{
+					Name:  "DIEGO_DOCKER_CACHE",
+					Value: "true",
+				})
 			})
 
 			It("errors", func() {
