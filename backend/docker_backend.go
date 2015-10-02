@@ -111,8 +111,14 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 			logger.Error("failed-getting-docker-registry-services", err)
 			return &models.TaskDefinition{}, "", "", err
 		}
-		registryRules := addDockerRegistryRules(request.EgressRules, registryServices)
-		request.EgressRules = append(request.EgressRules, registryRules...)
+
+		for _, registry := range registryServices {
+			request.EgressRules = append(request.EgressRules, &models.SecurityGroupRule{
+				Protocol:     models.TCPProtocol,
+				Destinations: []string{registry.Address},
+				Ports:        []uint32{8080},
+			})
+		}
 
 		registryIPs := strings.Join(buildDockerRegistryAddresses(registryServices), ",")
 
@@ -238,18 +244,6 @@ func dockerTimeout(request cc_messages.StagingRequestFromCC, logger lager.Logger
 		})
 		return DefaultStagingTimeout
 	}
-}
-
-func addDockerRegistryRules(egressRules []*models.SecurityGroupRule, registries []consulServiceInfo) []*models.SecurityGroupRule {
-	for _, registry := range registries {
-		egressRules = append(egressRules, &models.SecurityGroupRule{
-			Protocol:     models.TCPProtocol,
-			Destinations: []string{registry.Address},
-			Ports:        []uint32{8080},
-		})
-	}
-
-	return egressRules
 }
 
 func buildDockerRegistryAddresses(services []consulServiceInfo) []string {

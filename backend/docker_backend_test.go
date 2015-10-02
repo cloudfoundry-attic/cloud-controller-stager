@@ -276,7 +276,7 @@ var _ = Describe("DockerBackend", func() {
 
 		Expect(taskDef.MemoryMb).To(Equal(memoryMb))
 		Expect(taskDef.DiskMb).To(Equal(diskMb))
-		Expect(taskDef.EgressRules).To(ConsistOf(egressRules))
+		Expect(taskDef.EgressRules).To(Equal(egressRules))
 	})
 
 	It("uses the configured docker staging stack", func() {

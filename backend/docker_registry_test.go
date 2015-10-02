@@ -79,6 +79,13 @@ var _ = Describe("DockerBackend", func() {
 			DiskMB:          512,
 			Timeout:         512,
 			LifecycleData:   &lifecycleData,
+			EgressRules: []*models.SecurityGroupRule{
+				{
+					Protocol:     "TCP",
+					Destinations: []string{"0.0.0.0/0"},
+					PortRange:    &models.PortRange{Start: 80, End: 443},
+				},
+			},
 		}
 	}
 
@@ -99,8 +106,13 @@ var _ = Describe("DockerBackend", func() {
 			stagingRequest         cc_messages.StagingRequestFromCC
 		)
 
-		setupEgressRules := func(ips []string) []*models.SecurityGroupRule {
+		generateExpectedEgressRules := func(stagingRequestEgressRules []*models.SecurityGroupRule, ips []string) []*models.SecurityGroupRule {
 			rules := []*models.SecurityGroupRule{}
+
+			for i, _ := range stagingRequestEgressRules {
+				rules = append(rules, stagingRequestEgressRules[i])
+			}
+
 			for _, ip := range ips {
 				rules = append(rules, &models.SecurityGroupRule{
 					Protocol:     models.TCPProtocol,
@@ -108,6 +120,7 @@ var _ = Describe("DockerBackend", func() {
 					Ports:        []uint32{dockerRegistryPort},
 				})
 			}
+
 			return rules
 		}
 
@@ -135,9 +148,8 @@ var _ = Describe("DockerBackend", func() {
 				"Failed to set up docker environment",
 			)
 
-			expectedEgressRules = setupEgressRules(dockerRegistryIPs)
-
 			stagingRequest = setupStagingRequest()
+			expectedEgressRules = generateExpectedEgressRules(stagingRequest.EgressRules, dockerRegistryIPs)
 		})
 
 		checkStagingInstructionsFunc := func() {
@@ -146,7 +158,7 @@ var _ = Describe("DockerBackend", func() {
 
 			Expect(taskDef.Privileged).To(BeTrue())
 			Expect(taskDef.Action).NotTo(BeNil())
-			Expect(taskDef.EgressRules).To(ConsistOf(expectedEgressRules))
+			Expect(taskDef.EgressRules).To(Equal(expectedEgressRules))
 
 			actions := actionsFromTaskDef(taskDef)
 			Expect(actions).To(HaveLen(2))
@@ -158,7 +170,7 @@ var _ = Describe("DockerBackend", func() {
 			It("creates a cf-app-docker-staging Task with no additional egress rules", func() {
 				taskDef, _, _, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(taskDef.EgressRules).To(BeEmpty())
+				Expect(taskDef.EgressRules).To(Equal(stagingRequest.EgressRules))
 			})
 		})
 
