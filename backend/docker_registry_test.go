@@ -99,7 +99,7 @@ var _ = Describe("DockerBackend", func() {
 	Context("when docker registry is running", func() {
 		var (
 			downloadBuilderAction  models.ActionInterface
-			docker                 backend.Backend
+			dockerBackend          backend.Backend
 			expectedRunAction      models.ActionInterface
 			expectedEgressRules    []*models.SecurityGroupRule
 			insecureDockerRegistry bool
@@ -129,12 +129,17 @@ var _ = Describe("DockerBackend", func() {
 		})
 
 		JustBeforeEach(func() {
-			docker = setupDockerBackend(insecureDockerRegistry, fmt.Sprintf(
-				`[
+			dockerBackend = setupDockerBackend(
+				insecureDockerRegistry,
+				fmt.Sprintf(
+					`[
 						{"Address": "%s"},
 						{"Address": "%s"}
 				 ]`,
-				dockerRegistryIPs[0], dockerRegistryIPs[1]))
+					dockerRegistryIPs[0],
+					dockerRegistryIPs[1],
+				),
+			)
 
 			downloadBuilderAction = models.EmitProgressFor(
 				&models.DownloadAction{
@@ -153,7 +158,7 @@ var _ = Describe("DockerBackend", func() {
 		})
 
 		checkStagingInstructionsFunc := func() {
-			taskDef, _, _, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+			taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(taskDef.Privileged).To(BeTrue())
@@ -168,7 +173,7 @@ var _ = Describe("DockerBackend", func() {
 
 		Context("user did not opt-in for docker image caching", func() {
 			It("creates a cf-app-docker-staging Task with no additional egress rules", func() {
-				taskDef, _, _, err := docker.BuildRecipe(stagingGuid, stagingRequest)
+				taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(taskDef.EgressRules).To(Equal(stagingRequest.EgressRules))
 			})
