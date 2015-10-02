@@ -99,8 +99,19 @@ var _ = Describe("DockerBackend", func() {
 	})
 
 	Context("when docker registry is running", func() {
+		var downloadBuilderAction = models.EmitProgressFor(
+			&models.DownloadAction{
+				From:     "http://file-server.com/v1/static/docker_lifecycle/docker_app_lifecycle.tgz",
+				To:       "/tmp/docker_app_lifecycle",
+				CacheKey: "docker-lifecycle",
+				User:     "vcap",
+			},
+			"",
+			"",
+			"Failed to set up docker environment",
+		)
+
 		var (
-			downloadBuilderAction  models.ActionInterface
 			dockerBackend          backend.Backend
 			expectedRunAction      models.ActionInterface
 			expectedEgressRules    []*models.SecurityGroupRule
@@ -127,18 +138,6 @@ var _ = Describe("DockerBackend", func() {
 					dockerRegistryIPs[0],
 					dockerRegistryIPs[1],
 				),
-			)
-
-			downloadBuilderAction = models.EmitProgressFor(
-				&models.DownloadAction{
-					From:     "http://file-server.com/v1/static/docker_lifecycle/docker_app_lifecycle.tgz",
-					To:       "/tmp/docker_app_lifecycle",
-					CacheKey: "docker-lifecycle",
-					User:     "vcap",
-				},
-				"",
-				"",
-				"Failed to set up docker environment",
 			)
 
 			stagingRequest = setupStagingRequest()
