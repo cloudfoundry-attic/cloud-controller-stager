@@ -88,39 +88,20 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 	if cacheDockerImage(request.Environment) {
 		runAs = "root"
 
-		host, port, err := net.SplitHostPort(backend.config.DockerRegistryAddress)
+		additionalEgressRules, additionalArgs, err := cachingEgressRulesAndArgs(
+			logger,
+			backend.logger,
+			backend.config.DockerRegistryAddress,
+			backend.config.ConsulCluster,
+			backend.config.InsecureDockerRegistry,
+			lifecycleData,
+		)
 		if err != nil {
-			logger.Error("invalid-docker-registry-address", err, lager.Data{
-				"registry-address": backend.config.DockerRegistryAddress,
-			})
-			return &models.TaskDefinition{}, "", "", ErrInvalidDockerRegistryAddress
-		}
-
-		registryServices, err := getDockerRegistryServices(backend.config.ConsulCluster, backend.logger)
-		if err != nil {
-			logger.Error("failed-getting-docker-registry-services", err)
 			return &models.TaskDefinition{}, "", "", err
 		}
 
-		registryIPs := make([]string, 0, len(registryServices))
-		for _, registry := range registryServices {
-			request.EgressRules = append(request.EgressRules, &models.SecurityGroupRule{
-				Protocol:     models.TCPProtocol,
-				Destinations: []string{registry.Address},
-				Ports:        []uint32{8080},
-			})
-
-			registryIPs = append(registryIPs, registry.Address)
-		}
-
-		runActionArguments = addDockerCachingArguments(
-			runActionArguments,
-			strings.Join(registryIPs, ","),
-			backend.config.InsecureDockerRegistry,
-			host,
-			port,
-			lifecycleData,
-		)
+		runActionArguments = append(runActionArguments, additionalArgs...)
+		request.EgressRules = append(request.EgressRules, additionalEgressRules...)
 	}
 
 	fileDescriptorLimit := uint64(request.FileDescriptors)
@@ -273,13 +254,48 @@ func getDockerRegistryServices(consulCluster string, backendLogger lager.Logger)
 	return ips, nil
 }
 
-func addDockerCachingArguments(args []string, registryIPs string, insecureRegistry bool, host string, port string, stagingData cc_messages.DockerStagingData) []string {
-	args = append(args, "-cacheDockerImage")
+func cachingEgressRulesAndArgs(
+	logger lager.Logger,
+	backendLogger lager.Logger,
+	dockerRegistryAddress string,
+	consulCluster string,
+	insecureRegistry bool,
+	stagingData cc_messages.DockerStagingData,
+) ([]*models.SecurityGroupRule, []string, error) {
+	host, port, err := net.SplitHostPort(dockerRegistryAddress)
+	if err != nil {
+		logger.Error("invalid-docker-registry-address", err, lager.Data{
+			"registry-address": dockerRegistryAddress,
+		})
+		return []*models.SecurityGroupRule{}, []string{}, ErrInvalidDockerRegistryAddress
+	}
 
-	args = append(args, "-dockerRegistryHost", host)
-	args = append(args, "-dockerRegistryPort", port)
+	registryServices, err := getDockerRegistryServices(consulCluster, backendLogger)
+	if err != nil {
+		logger.Error("failed-getting-docker-registry-services", err)
+		return []*models.SecurityGroupRule{}, []string{}, err
+	}
 
-	args = append(args, "-dockerRegistryIPs", registryIPs)
+	egressRules := []*models.SecurityGroupRule{}
+	registryIPs := make([]string, 0, len(registryServices))
+	for _, registry := range registryServices {
+		egressRules = append(egressRules, &models.SecurityGroupRule{
+			Protocol:     models.TCPProtocol,
+			Destinations: []string{registry.Address},
+			Ports:        []uint32{8080},
+		})
+
+		registryIPs = append(registryIPs, registry.Address)
+	}
+
+	args := []string{
+		"-cacheDockerImage",
+		"-dockerRegistryHost",
+		host, "-dockerRegistryPort",
+		port, "-dockerRegistryIPs",
+		strings.Join(registryIPs, ","),
+	}
+
 	if insecureRegistry {
 		args = append(args, "-insecureDockerRegistries", fmt.Sprintf("%s:%s", host, port))
 	}
@@ -287,13 +303,14 @@ func addDockerCachingArguments(args []string, registryIPs string, insecureRegist
 	if len(stagingData.DockerLoginServer) > 0 {
 		args = append(args, "-dockerLoginServer", stagingData.DockerLoginServer)
 	}
+
 	if len(stagingData.DockerUser) > 0 {
 		args = append(args, "-dockerUser", stagingData.DockerUser,
 			"-dockerPassword", stagingData.DockerPassword,
 			"-dockerEmail", stagingData.DockerEmail)
 	}
 
-	return args
+	return egressRules, args, nil
 }
 
 func cacheDockerImage(env []*models.EnvironmentVariable) bool {
