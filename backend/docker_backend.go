@@ -75,11 +75,8 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 		}
 	}
 
-	actions := []models.ActionInterface{}
-
 	//Download builder
-	actions = append(
-		actions,
+	actions := []models.ActionInterface{
 		models.EmitProgressFor(
 			&models.DownloadAction{
 				From:     compilerURL.String(),
@@ -91,7 +88,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 			"",
 			"Failed to set up docker environment",
 		),
-	)
+	}
 
 	runActionArguments := []string{"-outputMetadataJSONFilename", DockerBuilderOutputPath, "-dockerRef", lifecycleData.DockerImageUrl}
 	runAs := "vcap"
