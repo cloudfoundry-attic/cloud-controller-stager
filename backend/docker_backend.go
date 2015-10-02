@@ -112,17 +112,25 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 			return &models.TaskDefinition{}, "", "", err
 		}
 
+		registryIPs := make([]string, 0, len(registryServices))
 		for _, registry := range registryServices {
 			request.EgressRules = append(request.EgressRules, &models.SecurityGroupRule{
 				Protocol:     models.TCPProtocol,
 				Destinations: []string{registry.Address},
 				Ports:        []uint32{8080},
 			})
+
+			registryIPs = append(registryIPs, registry.Address)
 		}
 
-		registryIPs := strings.Join(buildDockerRegistryAddresses(registryServices), ",")
-
-		runActionArguments = addDockerCachingArguments(runActionArguments, registryIPs, backend.config.InsecureDockerRegistry, host, port, lifecycleData)
+		runActionArguments = addDockerCachingArguments(
+			runActionArguments,
+			strings.Join(registryIPs, ","),
+			backend.config.InsecureDockerRegistry,
+			host,
+			port,
+			lifecycleData,
+		)
 	}
 
 	fileDescriptorLimit := uint64(request.FileDescriptors)
@@ -244,14 +252,6 @@ func dockerTimeout(request cc_messages.StagingRequestFromCC, logger lager.Logger
 		})
 		return DefaultStagingTimeout
 	}
-}
-
-func buildDockerRegistryAddresses(services []consulServiceInfo) []string {
-	registries := make([]string, 0, len(services))
-	for _, service := range services {
-		registries = append(registries, service.Address)
-	}
-	return registries
 }
 
 func getDockerRegistryServices(consulCluster string, backendLogger lager.Logger) ([]consulServiceInfo, error) {
