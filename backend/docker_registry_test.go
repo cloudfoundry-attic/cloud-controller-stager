@@ -61,7 +61,7 @@ var _ = Describe("DockerBackend", func() {
 		return backend.NewDockerBackend(config, logger)
 	}
 
-	setupStagingRequest := func() cc_messages.StagingRequestFromCC {
+	setupStagingRequest := func(dockerImageCachingEnabled bool) cc_messages.StagingRequestFromCC {
 		rawJsonBytes, err := json.Marshal(cc_messages.DockerStagingData{
 			DockerImageUrl:    "busybox",
 			DockerLoginServer: loginServer,
@@ -74,7 +74,7 @@ var _ = Describe("DockerBackend", func() {
 
 		Expect(err).NotTo(HaveOccurred())
 
-		return cc_messages.StagingRequestFromCC{
+		stagingRequest := cc_messages.StagingRequestFromCC{
 			AppId:           "bunny",
 			FileDescriptors: 512,
 			MemoryMB:        512,
@@ -89,6 +89,15 @@ var _ = Describe("DockerBackend", func() {
 				},
 			},
 		}
+
+		if dockerImageCachingEnabled {
+			stagingRequest.Environment = append(stagingRequest.Environment, &models.EnvironmentVariable{
+				Name:  "DIEGO_DOCKER_CACHE",
+				Value: "true",
+			})
+		}
+
+		return stagingRequest
 	}
 
 	BeforeEach(func() {
@@ -112,10 +121,11 @@ var _ = Describe("DockerBackend", func() {
 		)
 
 		var (
-			dockerBackend          backend.Backend
-			expectedEgressRules    []*models.SecurityGroupRule
-			insecureDockerRegistry bool
-			stagingRequest         cc_messages.StagingRequestFromCC
+			dockerBackend             backend.Backend
+			dockerImageCachingEnabled bool
+			expectedEgressRules       []*models.SecurityGroupRule
+			insecureDockerRegistry    bool
+			stagingRequest            cc_messages.StagingRequestFromCC
 		)
 
 		BeforeEach(func() {
@@ -139,7 +149,7 @@ var _ = Describe("DockerBackend", func() {
 				),
 			)
 
-			stagingRequest = setupStagingRequest()
+			stagingRequest = setupStagingRequest(dockerImageCachingEnabled)
 
 			for i, _ := range stagingRequest.EgressRules {
 				expectedEgressRules = append(expectedEgressRules, stagingRequest.EgressRules[i])
@@ -155,6 +165,10 @@ var _ = Describe("DockerBackend", func() {
 		})
 
 		Context("user did not opt-in for docker image caching", func() {
+			BeforeEach(func() {
+				dockerImageCachingEnabled = false
+			})
+
 			It("creates a cf-app-docker-staging Task with no additional egress rules", func() {
 				taskDef, _, _, err := dockerBackend.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).NotTo(HaveOccurred())
@@ -163,11 +177,8 @@ var _ = Describe("DockerBackend", func() {
 		})
 
 		Context("user opted-in for docker image caching", func() {
-			JustBeforeEach(func() {
-				stagingRequest.Environment = append(stagingRequest.Environment, &models.EnvironmentVariable{
-					Name:  "DIEGO_DOCKER_CACHE",
-					Value: "true",
-				})
+			BeforeEach(func() {
+				dockerImageCachingEnabled = true
 			})
 
 			Context("and Docker Registry is secure", func() {
@@ -326,15 +337,11 @@ var _ = Describe("DockerBackend", func() {
 
 		BeforeEach(func() {
 			docker = setupDockerBackend(true, "[]")
-			stagingRequest = setupStagingRequest()
 		})
 
 		Context("and user opted-in for docker image caching", func() {
 			BeforeEach(func() {
-				stagingRequest.Environment = append(stagingRequest.Environment, &models.EnvironmentVariable{
-					Name:  "DIEGO_DOCKER_CACHE",
-					Value: "true",
-				})
+				stagingRequest = setupStagingRequest(true)
 			})
 
 			It("errors", func() {
@@ -345,6 +352,10 @@ var _ = Describe("DockerBackend", func() {
 		})
 
 		Context("and user did not opt-in for docker image caching", func() {
+			BeforeEach(func() {
+				stagingRequest = setupStagingRequest(false)
+			})
+
 			It("does not error", func() {
 				_, _, _, err := docker.BuildRecipe(stagingGuid, stagingRequest)
 				Expect(err).NotTo(HaveOccurred())
