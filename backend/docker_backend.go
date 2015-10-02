@@ -67,14 +67,6 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 		return &models.TaskDefinition{}, "", "", err
 	}
 
-	cacheDockerImage := false
-	for _, envVar := range request.Environment {
-		if envVar.Name == "DIEGO_DOCKER_CACHE" && envVar.Value == "true" {
-			cacheDockerImage = true
-			break
-		}
-	}
-
 	//Download builder
 	actions := []models.ActionInterface{
 		models.EmitProgressFor(
@@ -91,8 +83,9 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 	}
 
 	runActionArguments := []string{"-outputMetadataJSONFilename", DockerBuilderOutputPath, "-dockerRef", lifecycleData.DockerImageUrl}
+
 	runAs := "vcap"
-	if cacheDockerImage {
+	if cacheDockerImage(request.Environment) {
 		runAs = "root"
 
 		host, port, err := net.SplitHostPort(backend.config.DockerRegistryAddress)
@@ -301,4 +294,14 @@ func addDockerCachingArguments(args []string, registryIPs string, insecureRegist
 	}
 
 	return args
+}
+
+func cacheDockerImage(env []*models.EnvironmentVariable) bool {
+	for _, envVar := range env {
+		if envVar.Name == "DIEGO_DOCKER_CACHE" && envVar.Value == "true" {
+			return true
+		}
+	}
+
+	return false
 }
