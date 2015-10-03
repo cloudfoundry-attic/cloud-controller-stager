@@ -119,25 +119,20 @@ var _ = Describe("DockerBackend", func() {
 		)
 
 		var (
-			dockerBackend          backend.Backend
-			dockerRegistryIPs      []string
-			consulCluster          *ghttp.Server
-			insecureDockerRegistry bool
-			stagingRequest         cc_messages.StagingRequestFromCC
+			dockerBackend     backend.Backend
+			dockerRegistryIPs []string
+			consulCluster     *ghttp.Server
+			stagingRequest    cc_messages.StagingRequestFromCC
 		)
 
 		BeforeEach(func() {
-			insecureDockerRegistry = false
 			dockerRegistryIPs = []string{"10.244.2.6", "10.244.2.7"}
 			consulCluster = newConsulCluster(dockerRegistryIPs)
 		})
 
-		JustBeforeEach(func() {
-			dockerBackend = setupDockerBackend(insecureDockerRegistry, consulCluster)
-		})
-
 		Context("user did not opt-in for docker image caching", func() {
 			BeforeEach(func() {
+				dockerBackend = setupDockerBackend(false, consulCluster)
 				stagingRequest = setupStagingRequest(false, "", "", "", "")
 			})
 
@@ -155,7 +150,7 @@ var _ = Describe("DockerBackend", func() {
 
 			Context("and Docker Registry is secure", func() {
 				BeforeEach(func() {
-					insecureDockerRegistry = false
+					dockerBackend = setupDockerBackend(false, consulCluster)
 				})
 
 				It("runs as privileged", func() {
@@ -240,7 +235,7 @@ var _ = Describe("DockerBackend", func() {
 
 			Context("and Docker Registry is insecure", func() {
 				BeforeEach(func() {
-					insecureDockerRegistry = true
+					dockerBackend = setupDockerBackend(true, consulCluster)
 				})
 
 				It("runs as privileged", func() {
@@ -334,6 +329,7 @@ var _ = Describe("DockerBackend", func() {
 
 				BeforeEach(func() {
 					stagingRequest = setupStagingRequest(true, loginServer, user, password, email)
+					dockerBackend = setupDockerBackend(false, consulCluster)
 				})
 
 				It("runs as privileged", func() {
