@@ -23,6 +23,7 @@ import (
 	"github.com/cloudfoundry-incubator/stager/backend"
 	"github.com/cloudfoundry-incubator/stager/cc_client"
 	"github.com/cloudfoundry-incubator/stager/handlers"
+	"github.com/cloudfoundry-incubator/stager/vars"
 )
 
 var ccBaseURL = flag.String(
@@ -79,12 +80,6 @@ var dockerRegistryAddress = flag.String(
 	"Address (host:port) of the docker registry",
 )
 
-var insecureDockerRegistry = flag.Bool(
-	"insecureDockerRegistry",
-	false,
-	"allows use of insecure Private Docker Registry",
-)
-
 var consulCluster = flag.String(
 	"consulCluster",
 	"",
@@ -135,6 +130,13 @@ const (
 func main() {
 	cf_debug_server.AddFlags(flag.CommandLine)
 	cf_lager.AddFlags(flag.CommandLine)
+
+	var insecureDockerRegistries = make(vars.StringList)
+	flag.Var(
+		&insecureDockerRegistries,
+		"insecureDockerRegistries",
+		"Docker registry to allow connecting to even if not secure. (Can be specified multiple times to allow insecure connection to multiple repositories)",
+	)
 
 	lifecycles := flags.LifecycleMap{}
 	flag.Var(&lifecycles, "lifecycle", "app lifecycle binary bundle mapping (lifecycle[/stack]:bundle-filepath-in-fileserver)")
@@ -206,17 +208,17 @@ func initializeBackends(logger lager.Logger, lifecycles flags.LifecycleMap) map[
 	}
 
 	config := backend.Config{
-		TaskDomain:             cc_messages.StagingTaskDomain,
-		StagerURL:              *stagerURL,
-		FileServerURL:          *fileServerURL,
-		CCUploaderURL:          *ccUploaderURL,
-		Lifecycles:             lifecycles,
-		DockerRegistryAddress:  *dockerRegistryAddress,
-		InsecureDockerRegistry: *insecureDockerRegistry,
-		ConsulCluster:          *consulCluster,
-		SkipCertVerify:         *skipCertVerify,
-		Sanitizer:              backend.SanitizeErrorMessage,
-		DockerStagingStack:     *dockerStagingStack,
+		TaskDomain:            cc_messages.StagingTaskDomain,
+		StagerURL:             *stagerURL,
+		FileServerURL:         *fileServerURL,
+		CCUploaderURL:         *ccUploaderURL,
+		Lifecycles:            lifecycles,
+		DockerRegistryAddress: *dockerRegistryAddress,
+		// InsecureDockerRegistry: *insecureDockerRegistry,
+		ConsulCluster:      *consulCluster,
+		SkipCertVerify:     *skipCertVerify,
+		Sanitizer:          backend.SanitizeErrorMessage,
+		DockerStagingStack: *dockerStagingStack,
 	}
 
 	return map[string]backend.Backend{

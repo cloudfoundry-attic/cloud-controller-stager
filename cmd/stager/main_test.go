@@ -299,16 +299,14 @@ var _ = Describe("Stager", func() {
 		})
 	})
 
-	Describe("-insecureDockerRegistry arg", func() {
-		Context("when started with -insecureDockerRegistry arg", func() {
-			BeforeEach(func() {
-				runner.Start("-lifecycle", "linux:lifecycle.zip", "-insecureDockerRegistry")
-				Eventually(runner.Session()).Should(gbytes.Say("Listening for staging requests!"))
-			})
+	Context("when started with -insecureDockerRegistry", func() {
+		BeforeEach(func() {
+			runner.Start("-lifecycle", "linux:lifecycle.zip", "-insecureDockerRegistries=1,2")
+			Eventually(runner.Session()).Should(gbytes.Say("Listening for staging requests!"))
+		})
 
-			It("starts successfully", func() {
-				Consistently(runner.Session()).ShouldNot(gexec.Exit())
-			})
+		It("starts successfully", func() {
+			Consistently(runner.Session()).ShouldNot(gexec.Exit())
 		})
 	})
 

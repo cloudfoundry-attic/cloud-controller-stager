@@ -24,11 +24,12 @@ var _ = Describe("DockerBackend", func() {
 
 	BeforeEach(func() {
 		config = backend.Config{
-			TaskDomain:         "config-task-domain",
-			StagerURL:          "http://staging-url.com",
-			FileServerURL:      "http://file-server.com",
-			CCUploaderURL:      "http://cc-uploader.com",
-			DockerStagingStack: "penguin",
+			TaskDomain:               "config-task-domain",
+			StagerURL:                "http://staging-url.com",
+			FileServerURL:            "http://file-server.com",
+			CCUploaderURL:            "http://cc-uploader.com",
+			DockerStagingStack:       "penguin",
+			InsecureDockerRegistries: []string{"registry-1,registry-2"},
 			Lifecycles: map[string]string{
 				"penguin":                "penguin-compiler",
 				"rabbit_hole":            "rabbit-hole-compiler",
