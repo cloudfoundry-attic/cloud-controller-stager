@@ -21,7 +21,9 @@ var _ = Describe("DockerBackend", func() {
 		dockerRegistryHost = "docker-registry.service.cf.internal"
 	)
 
-	var dockerRegistryAddress = fmt.Sprintf("%s:%d", dockerRegistryHost, dockerRegistryPort)
+	var (
+		validDockerRegistryAddress = fmt.Sprintf("%s:%d", dockerRegistryHost, dockerRegistryPort)
+	)
 
 	newConsulCluster := func(ips []string) *ghttp.Server {
 		server := ghttp.NewServer()
@@ -48,7 +50,11 @@ var _ = Describe("DockerBackend", func() {
 		return server
 	}
 
-	setupDockerBackend := func(insecureDockerRegistry bool, consulCluster *ghttp.Server) backend.Backend {
+	setupDockerBackend := func(
+		insecureDockerRegistry bool,
+		consulCluster *ghttp.Server,
+		dockerRegistryAddress string,
+	) backend.Backend {
 		config := backend.Config{
 			FileServerURL:          "http://file-server.com",
 			CCUploaderURL:          "http://cc-uploader.com",
@@ -132,7 +138,7 @@ var _ = Describe("DockerBackend", func() {
 
 		Context("user did not opt-in for docker image caching", func() {
 			BeforeEach(func() {
-				dockerBackend = setupDockerBackend(false, consulCluster)
+				dockerBackend = setupDockerBackend(false, consulCluster, validDockerRegistryAddress)
 				stagingRequest = setupStagingRequest(false, "", "", "", "")
 			})
 
@@ -148,9 +154,20 @@ var _ = Describe("DockerBackend", func() {
 				stagingRequest = setupStagingRequest(true, "", "", "", "")
 			})
 
+			Context("when an invalid docker registry address is given", func() {
+				BeforeEach(func() {
+					dockerBackend = setupDockerBackend(false, consulCluster, "://host:")
+				})
+
+				It("returns an error", func() {
+					_, _, _, err := dockerBackend.BuildRecipe("staging-guid", stagingRequest)
+					Expect(err).To(Equal(backend.ErrInvalidDockerRegistryAddress))
+				})
+			})
+
 			Context("and Docker Registry is secure", func() {
 				BeforeEach(func() {
-					dockerBackend = setupDockerBackend(false, consulCluster)
+					dockerBackend = setupDockerBackend(false, consulCluster, validDockerRegistryAddress)
 				})
 
 				It("runs as privileged", func() {
@@ -235,7 +252,7 @@ var _ = Describe("DockerBackend", func() {
 
 			Context("and Docker Registry is insecure", func() {
 				BeforeEach(func() {
-					dockerBackend = setupDockerBackend(true, consulCluster)
+					dockerBackend = setupDockerBackend(true, consulCluster, validDockerRegistryAddress)
 				})
 
 				It("runs as privileged", func() {
@@ -298,7 +315,7 @@ var _ = Describe("DockerBackend", func() {
 							"-dockerRegistryHost", dockerRegistryHost,
 							"-dockerRegistryPort", fmt.Sprintf("%d", dockerRegistryPort),
 							"-dockerRegistryIPs", strings.Join(dockerRegistryIPs, ","),
-							"-insecureDockerRegistries", dockerRegistryAddress,
+							"-insecureDockerRegistries", validDockerRegistryAddress,
 						},
 						Env: []*models.EnvironmentVariable{
 							&models.EnvironmentVariable{Name: "DIEGO_DOCKER_CACHE", Value: "true"},
@@ -329,7 +346,7 @@ var _ = Describe("DockerBackend", func() {
 
 				BeforeEach(func() {
 					stagingRequest = setupStagingRequest(true, loginServer, user, password, email)
-					dockerBackend = setupDockerBackend(false, consulCluster)
+					dockerBackend = setupDockerBackend(false, consulCluster, validDockerRegistryAddress)
 				})
 
 				It("runs as privileged", func() {
@@ -424,7 +441,7 @@ var _ = Describe("DockerBackend", func() {
 		)
 
 		BeforeEach(func() {
-			docker = setupDockerBackend(true, newConsulCluster([]string{}))
+			docker = setupDockerBackend(true, newConsulCluster([]string{}), validDockerRegistryAddress)
 		})
 
 		Context("and user opted-in for docker image caching", func() {
