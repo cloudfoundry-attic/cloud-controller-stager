@@ -49,6 +49,7 @@ var _ = Describe("DockerBackend", func() {
 		var (
 			stagingRequest cc_messages.StagingRequestFromCC
 			dockerImageUrl string
+			appID          string
 			dockerUser     string
 			dockerPassword string
 			dockerEmail    string
@@ -59,6 +60,7 @@ var _ = Describe("DockerBackend", func() {
 
 		BeforeEach(func() {
 			dockerImageUrl = "busybox"
+			appID = "app-id"
 			memoryMb = 2048
 			diskMb = 3072
 			timeout = 900
@@ -79,10 +81,10 @@ var _ = Describe("DockerBackend", func() {
 				DockerEmail:       dockerEmail,
 			})
 			Expect(err).NotTo(HaveOccurred())
-			lifecycleData := json.RawMessage(rawJsonBytes)
 
+			lifecycleData := json.RawMessage(rawJsonBytes)
 			stagingRequest = cc_messages.StagingRequestFromCC{
-				AppId:           "app-id",
+				AppId:           appID,
 				LogGuid:         "log-guid",
 				FileDescriptors: 512,
 				MemoryMB:        int(memoryMb),
@@ -254,6 +256,17 @@ var _ = Describe("DockerBackend", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(taskDef.CompletionCallbackUrl).To(Equal(fmt.Sprintf("%s/v1/staging/%s/completed", "http://staging-url.com", "staging-guid")))
+		})
+
+		Context("with a missing app id", func() {
+			BeforeEach(func() {
+				appID = ""
+			})
+
+			It("returns an error", func() {
+				_, _, _, err := docker.BuildRecipe("staging-guid", stagingRequest)
+				Expect(err).To(Equal(backend.ErrMissingAppId))
+			})
 		})
 
 		Context("with a missing docker image url", func() {
