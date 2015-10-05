@@ -59,12 +59,15 @@ var _ = Describe("DockerBackend", func() {
 
 		BeforeEach(func() {
 			dockerImageUrl = "busybox"
-			dockerUser = ""
-			dockerPassword = ""
-			dockerEmail = ""
 			memoryMb = 2048
 			diskMb = 3072
 			timeout = 900
+		})
+
+		AfterEach(func() {
+			dockerUser = ""
+			dockerPassword = ""
+			dockerEmail = ""
 		})
 
 		JustBeforeEach(func() {
