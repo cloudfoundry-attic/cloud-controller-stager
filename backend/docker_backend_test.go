@@ -17,29 +17,12 @@ import (
 
 var _ = Describe("DockerBackend", func() {
 	var (
-		stagingRequest cc_messages.StagingRequestFromCC
-		config         backend.Config
-		logger         lager.Logger
-		docker         backend.Backend
-
-		dockerImageUrl string
-		dockerUser     string
-		dockerPassword string
-		dockerEmail    string
-		memoryMb       int32
-		diskMb         int32
-		timeout        int
+		docker backend.Backend
+		logger lager.Logger
+		config backend.Config
 	)
 
 	BeforeEach(func() {
-		dockerImageUrl = "busybox"
-		dockerUser = ""
-		dockerPassword = ""
-		dockerEmail = ""
-		memoryMb = 2048
-		diskMb = 3072
-		timeout = 900
-
 		config = backend.Config{
 			TaskDomain:         "config-task-domain",
 			StagerURL:          "http://staging-url.com",
@@ -57,46 +40,67 @@ var _ = Describe("DockerBackend", func() {
 				return &cc_messages.StagingError{Message: msg + " was totally sanitized"}
 			},
 		}
-	})
 
-	JustBeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
 		docker = backend.NewDockerBackend(config, logger)
-
-		rawJsonBytes, err := json.Marshal(cc_messages.DockerStagingData{
-			DockerImageUrl:    dockerImageUrl,
-			DockerLoginServer: "",
-			DockerUser:        dockerUser,
-			DockerPassword:    dockerPassword,
-			DockerEmail:       dockerEmail,
-		})
-		Expect(err).NotTo(HaveOccurred())
-		lifecycleData := json.RawMessage(rawJsonBytes)
-
-		stagingRequest = cc_messages.StagingRequestFromCC{
-			AppId:           "app-id",
-			LogGuid:         "log-guid",
-			FileDescriptors: 512,
-			MemoryMB:        int(memoryMb),
-			DiskMB:          int(diskMb),
-			Environment: []*models.EnvironmentVariable{
-				{"VCAP_APPLICATION", "foo"},
-				{"VCAP_SERVICES", "bar"},
-			},
-			EgressRules: []*models.SecurityGroupRule{
-				{
-					Protocol:     "TCP",
-					Destinations: []string{"0.0.0.0/0"},
-					PortRange:    &models.PortRange{Start: 80, End: 443},
-				},
-			},
-			Timeout:       timeout,
-			Lifecycle:     "docker",
-			LifecycleData: &lifecycleData,
-		}
 	})
 
-	Describe("request validation", func() {
+	Describe("BuildBackend", func() {
+		var (
+			stagingRequest cc_messages.StagingRequestFromCC
+			dockerImageUrl string
+			dockerUser     string
+			dockerPassword string
+			dockerEmail    string
+			memoryMb       int32
+			diskMb         int32
+			timeout        int
+		)
+
+		BeforeEach(func() {
+			dockerImageUrl = "busybox"
+			dockerUser = ""
+			dockerPassword = ""
+			dockerEmail = ""
+			memoryMb = 2048
+			diskMb = 3072
+			timeout = 900
+		})
+
+		JustBeforeEach(func() {
+			rawJsonBytes, err := json.Marshal(cc_messages.DockerStagingData{
+				DockerImageUrl:    dockerImageUrl,
+				DockerLoginServer: "",
+				DockerUser:        dockerUser,
+				DockerPassword:    dockerPassword,
+				DockerEmail:       dockerEmail,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			lifecycleData := json.RawMessage(rawJsonBytes)
+
+			stagingRequest = cc_messages.StagingRequestFromCC{
+				AppId:           "app-id",
+				LogGuid:         "log-guid",
+				FileDescriptors: 512,
+				MemoryMB:        int(memoryMb),
+				DiskMB:          int(diskMb),
+				Environment: []*models.EnvironmentVariable{
+					{"VCAP_APPLICATION", "foo"},
+					{"VCAP_SERVICES", "bar"},
+				},
+				EgressRules: []*models.SecurityGroupRule{
+					{
+						Protocol:     "TCP",
+						Destinations: []string{"0.0.0.0/0"},
+						PortRange:    &models.PortRange{Start: 80, End: 443},
+					},
+				},
+				Timeout:       timeout,
+				Lifecycle:     "docker",
+				LifecycleData: &lifecycleData,
+			}
+		})
+
 		Context("with a missing docker image url", func() {
 			BeforeEach(func() {
 				dockerImageUrl = ""
@@ -108,48 +112,42 @@ var _ = Describe("DockerBackend", func() {
 			})
 		})
 
-		Context("with a missing credentials set", func() {
-			Context("with missing user", func() {
-				BeforeEach(func() {
-					dockerPassword = "password"
-					dockerEmail = "email@example.com"
-				})
-
-				It("returns an error", func() {
-					_, _, _, err := docker.BuildRecipe("staging-guid", stagingRequest)
-					Expect(err).To(Equal(backend.ErrMissingDockerCredentials))
-				})
+		Context("with missing user", func() {
+			BeforeEach(func() {
+				dockerPassword = "password"
+				dockerEmail = "email@example.com"
 			})
 
-			Context("with missing password", func() {
-				BeforeEach(func() {
-					dockerUser = "user"
-					dockerEmail = "email@example.com"
-				})
-
-				It("returns an error", func() {
-					_, _, _, err := docker.BuildRecipe("staging-guid", stagingRequest)
-					Expect(err).To(Equal(backend.ErrMissingDockerCredentials))
-				})
-
+			It("returns an error", func() {
+				_, _, _, err := docker.BuildRecipe("staging-guid", stagingRequest)
+				Expect(err).To(Equal(backend.ErrMissingDockerCredentials))
 			})
-
-			Context("with missing email", func() {
-				BeforeEach(func() {
-					dockerUser = "user"
-					dockerPassword = "password"
-				})
-
-				It("returns an error", func() {
-					_, _, _, err := docker.BuildRecipe("staging-guid", stagingRequest)
-					Expect(err).To(Equal(backend.ErrMissingDockerCredentials))
-				})
-			})
-
 		})
-	})
 
-	Describe("docker lifeycle config", func() {
+		Context("with missing password", func() {
+			BeforeEach(func() {
+				dockerUser = "user"
+				dockerEmail = "email@example.com"
+			})
+
+			It("returns an error", func() {
+				_, _, _, err := docker.BuildRecipe("staging-guid", stagingRequest)
+				Expect(err).To(Equal(backend.ErrMissingDockerCredentials))
+			})
+		})
+
+		Context("with missing email", func() {
+			BeforeEach(func() {
+				dockerUser = "user"
+				dockerPassword = "password"
+			})
+
+			It("returns an error", func() {
+				_, _, _, err := docker.BuildRecipe("staging-guid", stagingRequest)
+				Expect(err).To(Equal(backend.ErrMissingDockerCredentials))
+			})
+		})
+
 		Context("when the docker lifecycle is missing", func() {
 			BeforeEach(func() {
 				delete(config.Lifecycles, "docker")
@@ -188,106 +186,104 @@ var _ = Describe("DockerBackend", func() {
 				Expect(err).To(Equal(backend.ErrInvalidDockerRegistryAddress))
 			})
 		})
-	})
 
-	It("creates a cf-app-docker-staging Task with staging instructions", func() {
-		taskDef, guid, domain, err := docker.BuildRecipe("staging-guid", stagingRequest)
-		Expect(err).NotTo(HaveOccurred())
+		It("creates a cf-app-docker-staging Task with staging instructions", func() {
+			taskDef, guid, domain, err := docker.BuildRecipe("staging-guid", stagingRequest)
+			Expect(err).NotTo(HaveOccurred())
 
-		Expect(domain).To(Equal("config-task-domain"))
-		Expect(guid).To(Equal("staging-guid"))
-		Expect(taskDef.LogGuid).To(Equal("log-guid"))
-		Expect(taskDef.LogSource).To(Equal(backend.TaskLogSource))
-		Expect(taskDef.ResultFile).To(Equal("/tmp/docker-result/result.json"))
-		Expect(taskDef.Privileged).To(BeTrue())
+			Expect(domain).To(Equal("config-task-domain"))
+			Expect(guid).To(Equal("staging-guid"))
+			Expect(taskDef.LogGuid).To(Equal("log-guid"))
+			Expect(taskDef.LogSource).To(Equal(backend.TaskLogSource))
+			Expect(taskDef.ResultFile).To(Equal("/tmp/docker-result/result.json"))
+			Expect(taskDef.Privileged).To(BeTrue())
 
-		var annotation cc_messages.StagingTaskAnnotation
+			var annotation cc_messages.StagingTaskAnnotation
 
-		err = json.Unmarshal([]byte(taskDef.Annotation), &annotation)
-		Expect(err).NotTo(HaveOccurred())
+			err = json.Unmarshal([]byte(taskDef.Annotation), &annotation)
+			Expect(err).NotTo(HaveOccurred())
 
-		Expect(annotation).To(Equal(cc_messages.StagingTaskAnnotation{
-			Lifecycle: "docker",
-		}))
+			Expect(annotation).To(Equal(cc_messages.StagingTaskAnnotation{
+				Lifecycle: "docker",
+			}))
 
-		actions := actionsFromTaskDef(taskDef)
-		Expect(actions).To(HaveLen(2))
+			actions := actionsFromTaskDef(taskDef)
+			Expect(actions).To(HaveLen(2))
 
-		dockerDownloadAction := models.EmitProgressFor(
-			&models.DownloadAction{
-				From:     "http://file-server.com/v1/static/docker_lifecycle/docker_app_lifecycle.tgz",
-				To:       "/tmp/docker_app_lifecycle",
-				CacheKey: "docker-lifecycle",
-				User:     "vcap",
-			},
-			"",
-			"",
-			"Failed to set up docker environment",
-		)
-
-		Expect(actions[0].GetEmitProgressAction()).To(Equal(dockerDownloadAction))
-
-		fileDescriptorLimit := uint64(512)
-		runAction := models.EmitProgressFor(
-			&models.RunAction{
-				Path: "/tmp/docker_app_lifecycle/builder",
-				Args: []string{
-					"-outputMetadataJSONFilename",
-					"/tmp/docker-result/result.json",
-					"-dockerRef",
-					"busybox",
+			dockerDownloadAction := models.EmitProgressFor(
+				&models.DownloadAction{
+					From:     "http://file-server.com/v1/static/docker_lifecycle/docker_app_lifecycle.tgz",
+					To:       "/tmp/docker_app_lifecycle",
+					CacheKey: "docker-lifecycle",
+					User:     "vcap",
 				},
-				Env: []*models.EnvironmentVariable{
-					{
-						Name:  "VCAP_APPLICATION",
-						Value: "foo",
+				"",
+				"",
+				"Failed to set up docker environment",
+			)
+
+			Expect(actions[0].GetEmitProgressAction()).To(Equal(dockerDownloadAction))
+
+			fileDescriptorLimit := uint64(512)
+			runAction := models.EmitProgressFor(
+				&models.RunAction{
+					Path: "/tmp/docker_app_lifecycle/builder",
+					Args: []string{
+						"-outputMetadataJSONFilename",
+						"/tmp/docker-result/result.json",
+						"-dockerRef",
+						"busybox",
 					},
-					{
-						Name:  "VCAP_SERVICES",
-						Value: "bar",
+					Env: []*models.EnvironmentVariable{
+						{
+							Name:  "VCAP_APPLICATION",
+							Value: "foo",
+						},
+						{
+							Name:  "VCAP_SERVICES",
+							Value: "bar",
+						},
 					},
+					ResourceLimits: &models.ResourceLimits{
+						Nofile: &fileDescriptorLimit,
+					},
+					User: "vcap",
 				},
-				ResourceLimits: &models.ResourceLimits{
-					Nofile: &fileDescriptorLimit,
+				"Staging...",
+				"Staging Complete",
+				"Staging Failed",
+			)
+
+			Expect(actions[1].GetEmitProgressAction()).To(Equal(runAction))
+
+			Expect(taskDef.MemoryMb).To(Equal(memoryMb))
+			Expect(taskDef.DiskMb).To(Equal(diskMb))
+
+			egressRules := []*models.SecurityGroupRule{
+				{
+					Protocol:     "TCP",
+					Destinations: []string{"0.0.0.0/0"},
+					PortRange:    &models.PortRange{Start: 80, End: 443},
 				},
-				User: "vcap",
-			},
-			"Staging...",
-			"Staging Complete",
-			"Staging Failed",
-		)
+			}
 
-		Expect(actions[1].GetEmitProgressAction()).To(Equal(runAction))
+			Expect(taskDef.EgressRules).To(Equal(egressRules))
+		})
 
-		Expect(taskDef.MemoryMb).To(Equal(memoryMb))
-		Expect(taskDef.DiskMb).To(Equal(diskMb))
+		It("uses the configured docker staging stack", func() {
+			taskDef, _, _, err := docker.BuildRecipe("staging-guid", stagingRequest)
+			Expect(err).NotTo(HaveOccurred())
 
-		egressRules := []*models.SecurityGroupRule{
-			{
-				Protocol:     "TCP",
-				Destinations: []string{"0.0.0.0/0"},
-				PortRange:    &models.PortRange{Start: 80, End: 443},
-			},
-		}
+			Expect(taskDef.RootFs).To(Equal(models.PreloadedRootFS("penguin")))
+		})
 
-		Expect(taskDef.EgressRules).To(Equal(egressRules))
-	})
+		It("gives the task a callback URL to call it back", func() {
+			taskDef, _, _, err := docker.BuildRecipe("staging-guid", stagingRequest)
+			Expect(err).NotTo(HaveOccurred())
 
-	It("uses the configured docker staging stack", func() {
-		taskDef, _, _, err := docker.BuildRecipe("staging-guid", stagingRequest)
-		Expect(err).NotTo(HaveOccurred())
+			Expect(taskDef.CompletionCallbackUrl).To(Equal(fmt.Sprintf("%s/v1/staging/%s/completed", "http://staging-url.com", "staging-guid")))
+		})
 
-		Expect(taskDef.RootFs).To(Equal(models.PreloadedRootFS("penguin")))
-	})
-
-	It("gives the task a callback URL to call it back", func() {
-		taskDef, _, _, err := docker.BuildRecipe("staging-guid", stagingRequest)
-		Expect(err).NotTo(HaveOccurred())
-
-		Expect(taskDef.CompletionCallbackUrl).To(Equal(fmt.Sprintf("%s/v1/staging/%s/completed", "http://staging-url.com", "staging-guid")))
-	})
-
-	Describe("staging action timeout", func() {
 		Context("when a positive timeout is specified in the staging request from CC", func() {
 			BeforeEach(func() {
 				timeout = 5
@@ -334,66 +330,63 @@ var _ = Describe("DockerBackend", func() {
 		})
 	})
 
-	Describe("building staging responses", func() {
-		var response cc_messages.StagingResponseForCC
+	Describe("BuildStagingResponse", func() {
+		var (
+			response          cc_messages.StagingResponseForCC
+			failureReason     string
+			buildError        error
+			stagingResultJson []byte
+			stagingResult     docker_app_lifecycle.StagingResult
+		)
 
-		Describe("BuildStagingResponse", func() {
-			var stagingResultJson []byte
-			var taskResponseFailed bool
-			var failureReason string
-			var buildError error
+		BeforeEach(func() {
+			stagingResult = docker_app_lifecycle.NewStagingResult(
+				docker_app_lifecycle.ProcessTypes{"a": "b"},
+				docker_app_lifecycle.LifecycleMetadata{
+					DockerImage: "cloudfoundry/diego-docker-app",
+				},
+				"metadata",
+			)
+			var err error
+			stagingResultJson, err = json.Marshal(stagingResult)
+			Expect(err).NotTo(HaveOccurred())
+		})
 
-			JustBeforeEach(func() {
+		Context("with a successful task response", func() {
+			BeforeEach(func() {
 				taskResponse := &models.TaskCallbackResponse{
-					Failed:        taskResponseFailed,
+					Failed:        false,
 					FailureReason: failureReason,
 					Result:        string(stagingResultJson),
 				}
 
 				response, buildError = docker.BuildStagingResponse(taskResponse)
+				Expect(buildError).NotTo(HaveOccurred())
 			})
 
-			Context("with a successful task response", func() {
+			It("populates a staging response correctly", func() {
+				result := json.RawMessage(stagingResultJson)
+				Expect(response).To(Equal(cc_messages.StagingResponseForCC{
+					Result: &result,
+				}))
+			})
+
+			Context("with a failed task response", func() {
 				BeforeEach(func() {
-					taskResponseFailed = false
+					taskResponse := &models.TaskCallbackResponse{
+						Failed:        true,
+						FailureReason: "some-failure-reason",
+						Result:        string(stagingResultJson),
+					}
+
+					response, buildError = docker.BuildStagingResponse(taskResponse)
+					Expect(buildError).NotTo(HaveOccurred())
 				})
 
-				Context("with a valid staging result", func() {
-					const dockerImage = "cloudfoundry/diego-docker-app"
-
-					BeforeEach(func() {
-						stagingResult := docker_app_lifecycle.NewStagingResult(
-							docker_app_lifecycle.ProcessTypes{"a": "b"},
-							docker_app_lifecycle.LifecycleMetadata{
-								DockerImage: dockerImage,
-							},
-							"metadata",
-						)
-						var err error
-						stagingResultJson, err = json.Marshal(stagingResult)
-						Expect(err).NotTo(HaveOccurred())
-					})
-
-					It("populates a staging response correctly", func() {
-						result := json.RawMessage(stagingResultJson)
-						Expect(response).To(Equal(cc_messages.StagingResponseForCC{
-							Result: &result,
-						}))
-					})
-				})
-
-				Context("with a failed task response", func() {
-					BeforeEach(func() {
-						taskResponseFailed = true
-						failureReason = "some-failure-reason"
-					})
-
-					It("populates a staging response correctly", func() {
-						Expect(buildError).NotTo(HaveOccurred())
-						Expect(response).To(Equal(cc_messages.StagingResponseForCC{
-							Error: &cc_messages.StagingError{Message: "some-failure-reason was totally sanitized"},
-						}))
-					})
+				It("populates a staging response correctly", func() {
+					Expect(response).To(Equal(cc_messages.StagingResponseForCC{
+						Error: &cc_messages.StagingError{Message: "some-failure-reason was totally sanitized"},
+					}))
 				})
 			})
 		})
