@@ -170,23 +170,6 @@ var _ = Describe("DockerBackend", func() {
 			})
 		})
 
-		Context("with invalid docker registry address", func() {
-			BeforeEach(func() {
-				config.DockerRegistryAddress = "://host:"
-			})
-
-			JustBeforeEach(func() {
-				stagingRequest.Environment = []*models.EnvironmentVariable{
-					{Name: "DIEGO_DOCKER_CACHE", Value: "true"},
-				}
-			})
-
-			It("returns an error", func() {
-				_, _, _, err := docker.BuildRecipe("staging-guid", stagingRequest)
-				Expect(err).To(Equal(backend.ErrInvalidDockerRegistryAddress))
-			})
-		})
-
 		It("creates a cf-app-docker-staging Task with staging instructions", func() {
 			taskDef, guid, domain, err := docker.BuildRecipe("staging-guid", stagingRequest)
 			Expect(err).NotTo(HaveOccurred())
