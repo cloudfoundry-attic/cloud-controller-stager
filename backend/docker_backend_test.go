@@ -29,6 +29,10 @@ var _ = Describe("DockerBackend", func() {
 			FileServerURL:      "http://file-server.com",
 			CCUploaderURL:      "http://cc-uploader.com",
 			DockerStagingStack: "penguin",
+			InsecureDockerRegistries: []string{
+				"http://registry-1.com",
+				"http://registry-2.com",
+			},
 			Lifecycles: map[string]string{
 				"penguin":                "penguin-compiler",
 				"rabbit_hole":            "rabbit-hole-compiler",
@@ -186,10 +190,9 @@ var _ = Describe("DockerBackend", func() {
 				&models.RunAction{
 					Path: "/tmp/docker_app_lifecycle/builder",
 					Args: []string{
-						"-outputMetadataJSONFilename",
-						"/tmp/docker-result/result.json",
-						"-dockerRef",
-						"busybox",
+						"-outputMetadataJSONFilename", "/tmp/docker-result/result.json",
+						"-dockerRef", "busybox",
+						"-insecureDockerRegistries", "http://registry-1.com,http://registry-2.com",
 					},
 					Env: []*models.EnvironmentVariable{
 						{

@@ -81,7 +81,15 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 		),
 	}
 
-	runActionArguments := []string{"-outputMetadataJSONFilename", DockerBuilderOutputPath, "-dockerRef", lifecycleData.DockerImageUrl}
+	runActionArguments := []string{
+		"-outputMetadataJSONFilename", DockerBuilderOutputPath,
+		"-dockerRef", lifecycleData.DockerImageUrl,
+	}
+
+	if len(backend.config.InsecureDockerRegistries) > 0 {
+		insecureDockerRegistries := strings.Join(backend.config.InsecureDockerRegistries, ",")
+		runActionArguments = append(runActionArguments, "-insecureDockerRegistries", insecureDockerRegistries)
+	}
 
 	runAs := "vcap"
 	if cacheDockerImage(request.Environment) {
@@ -91,7 +99,6 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 			logger,
 			backend.config.DockerRegistryAddress,
 			backend.config.ConsulCluster,
-			backend.config.InsecureDockerRegistry,
 			lifecycleData,
 		)
 		if err != nil {
@@ -254,7 +261,6 @@ func cachingEgressRulesAndArgs(
 	logger lager.Logger,
 	dockerRegistryAddress string,
 	consulCluster string,
-	insecureRegistry bool,
 	stagingData cc_messages.DockerStagingData,
 ) ([]*models.SecurityGroupRule, []string, error) {
 	host, port, err := net.SplitHostPort(dockerRegistryAddress)
@@ -289,10 +295,6 @@ func cachingEgressRulesAndArgs(
 		host, "-dockerRegistryPort",
 		port, "-dockerRegistryIPs",
 		strings.Join(registryIPs, ","),
-	}
-
-	if insecureRegistry {
-		args = append(args, "-insecureDockerRegistries", fmt.Sprintf("%s:%s", host, port))
 	}
 
 	if len(stagingData.DockerLoginServer) > 0 {
