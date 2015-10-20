@@ -22,6 +22,7 @@ import (
 
 const (
 	DockerLifecycleName         = "docker"
+	MountCgroupsPath            = "/tmp/docker_app_lifecycle/mount_cgroups"
 	DockerBuilderExecutablePath = "/tmp/docker_app_lifecycle/builder"
 	DockerBuilderOutputPath     = "/tmp/docker-result/result.json"
 )
@@ -91,6 +92,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 		runActionArguments = append(runActionArguments, "-insecureDockerRegistries", insecureDockerRegistries)
 	}
 
+	fileDescriptorLimit := uint64(request.FileDescriptors)
 	runAs := "vcap"
 	if cacheDockerImage(request.Environment) {
 		runAs = "root"
@@ -107,9 +109,23 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 
 		runActionArguments = append(runActionArguments, additionalArgs...)
 		request.EgressRules = append(request.EgressRules, additionalEgressRules...)
+		actions = append(
+			actions,
+			models.EmitProgressFor(
+				&models.RunAction{
+					Path: MountCgroupsPath,
+					ResourceLimits: &models.ResourceLimits{
+						Nofile: &fileDescriptorLimit,
+					},
+					User: runAs,
+				},
+				"Preparing docker daemon...",
+				"",
+				"Failed to set up docker environment",
+			),
+		)
 	}
 
-	fileDescriptorLimit := uint64(request.FileDescriptors)
 	actions = append(
 		actions,
 		models.EmitProgressFor(
