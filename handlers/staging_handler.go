@@ -66,6 +66,12 @@ func (handler *stagingHandler) Stage(resp http.ResponseWriter, req *http.Request
 		return
 	}
 
+	envNames := []string{}
+	for _, envVar := range stagingRequest.Environment {
+		envNames = append(envNames, envVar.Name)
+	}
+	logger.Info("environment", lager.Data{"keys": envNames})
+
 	backend, ok := handler.backends[stagingRequest.Lifecycle]
 	if !ok {
 		logger.Error("backend-not-found", err, lager.Data{"backend": stagingRequest.Lifecycle})
