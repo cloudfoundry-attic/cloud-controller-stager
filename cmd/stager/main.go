@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"flag"
-	"net"
 	"net/url"
 	"os"
 
@@ -56,10 +55,16 @@ var bbsAddress = flag.String(
 	"Address to the BBS Server",
 )
 
-var stagerURL = flag.String(
-	"stagerURL",
+var listenAddress = flag.String(
+	"listenAddress",
 	"",
-	"URL of the stager",
+	"Address from which the Stager serves requests",
+)
+
+var stagingTaskCallbackURL = flag.String(
+	"stagingTaskCallbackURL",
+	"",
+	"URL for staging task callbacks",
 )
 
 var fileServerURL = flag.String(
@@ -148,17 +153,12 @@ func main() {
 
 	ccClient := cc_client.NewCcClient(*ccBaseURL, *ccUsername, *ccPassword, *skipCertVerify)
 
-	address, err := getStagerAddress()
-	if err != nil {
-		logger.Fatal("Invalid stager URL", err)
-	}
-
 	backends := initializeBackends(logger, lifecycles)
 
 	handler := handlers.New(logger, ccClient, initializeBBSClient(logger), backends, clock.NewClock())
 
 	members := grouper.Members{
-		{"server", http_server.New(address, handler)},
+		{"server", http_server.New(*listenAddress, handler)},
 	}
 
 	if dbgAddr := cf_debug_server.DebugAddress(flag.CommandLine); dbgAddr != "" {
@@ -175,7 +175,7 @@ func main() {
 
 	logger.Info("Listening for staging requests!")
 
-	err = <-process.Wait()
+	err := <-process.Wait()
 	if err != nil {
 		logger.Fatal("Stager exited with error", err)
 	}
@@ -191,9 +191,9 @@ func initializeDropsonde(logger lager.Logger) {
 }
 
 func initializeBackends(logger lager.Logger, lifecycles flags.LifecycleMap) map[string]backend.Backend {
-	_, err := url.Parse(*stagerURL)
+	_, err := url.Parse(*stagingTaskCallbackURL)
 	if err != nil {
-		logger.Fatal("Error parsing stager URL", err)
+		logger.Fatal("Invalid staging task callback url", err)
 	}
 	if *dockerStagingStack == "" {
 		logger.Fatal("Invalid Docker staging stack", errors.New("dockerStagingStack cannot be blank"))
@@ -210,7 +210,7 @@ func initializeBackends(logger lager.Logger, lifecycles flags.LifecycleMap) map[
 
 	config := backend.Config{
 		TaskDomain:               cc_messages.StagingTaskDomain,
-		StagerURL:                *stagerURL,
+		StagerURL:                *stagingTaskCallbackURL,
 		FileServerURL:            *fileServerURL,
 		CCUploaderURL:            *ccUploaderURL,
 		Lifecycles:               lifecycles,
@@ -226,20 +226,6 @@ func initializeBackends(logger lager.Logger, lifecycles flags.LifecycleMap) map[
 		"buildpack": backend.NewTraditionalBackend(config, logger),
 		"docker":    backend.NewDockerBackend(config, logger),
 	}
-}
-
-func getStagerAddress() (string, error) {
-	url, err := url.Parse(*stagerURL)
-	if err != nil {
-		return "", err
-	}
-
-	_, port, err := net.SplitHostPort(url.Host)
-	if err != nil {
-		return "", err
-	}
-
-	return "0.0.0.0:" + port, nil
 }
 
 func initializeBBSClient(logger lager.Logger) bbs.Client {

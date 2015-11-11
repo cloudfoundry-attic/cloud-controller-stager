@@ -36,7 +36,8 @@ var _ = Describe("Stager", func() {
 
 	BeforeEach(func() {
 		stagerPort := 8888 + GinkgoParallelNode()
-		stagerURL := fmt.Sprintf("http://127.0.0.1:%d", stagerPort)
+		listenAddress := fmt.Sprintf("127.0.0.1:%d", stagerPort)
+		stagerURL := fmt.Sprintf("http://%s", listenAddress)
 		callbackURL = stagerURL + "/v1/staging/my-task-guid/completed"
 
 		fakeBBS = ghttp.NewServer()
@@ -44,7 +45,8 @@ var _ = Describe("Stager", func() {
 
 		runner = testrunner.New(testrunner.Config{
 			StagerBin:          stagerPath,
-			StagerURL:          stagerURL,
+			ListenAddress:      listenAddress,
+			TaskCallbackURL:    stagerURL,
 			BBSURL:             fakeBBS.URL(),
 			CCBaseURL:          fakeCC.URL(),
 			DockerStagingStack: "docker-staging-stack",
@@ -375,15 +377,15 @@ var _ = Describe("Stager", func() {
 		})
 	})
 
-	Describe("-stagerURL arg", func() {
-		Context("when started with an invalid -stagerURL arg", func() {
+	Describe("-stagingTaskCallbackURL arg", func() {
+		Context("when started with an invalid -stagingTaskCallbackURL arg", func() {
 			BeforeEach(func() {
-				runner.Start("-stagerURL", `://localhost:8080`)
+				runner.Start("-stagingTaskCallbackURL", `://localhost:8080`)
 			})
 
 			It("logs and errors", func() {
 				Eventually(runner.Session().ExitCode()).ShouldNot(Equal(0))
-				Eventually(runner.Session()).Should(gbytes.Say("Invalid stager URL"))
+				Eventually(runner.Session()).Should(gbytes.Say("Invalid staging task callback url"))
 			})
 		})
 	})
