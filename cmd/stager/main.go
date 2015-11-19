@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"net/url"
 	"os"
 
@@ -47,6 +48,12 @@ var skipCertVerify = flag.Bool(
 	"skipCertVerify",
 	false,
 	"skip SSL certificate verification",
+)
+
+var dropsondePort = flag.Int(
+	"dropsondePort",
+	3457,
+	"port the local metron agent is listening on",
 )
 
 var bbsAddress = flag.String(
@@ -130,8 +137,7 @@ var bbsMaxIdleConnsPerHost = flag.Int(
 var insecureDockerRegistries = make(vars.StringList)
 
 const (
-	dropsondeDestination = "localhost:3457"
-	dropsondeOrigin      = "stager"
+	dropsondeOrigin = "stager"
 )
 
 func main() {
@@ -184,6 +190,7 @@ func main() {
 }
 
 func initializeDropsonde(logger lager.Logger) {
+	dropsondeDestination := fmt.Sprint("localhost:", *dropsondePort)
 	err := dropsonde.Initialize(dropsondeDestination, dropsondeOrigin)
 	if err != nil {
 		logger.Error("failed to initialize dropsonde: %v", err)
