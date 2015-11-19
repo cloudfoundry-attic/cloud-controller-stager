@@ -107,6 +107,7 @@ var _ = Describe("DockerBackend", func() {
 				Timeout:       timeout,
 				Lifecycle:     "docker",
 				LifecycleData: &lifecycleData,
+				CompletionCallback: "https://api.cc.com/v1/staging/some-staging-guid/droplet_completed",
 			}
 		})
 
@@ -156,6 +157,7 @@ var _ = Describe("DockerBackend", func() {
 
 			Expect(annotation).To(Equal(cc_messages.StagingTaskAnnotation{
 				Lifecycle: "docker",
+				CompletionCallback: "https://api.cc.com/v1/staging/some-staging-guid/droplet_completed",
 			}))
 		})
 

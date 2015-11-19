@@ -146,6 +146,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 
 	annotationJson, _ := json.Marshal(cc_messages.StagingTaskAnnotation{
 		Lifecycle: DockerLifecycleName,
+		CompletionCallback: request.CompletionCallback,
 	})
 
 	taskDefinition := &models.TaskDefinition{
