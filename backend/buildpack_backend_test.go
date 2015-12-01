@@ -658,6 +658,14 @@ var _ = Describe("TraditionalBackend", func() {
 			})
 		})
 
+		Context("when the message is CellCommunicationError", func() {
+			It("returns a CellCommunicationError", func() {
+				stagingErr := backend.SanitizeErrorMessage(diego_errors.CELL_COMMUNICATION_ERROR)
+				Expect(stagingErr.Id).To(Equal(cc_messages.CELL_COMMUNICATION_ERROR))
+				Expect(stagingErr.Message).To(Equal(diego_errors.CELL_COMMUNICATION_ERROR))
+			})
+		})
+
 		Context("when the message is missing docker image URL", func() {
 			It("returns a StagingError", func() {
 				stagingErr := backend.SanitizeErrorMessage(diego_errors.MISSING_DOCKER_IMAGE_URL)
