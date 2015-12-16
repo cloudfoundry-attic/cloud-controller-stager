@@ -160,7 +160,7 @@ var _ = Describe("Stager", func() {
 					Error: nil,
 				}
 
-				fakeBBS.RouteToHandler("GET", "/v1/tasks/get_by_task_guid", func(w http.ResponseWriter, req *http.Request) {
+				fakeBBS.RouteToHandler("GET", "/v2/tasks/get_by_task_guid", func(w http.ResponseWriter, req *http.Request) {
 					var taskByGuidRequest models.TaskByGuidRequest
 					data, err := ioutil.ReadAll(req.Body)
 					Expect(err).NotTo(HaveOccurred())
