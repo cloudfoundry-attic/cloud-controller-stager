@@ -104,9 +104,9 @@ var _ = Describe("DockerBackend", func() {
 						PortRange:    &models.PortRange{Start: 80, End: 443},
 					},
 				},
-				Timeout:       timeout,
-				Lifecycle:     "docker",
-				LifecycleData: &lifecycleData,
+				Timeout:            timeout,
+				Lifecycle:          "docker",
+				LifecycleData:      &lifecycleData,
 				CompletionCallback: "https://api.cc.com/v1/staging/some-staging-guid/droplet_completed",
 			}
 		})
@@ -156,31 +156,28 @@ var _ = Describe("DockerBackend", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(annotation).To(Equal(cc_messages.StagingTaskAnnotation{
-				Lifecycle: "docker",
+				Lifecycle:          "docker",
 				CompletionCallback: "https://api.cc.com/v1/staging/some-staging-guid/droplet_completed",
 			}))
 		})
 
-		It("sets the task DownloadAction", func() {
+		It("sets the task CachedDependencies", func() {
 			taskDef, _, _, err := docker.BuildRecipe("staging-guid", stagingRequest)
 			Expect(err).NotTo(HaveOccurred())
 
 			actions := actionsFromTaskDef(taskDef)
-			Expect(actions).To(HaveLen(2))
+			Expect(actions).To(HaveLen(1))
 
-			dockerDownloadAction := models.EmitProgressFor(
-				&models.DownloadAction{
-					From:     "http://file-server.com/v1/static/docker_lifecycle/docker_app_lifecycle.tgz",
-					To:       "/tmp/docker_app_lifecycle",
-					CacheKey: "docker-lifecycle",
-					User:     "vcap",
-				},
-				"",
-				"",
-				"Failed to set up docker environment",
-			)
+			cachedDependencies := taskDef.CachedDependencies
+			Expect(cachedDependencies).To(HaveLen(1))
 
-			Expect(actions[0].GetEmitProgressAction()).To(Equal(dockerDownloadAction))
+			dockerCachedDependency := models.CachedDependency{
+				From:     "http://file-server.com/v1/static/docker_lifecycle/docker_app_lifecycle.tgz",
+				To:       "/tmp/docker_app_lifecycle",
+				CacheKey: "docker-lifecycle",
+			}
+
+			Expect(*cachedDependencies[0]).To(Equal(dockerCachedDependency))
 		})
 
 		It("sets the task RunAction", func() {
@@ -217,8 +214,8 @@ var _ = Describe("DockerBackend", func() {
 			)
 
 			actions := actionsFromTaskDef(taskDef)
-			Expect(actions).To(HaveLen(2))
-			Expect(actions[1].GetEmitProgressAction()).To(Equal(runAction))
+			Expect(actions).To(HaveLen(1))
+			Expect(actions[0].GetEmitProgressAction()).To(Equal(runAction))
 		})
 
 		It("sets the task MemoryMb", func() {

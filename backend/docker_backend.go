@@ -68,18 +68,12 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 		return &models.TaskDefinition{}, "", "", err
 	}
 
-	actions := []models.ActionInterface{
-		models.EmitProgressFor(
-			&models.DownloadAction{
-				From:     compilerURL.String(),
-				To:       path.Dir(DockerBuilderExecutablePath),
-				CacheKey: "docker-lifecycle",
-				User:     "vcap",
-			},
-			"",
-			"",
-			"Failed to set up docker environment",
-		),
+	cachedDependencies := []*models.CachedDependency{
+		&models.CachedDependency{
+			From:     compilerURL.String(),
+			To:       path.Dir(DockerBuilderExecutablePath),
+			CacheKey: "docker-lifecycle",
+		},
 	}
 
 	runActionArguments := []string{
@@ -94,6 +88,9 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 
 	fileDescriptorLimit := uint64(request.FileDescriptors)
 	runAs := "vcap"
+
+	actions := []models.ActionInterface{}
+
 	if cacheDockerImage(request.Environment) {
 		runAs = "root"
 
@@ -109,6 +106,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 
 		runActionArguments = append(runActionArguments, additionalArgs...)
 		request.EgressRules = append(request.EgressRules, additionalEgressRules...)
+
 		actions = append(
 			actions,
 			models.EmitProgressFor(
@@ -145,7 +143,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 	)
 
 	annotationJson, _ := json.Marshal(cc_messages.StagingTaskAnnotation{
-		Lifecycle: DockerLifecycleName,
+		Lifecycle:          DockerLifecycleName,
 		CompletionCallback: request.CompletionCallback,
 	})
 
@@ -161,6 +159,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 		CompletionCallbackUrl: backend.config.CallbackURL(stagingGuid),
 		Annotation:            string(annotationJson),
 		Action:                models.WrapAction(models.Timeout(models.Serial(actions...), dockerTimeout(request, backend.logger))),
+		CachedDependencies:    cachedDependencies,
 	}
 	logger.Debug("staging-task-request")
 

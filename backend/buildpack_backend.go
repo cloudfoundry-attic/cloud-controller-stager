@@ -85,50 +85,31 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 
 	actions = append(actions, appDownloadAction)
 
-	downloadActions := []models.ActionInterface{}
-	downloadNames := []string{}
-
+	cachedDependencies := []*models.CachedDependency{}
 	//Download builder
-	downloadActions = append(
-		downloadActions,
-		models.EmitProgressFor(
-			&models.DownloadAction{
-				From:     compilerURL.String(),
-				To:       path.Dir(builderConfig.ExecutablePath),
-				CacheKey: fmt.Sprintf("buildpack-%s-lifecycle", lifecycleData.Stack),
-				User:     "vcap",
-			},
-			"",
-			"",
-			"Failed to set up staging environment",
-		),
+	cachedDependencies = append(
+		cachedDependencies,
+		&models.CachedDependency{
+			From:     compilerURL.String(),
+			To:       path.Dir(builderConfig.ExecutablePath),
+			CacheKey: fmt.Sprintf("buildpack-%s-lifecycle", lifecycleData.Stack),
+		},
 	)
 
 	//Download buildpacks
-	buildpackNames := []string{}
-	downloadMsgPrefix := ""
-	if !skipDetect {
-		downloadMsgPrefix = "No buildpack specified; fetching standard buildpacks to detect and build your application.\n"
-	}
 	for _, buildpack := range lifecycleData.Buildpacks {
-		if buildpack.Name == cc_messages.CUSTOM_BUILDPACK {
-			buildpackNames = append(buildpackNames, buildpack.Url)
-		} else {
-			buildpackNames = append(buildpackNames, buildpack.Name)
-			downloadActions = append(
-				downloadActions,
-				&models.DownloadAction{
-					Artifact: buildpack.Name,
+		if buildpack.Name != cc_messages.CUSTOM_BUILDPACK {
+			cachedDependencies = append(
+				cachedDependencies,
+				&models.CachedDependency{
+					Name:     buildpack.Name,
 					From:     buildpack.Url,
 					To:       builderConfig.BuildpackPath(buildpack.Key),
 					CacheKey: buildpack.Key,
-					User:     "vcap",
 				},
 			)
 		}
 	}
-
-	downloadNames = append(downloadNames, fmt.Sprintf("buildpacks (%s)", strings.Join(buildpackNames, ", ")))
 
 	//Download buildpack artifacts cache
 	downloadURL, err := backend.buildArtifactsDownloadURL(lifecycleData)
@@ -137,22 +118,16 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 	}
 
 	if downloadURL != nil {
-		downloadActions = append(
-			downloadActions,
-			models.Try(
-				&models.DownloadAction{
-					Artifact: "build artifacts cache",
-					From:     downloadURL.String(),
-					To:       builderConfig.BuildArtifactsCacheDir(),
-					User:     "vcap",
-				},
-			),
+		downloadAction := models.Try(
+			&models.DownloadAction{
+				Artifact: "build artifacts cache",
+				From:     downloadURL.String(),
+				To:       builderConfig.BuildArtifactsCacheDir(),
+				User:     "vcap",
+			},
 		)
-		downloadNames = append(downloadNames, "build artifacts cache")
+		actions = append(actions, downloadAction)
 	}
-
-	downloadMsg := downloadMsgPrefix + fmt.Sprintf("Downloading %s...", strings.Join(downloadNames, ", "))
-	actions = append(actions, models.EmitProgressFor(models.Parallel(downloadActions...), downloadMsg, "Downloaded buildpacks", "Downloading buildpacks failed"))
 
 	fileDescriptorLimit := uint64(request.FileDescriptors)
 
@@ -227,6 +202,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 		MemoryMb:              int32(request.MemoryMB),
 		DiskMb:                int32(request.DiskMB),
 		CpuWeight:             uint32(StagingTaskCpuWeight),
+		CachedDependencies:    cachedDependencies,
 		Action:                models.WrapAction(models.Timeout(models.Serial(actions...), timeout)),
 		LogGuid:               request.LogGuid,
 		LogSource:             TaskLogSource,

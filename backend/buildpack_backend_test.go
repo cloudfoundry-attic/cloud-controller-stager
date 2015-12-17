@@ -33,10 +33,10 @@ var _ = Describe("TraditionalBackend", func() {
 		stagingGuid                    string
 		buildpacks                     []cc_messages.Buildpack
 		appBitsDownloadUri             string
-		downloadBuilderAction          models.ActionInterface
+		downloadBuilder                models.CachedDependency
 		downloadAppAction              models.ActionInterface
-		downloadFirstBuildpackAction   models.ActionInterface
-		downloadSecondBuildpackAction  models.ActionInterface
+		downloadFirstBuildpack         models.CachedDependency
+		downloadSecondBuildpack        models.CachedDependency
 		downloadBuildArtifactsAction   models.ActionInterface
 		runAction                      models.ActionInterface
 		uploadDropletAction            models.ActionInterface
@@ -81,17 +81,11 @@ var _ = Describe("TraditionalBackend", func() {
 		}
 		appBitsDownloadUri = "http://example-uri.com/bunny"
 
-		downloadBuilderAction = models.EmitProgressFor(
-			&models.DownloadAction{
-				From:     "http://file-server.com/v1/static/rabbit-hole-compiler",
-				To:       "/tmp/lifecycle",
-				CacheKey: "buildpack-rabbit_hole-lifecycle",
-				User:     "vcap",
-			},
-			"",
-			"",
-			"Failed to set up staging environment",
-		)
+		downloadBuilder = models.CachedDependency{
+			From:     "http://file-server.com/v1/static/rabbit-hole-compiler",
+			To:       "/tmp/lifecycle",
+			CacheKey: "buildpack-rabbit_hole-lifecycle",
+		}
 
 		downloadAppAction = &models.DownloadAction{
 			Artifact: "app package",
@@ -100,20 +94,18 @@ var _ = Describe("TraditionalBackend", func() {
 			User:     "vcap",
 		}
 
-		downloadFirstBuildpackAction = &models.DownloadAction{
-			Artifact: "zfirst",
+		downloadFirstBuildpack = models.CachedDependency{
+			Name:     "zfirst",
 			From:     "first-buildpack-url",
 			To:       "/tmp/buildpacks/0fe7d5fc3f73b0ab8682a664da513fbd",
 			CacheKey: "zfirst-buildpack",
-			User:     "vcap",
 		}
 
-		downloadSecondBuildpackAction = &models.DownloadAction{
-			Artifact: "asecond",
+		downloadSecondBuildpack = models.CachedDependency{
+			Name:     "asecond",
 			From:     "second-buildpack-url",
 			To:       "/tmp/buildpacks/58015c32d26f0ad3418f87dd9bf47797",
 			CacheKey: "asecond-buildpack",
-			User:     "vcap",
 		}
 
 		downloadBuildArtifactsAction = models.Try(
@@ -265,18 +257,7 @@ var _ = Describe("TraditionalBackend", func() {
 		actions := actionsFromTaskDef(taskDef)
 		Expect(actions).To(Equal(models.Serial(
 			downloadAppAction,
-			models.EmitProgressFor(
-				models.Parallel(
-					downloadBuilderAction,
-					downloadFirstBuildpackAction,
-					downloadSecondBuildpackAction,
-					downloadBuildArtifactsAction,
-				),
-				"No buildpack specified; fetching standard buildpacks to detect and build your application.\n"+
-					"Downloading buildpacks (zfirst, asecond), build artifacts cache...",
-				"Downloaded buildpacks",
-				"Downloading buildpacks failed",
-			),
+			downloadBuildArtifactsAction,
 			runAction,
 			models.EmitProgressFor(
 				models.Parallel(
@@ -288,6 +269,12 @@ var _ = Describe("TraditionalBackend", func() {
 				"Uploading failed",
 			),
 		).Actions))
+
+		cachedDependencies := taskDef.CachedDependencies
+		Expect(cachedDependencies).To(HaveLen(3))
+		Expect(*cachedDependencies[0]).To(Equal(downloadBuilder))
+		Expect(*cachedDependencies[1]).To(Equal(downloadFirstBuildpack))
+		Expect(*cachedDependencies[2]).To(Equal(downloadSecondBuildpack))
 
 		Expect(taskDef.MemoryMb).To(Equal(memoryMb))
 		Expect(taskDef.DiskMb).To(Equal(diskMb))
@@ -310,16 +297,7 @@ var _ = Describe("TraditionalBackend", func() {
 
 			Expect(actions).To(HaveLen(4))
 			Expect(actions[0].GetDownloadAction()).To(Equal(downloadAppAction))
-			Expect(actions[1].GetEmitProgressAction()).To(Equal(models.EmitProgressFor(
-				models.Parallel(
-					downloadBuilderAction,
-					downloadFirstBuildpackAction,
-					downloadBuildArtifactsAction,
-				),
-				"Downloading buildpacks (zfirst), build artifacts cache...",
-				"Downloaded buildpacks",
-				"Downloading buildpacks failed",
-			)))
+			Expect(actions[1].GetTryAction()).To(Equal(downloadBuildArtifactsAction))
 
 			Expect(actions[2].GetEmitProgressAction()).To(Equal(runAction))
 			Expect(actions[3].GetEmitProgressAction()).To(Equal(models.EmitProgressFor(
@@ -332,11 +310,16 @@ var _ = Describe("TraditionalBackend", func() {
 				"Uploading failed",
 			)))
 
+			cachedDependencies := taskDef.CachedDependencies
+			Expect(cachedDependencies).To(HaveLen(2))
+			Expect(*cachedDependencies[0]).To(Equal(downloadBuilder))
+			Expect(*cachedDependencies[1]).To(Equal(downloadFirstBuildpack))
 		})
 	})
 
 	Context("with a custom buildpack", func() {
 		var customBuildpack = "https://example.com/a/custom-buildpack.git"
+
 		BeforeEach(func() {
 			buildpacks = []cc_messages.Buildpack{
 				{Name: "custom", Key: customBuildpack, Url: customBuildpack, SkipDetect: true},
@@ -369,15 +352,7 @@ var _ = Describe("TraditionalBackend", func() {
 
 			Expect(actions).To(HaveLen(4))
 			Expect(actions[0].GetDownloadAction()).To(Equal(downloadAppAction))
-			Expect(actions[1].GetEmitProgressAction()).To(Equal(models.EmitProgressFor(
-				models.Parallel(
-					downloadBuilderAction,
-					downloadBuildArtifactsAction,
-				),
-				"Downloading buildpacks ("+customBuildpack+"), build artifacts cache...",
-				"Downloaded buildpacks",
-				"Downloading buildpacks failed",
-			)))
+			Expect(actions[1].GetTryAction()).To(Equal(downloadBuildArtifactsAction))
 
 			Expect(actions[2].GetEmitProgressAction()).To(Equal(runAction))
 			Expect(actions[3].GetEmitProgressAction()).To(Equal(models.EmitProgressFor(
@@ -389,6 +364,10 @@ var _ = Describe("TraditionalBackend", func() {
 				"Uploading complete",
 				"Uploading failed",
 			)))
+
+			cachedDependencies := taskDef.CachedDependencies
+			Expect(cachedDependencies).To(HaveLen(1))
+			Expect(*cachedDependencies[0]).To(Equal(downloadBuilder))
 
 			Expect(taskDef.MemoryMb).To(Equal(memoryMb))
 			Expect(taskDef.DiskMb).To(Equal(diskMb))
@@ -460,17 +439,6 @@ var _ = Describe("TraditionalBackend", func() {
 
 			Expect(actionsFromTaskDef(taskDef)).To(Equal(models.Serial(
 				downloadAppAction,
-				models.EmitProgressFor(
-					models.Parallel(
-						downloadBuilderAction,
-						downloadFirstBuildpackAction,
-						downloadSecondBuildpackAction,
-					),
-					"No buildpack specified; fetching standard buildpacks to detect and build your application.\n"+
-						"Downloading buildpacks (zfirst, asecond)...",
-					"Downloaded buildpacks",
-					"Downloading buildpacks failed",
-				),
 				runAction,
 				models.EmitProgressFor(
 					models.Parallel(
@@ -503,13 +471,10 @@ var _ = Describe("TraditionalBackend", func() {
 			stack = "compiler_with_full_url"
 		})
 
-		It("uses the full URL in the download builder action", func() {
+		It("uses the full URL in the builder CachedDependency", func() {
 			taskDef, _, _, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
 			Expect(err).NotTo(HaveOccurred())
-
-			actions := actionsFromTaskDef(taskDef)
-			downloadAction := actions[1].GetEmitProgressAction().Action.GetParallelAction().Actions[0].GetEmitProgressAction().Action.GetDownloadAction()
-			Expect(downloadAction.From).To(Equal("http://the-full-compiler-url"))
+			Expect(taskDef.CachedDependencies[0].From).To(Equal("http://the-full-compiler-url"))
 		})
 	})
 

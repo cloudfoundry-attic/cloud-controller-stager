@@ -112,17 +112,11 @@ var _ = Describe("DockerBackend", func() {
 	}
 
 	Context("when docker registry is running", func() {
-		var dockerDownloadAction = models.EmitProgressFor(
-			&models.DownloadAction{
-				From:     "http://file-server.com/v1/static/docker_lifecycle/docker_app_lifecycle.tgz",
-				To:       "/tmp/docker_app_lifecycle",
-				CacheKey: "docker-lifecycle",
-				User:     "vcap",
-			},
-			"",
-			"",
-			"Failed to set up docker environment",
-		)
+		var dockerCachedDependency = models.CachedDependency{
+			From:     "http://file-server.com/v1/static/docker_lifecycle/docker_app_lifecycle.tgz",
+			To:       "/tmp/docker_app_lifecycle",
+			CacheKey: "docker-lifecycle",
+		}
 
 		fileDescriptorLimit := uint64(512)
 		var mountCgroupsAction = models.EmitProgressFor(
@@ -222,9 +216,9 @@ var _ = Describe("DockerBackend", func() {
 					taskDef, _, _, err := dockerBackend.BuildRecipe("staging-guid", stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
-					actions := actionsFromTaskDef(taskDef)
-					Expect(actions).To(HaveLen(3))
-					Expect(actions[0].GetEmitProgressAction()).To(Equal(dockerDownloadAction))
+					cachedDependencies := taskDef.CachedDependencies
+					Expect(cachedDependencies).To(HaveLen(1))
+					Expect(*cachedDependencies[0]).To(Equal(dockerCachedDependency))
 				})
 
 				It("includes mounting of the cgroups", func() {
@@ -232,8 +226,8 @@ var _ = Describe("DockerBackend", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					actions := actionsFromTaskDef(taskDef)
-					Expect(actions).To(HaveLen(3))
-					Expect(actions[1].GetEmitProgressAction()).To(Equal(mountCgroupsAction))
+					Expect(actions).To(HaveLen(2))
+					Expect(actions[0].GetEmitProgressAction()).To(Equal(mountCgroupsAction))
 				})
 
 				It("includes the expected Run action", func() {
@@ -241,7 +235,7 @@ var _ = Describe("DockerBackend", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					actions := actionsFromTaskDef(taskDef)
-					Expect(actions).To(HaveLen(3))
+					Expect(actions).To(HaveLen(2))
 
 					fileDescriptorLimit := uint64(512)
 					internalRunAction := models.RunAction{
@@ -269,7 +263,7 @@ var _ = Describe("DockerBackend", func() {
 						"Staging Failed",
 					)
 
-					Expect(actions[2].GetEmitProgressAction()).To(Equal(expectedRunAction))
+					Expect(actions[1].GetEmitProgressAction()).To(Equal(expectedRunAction))
 				})
 			})
 
@@ -316,9 +310,9 @@ var _ = Describe("DockerBackend", func() {
 					taskDef, _, _, err := dockerBackend.BuildRecipe("staging-guid", stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
-					actions := actionsFromTaskDef(taskDef)
-					Expect(actions).To(HaveLen(3))
-					Expect(actions[0].GetEmitProgressAction()).To(Equal(dockerDownloadAction))
+					cachedDependencies := taskDef.CachedDependencies
+					Expect(cachedDependencies).To(HaveLen(1))
+					Expect(*cachedDependencies[0]).To(Equal(dockerCachedDependency))
 				})
 
 				It("includes mounting of the cgroups", func() {
@@ -326,8 +320,8 @@ var _ = Describe("DockerBackend", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					actions := actionsFromTaskDef(taskDef)
-					Expect(actions).To(HaveLen(3))
-					Expect(actions[1].GetEmitProgressAction()).To(Equal(mountCgroupsAction))
+					Expect(actions).To(HaveLen(2))
+					Expect(actions[0].GetEmitProgressAction()).To(Equal(mountCgroupsAction))
 				})
 
 				It("includes the expected Run action", func() {
@@ -335,7 +329,7 @@ var _ = Describe("DockerBackend", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					actions := actionsFromTaskDef(taskDef)
-					Expect(actions).To(HaveLen(3))
+					Expect(actions).To(HaveLen(2))
 
 					fileDescriptorLimit := uint64(512)
 					internalRunAction := models.RunAction{
@@ -364,7 +358,7 @@ var _ = Describe("DockerBackend", func() {
 						"Staging Failed",
 					)
 
-					Expect(actions[2].GetEmitProgressAction()).To(Equal(expectedRunAction))
+					Expect(actions[1].GetEmitProgressAction()).To(Equal(expectedRunAction))
 				})
 			})
 
@@ -419,9 +413,9 @@ var _ = Describe("DockerBackend", func() {
 					taskDef, _, _, err := dockerBackend.BuildRecipe("staging-guid", stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
-					actions := actionsFromTaskDef(taskDef)
-					Expect(actions).To(HaveLen(3))
-					Expect(actions[0].GetEmitProgressAction()).To(Equal(dockerDownloadAction))
+					cachedDependencies := taskDef.CachedDependencies
+					Expect(cachedDependencies).To(HaveLen(1))
+					Expect(*cachedDependencies[0]).To(Equal(dockerCachedDependency))
 				})
 
 				It("includes mounting of the cgroups", func() {
@@ -429,8 +423,8 @@ var _ = Describe("DockerBackend", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					actions := actionsFromTaskDef(taskDef)
-					Expect(actions).To(HaveLen(3))
-					Expect(actions[1].GetEmitProgressAction()).To(Equal(mountCgroupsAction))
+					Expect(actions).To(HaveLen(2))
+					Expect(actions[0].GetEmitProgressAction()).To(Equal(mountCgroupsAction))
 				})
 
 				It("includes the expected Run action", func() {
@@ -438,7 +432,7 @@ var _ = Describe("DockerBackend", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					actions := actionsFromTaskDef(taskDef)
-					Expect(actions).To(HaveLen(3))
+					Expect(actions).To(HaveLen(2))
 
 					fileDescriptorLimit := uint64(512)
 					internalRunAction := models.RunAction{
@@ -469,7 +463,7 @@ var _ = Describe("DockerBackend", func() {
 						"Staging Complete",
 						"Staging Failed",
 					)
-					Expect(actions[2].GetEmitProgressAction()).To(Equal(expectedRunAction))
+					Expect(actions[1].GetEmitProgressAction()).To(Equal(expectedRunAction))
 				})
 			})
 		})
