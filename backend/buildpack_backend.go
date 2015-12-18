@@ -211,6 +211,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 		Annotation:            string(annotationJson),
 		Privileged:            true,
 		EnvironmentVariables:  []*models.EnvironmentVariable{{"LANG", DefaultLANG}},
+		LegacyDownloadUser:    "vcap",
 	}
 
 	logger.Debug("staging-task-request")

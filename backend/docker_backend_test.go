@@ -147,6 +147,12 @@ var _ = Describe("DockerBackend", func() {
 			Expect(taskDef.Privileged).To(BeTrue())
 		})
 
+		It("sets the LegacyDownloadUser", func() {
+			taskDef, _, _, err := docker.BuildRecipe("staging-guid", stagingRequest)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(taskDef.LegacyDownloadUser).To(Equal("vcap"))
+		})
+
 		It("sets the task Annotation", func() {
 			taskDef, _, _, err := docker.BuildRecipe("staging-guid", stagingRequest)
 			Expect(err).NotTo(HaveOccurred())

@@ -160,7 +160,7 @@ var _ = Describe("Stager", func() {
 					Error: nil,
 				}
 
-				fakeBBS.RouteToHandler("GET", "/v2/tasks/get_by_task_guid", func(w http.ResponseWriter, req *http.Request) {
+				fakeBBS.RouteToHandler("POST", "/v1/tasks/get_by_task_guid.r1", func(w http.ResponseWriter, req *http.Request) {
 					var taskByGuidRequest models.TaskByGuidRequest
 					data, err := ioutil.ReadAll(req.Body)
 					Expect(err).NotTo(HaveOccurred())
@@ -171,6 +171,7 @@ var _ = Describe("Stager", func() {
 					Expect(taskByGuidRequest.TaskGuid).To(Equal("the-task-guid"))
 					writeResponse(w, &taskResponse)
 				})
+
 				fakeBBS.RouteToHandler("POST", "/v1/tasks/cancel", func(w http.ResponseWriter, req *http.Request) {
 					var taskGuidRequest models.TaskByGuidRequest
 					data, err := ioutil.ReadAll(req.Body)
@@ -181,7 +182,6 @@ var _ = Describe("Stager", func() {
 
 					Expect(taskGuidRequest.TaskGuid).To(Equal("the-task-guid"))
 				})
-
 			})
 
 			It("cancels the staging task via the API", func() {
