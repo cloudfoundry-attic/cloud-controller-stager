@@ -122,9 +122,15 @@ func (handler *completionHandler) reportMetrics(task *models.TaskCallbackRespons
 	duration := handler.clock.Now().Sub(time.Unix(0, task.CreatedAt))
 	if task.Failed {
 		stagingFailureCounter.Increment()
-		stagingFailureDuration.Send(duration)
+		err := stagingFailureDuration.Send(duration)
+		if err != nil {
+			handler.logger.Error("failed-to-send-staging-failed-duration-metric", err)
+		}
 	} else {
-		stagingSuccessDuration.Send(duration)
+		err := stagingSuccessDuration.Send(duration)
+		if err != nil {
+			handler.logger.Error("failed-to-send-staging-success-duration-metric", err)
+		}
 		stagingSuccessCounter.Increment()
 	}
 }
