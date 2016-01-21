@@ -4,8 +4,10 @@ import (
 	"testing"
 
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
 
+	"github.com/cloudfoundry-incubator/consuladapter/consulrunner"
 	"github.com/cloudfoundry-incubator/stager/cmd/stager/testrunner"
 	"github.com/onsi/gomega/gexec"
 )
@@ -17,6 +19,7 @@ func TestStager(t *testing.T) {
 
 var stagerPath string
 var runner *testrunner.StagerRunner
+var consulRunner *consulrunner.ClusterRunner
 
 var _ = SynchronizedBeforeSuite(func() []byte {
 	stager, err := gexec.Build("github.com/cloudfoundry-incubator/stager/cmd/stager", "-race")
@@ -24,12 +27,27 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	return []byte(stager)
 }, func(stager []byte) {
 	stagerPath = string(stager)
+
+	consulRunner = consulrunner.NewClusterRunner(
+		9001+config.GinkgoConfig.ParallelNode*consulrunner.PortOffsetLength,
+		1,
+		"http",
+	)
+
+	consulRunner.Start()
+	consulRunner.WaitUntilReady()
 })
 
 var _ = SynchronizedAfterSuite(func() {
 	if runner != nil {
 		runner.Stop()
 	}
+
+	consulRunner.Stop()
 }, func() {
 	gexec.CleanupBuildArtifacts()
+})
+
+var _ = BeforeEach(func() {
+	consulRunner.Reset()
 })

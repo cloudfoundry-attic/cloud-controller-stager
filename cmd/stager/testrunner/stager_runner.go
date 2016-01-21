@@ -22,6 +22,7 @@ type Config struct {
 	BBSURL             string
 	CCBaseURL          string
 	DockerStagingStack string
+	ConsulCluster      string
 }
 
 func New(config Config) *StagerRunner {
@@ -44,6 +45,7 @@ func (r *StagerRunner) Start(args ...string) {
 				"-stagingTaskCallbackURL", r.Config.TaskCallbackURL,
 				"-ccBaseURL", r.Config.CCBaseURL,
 				"-dockerStagingStack", r.Config.DockerStagingStack,
+				"-consulCluster", r.Config.ConsulCluster,
 			}, args...)...,
 		),
 		gexec.NewPrefixedWriter("\x1b[32m[o]\x1b[95m[stager]\x1b[0m ", ginkgo.GinkgoWriter),

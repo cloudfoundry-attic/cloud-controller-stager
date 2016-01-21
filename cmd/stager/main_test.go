@@ -15,6 +15,7 @@ import (
 	"github.com/cloudfoundry-incubator/stager"
 	"github.com/cloudfoundry-incubator/stager/cmd/stager/testrunner"
 	"github.com/gogo/protobuf/proto"
+	"github.com/hashicorp/consul/api"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -30,12 +31,13 @@ var _ = Describe("Stager", func() {
 
 		requestGenerator *rata.RequestGenerator
 		httpClient       *http.Client
+		stagerPort       int
 
 		callbackURL string
 	)
 
 	BeforeEach(func() {
-		stagerPort := 8888 + GinkgoParallelNode()
+		stagerPort = 8888 + GinkgoParallelNode()
 		listenAddress := fmt.Sprintf("127.0.0.1:%d", stagerPort)
 		stagerURL := fmt.Sprintf("http://%s", listenAddress)
 		callbackURL = stagerURL + "/v1/staging/my-task-guid/completed"
@@ -50,6 +52,7 @@ var _ = Describe("Stager", func() {
 			BBSURL:             fakeBBS.URL(),
 			CCBaseURL:          fakeCC.URL(),
 			DockerStagingStack: "docker-staging-stack",
+			ConsulCluster:      consulRunner.URL(),
 		})
 
 		requestGenerator = rata.NewRequestGenerator(stagerURL, stager.Routes)
@@ -312,23 +315,49 @@ var _ = Describe("Stager", func() {
 		})
 	})
 
-	Describe("-consulCluster arg", func() {
-		Context("when started with a valid -consulCluster arg", func() {
-			BeforeEach(func() {
-				runner.Start("-lifecycle", "linux:lifecycle.zip",
-					"-consulCluster", "http://localhost:8500")
-				Eventually(runner.Session()).Should(gbytes.Say("Listening for staging requests!"))
-			})
-
-			It("starts successfully", func() {
-				Consistently(runner.Session()).ShouldNot(gexec.Exit())
-			})
+	Describe("service registration", func() {
+		BeforeEach(func() {
+			runner.Start("-lifecycle", "linux:lifecycle.zip")
+			Eventually(runner.Session()).Should(gbytes.Say("Listening for staging requests!"))
 		})
 
+		It("registers itself with consul", func() {
+			client := consulRunner.NewConsulClient()
+			services, err := client.Agent().Services()
+
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(services).Should(HaveKeyWithValue("stager",
+				&api.AgentService{
+					ID:      "stager",
+					Service: "stager",
+					Port:    stagerPort,
+				}))
+		})
+
+		It("registers a TTL healthcheck", func() {
+			client := consulRunner.NewConsulClient()
+			checks, err := client.Agent().Checks()
+
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(checks).Should(HaveKeyWithValue("service:stager",
+				&api.AgentCheck{
+					Node:        "0",
+					CheckID:     "service:stager",
+					Name:        "Service 'stager' check",
+					Status:      "passing",
+					ServiceID:   "stager",
+					ServiceName: "stager",
+				}))
+		})
+	})
+
+	Describe("-consulCluster arg", func() {
 		Context("when started with an invalid -consulCluster arg", func() {
 			BeforeEach(func() {
-				runner.Start("-lifecycle", "linux:lifecycle.zip",
-					"-consulCluster", "://noscheme:8500")
+				runner.Config.ConsulCluster = "://noscheme:8500"
+				runner.Start("-lifecycle", "linux:lifecycle.zip")
 			})
 
 			It("logs and errors", func() {
@@ -386,6 +415,32 @@ var _ = Describe("Stager", func() {
 			It("logs and errors", func() {
 				Eventually(runner.Session().ExitCode()).ShouldNot(Equal(0))
 				Eventually(runner.Session()).Should(gbytes.Say("Invalid staging task callback url"))
+			})
+		})
+	})
+
+	Describe("-listenAddress arg", func() {
+		Context("when started with an invalid -listenAddress arg with no :", func() {
+			BeforeEach(func() {
+				runner.Config.ListenAddress = "portless"
+				runner.Start()
+			})
+
+			It("logs and errors", func() {
+				Eventually(runner.Session().ExitCode()).ShouldNot(Equal(0))
+				Eventually(runner.Session()).Should(gbytes.Say("missing port in address"))
+			})
+		})
+
+		Context("when started with an invalid -listenAddress arg with invalid port", func() {
+			BeforeEach(func() {
+				runner.Config.ListenAddress = "127.0.0.1:onehundred"
+				runner.Start()
+			})
+
+			It("logs and errors", func() {
+				Eventually(runner.Session().ExitCode()).ShouldNot(Equal(0))
+				Eventually(runner.Session()).Should(gbytes.Say("unknown port"))
 			})
 		})
 	})
