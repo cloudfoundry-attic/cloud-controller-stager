@@ -168,7 +168,7 @@ func main() {
 	handler := handlers.New(logger, ccClient, initializeBBSClient(logger), backends, clock.NewClock())
 
 	clock := clock.NewClock()
-	client, err := consuladapter.NewClient(*consulCluster)
+	consulClient, err := consuladapter.NewClientFromUrl(*consulCluster)
 	if err != nil {
 		logger.Fatal("new-client-failed", err)
 	}
@@ -182,7 +182,6 @@ func main() {
 		logger.Fatal("failed-invalid-listen-port", err)
 	}
 
-	consulClient := consuladapter.NewConsulClient(client)
 	registrationRunner := initializeRegistrationRunner(logger, consulClient, portNum, clock)
 
 	members := grouper.Members{
