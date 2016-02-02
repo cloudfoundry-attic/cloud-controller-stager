@@ -13,7 +13,6 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/stager/backend"
 	"github.com/cloudfoundry-incubator/stager/backend/fake_backend"
-	"github.com/cloudfoundry-incubator/stager/cc_client/fakes"
 	"github.com/cloudfoundry-incubator/stager/handlers"
 	fake_metric_sender "github.com/cloudfoundry/dropsonde/metric_sender/fake"
 	"github.com/cloudfoundry/dropsonde/metrics"
@@ -32,7 +31,6 @@ var _ = Describe("StagingHandler", func() {
 
 		logger          lager.Logger
 		fakeDiegoClient *fake_bbs.FakeClient
-		fakeCcClient    *fakes.FakeCcClient
 		fakeBackend     *fake_backend.FakeBackend
 
 		responseRecorder *httptest.ResponseRecorder
@@ -45,15 +43,13 @@ var _ = Describe("StagingHandler", func() {
 		fakeMetricSender = fake_metric_sender.NewFakeMetricSender()
 		metrics.Initialize(fakeMetricSender, nil)
 
-		fakeCcClient = &fakes.FakeCcClient{}
-
 		fakeBackend = &fake_backend.FakeBackend{}
 		fakeBackend.BuildRecipeReturns(&models.TaskDefinition{}, "", "", nil)
 
 		fakeDiegoClient = &fake_bbs.FakeClient{}
 
 		responseRecorder = httptest.NewRecorder()
-		handler = handlers.NewStagingHandler(logger, map[string]backend.Backend{"fake-backend": fakeBackend}, fakeCcClient, fakeDiegoClient)
+		handler = handlers.NewStagingHandler(logger, map[string]backend.Backend{"fake-backend": fakeBackend}, fakeDiegoClient)
 	})
 
 	Describe("Stage", func() {
@@ -106,20 +102,10 @@ var _ = Describe("StagingHandler", func() {
 					fakeBackend.BuildRecipeReturns(fakeTaskDef, "a-guid", "a-domain", nil)
 				})
 
-				It("does not send a staging complete message", func() {
-					Expect(fakeCcClient.StagingCompleteCallCount()).To(Equal(0))
-				})
-
 				It("creates a task on Diego", func() {
 					Expect(fakeDiegoClient.DesireTaskCallCount()).To(Equal(1))
 					_, _, resultingTaskDef := fakeDiegoClient.DesireTaskArgsForCall(0)
 					Expect(resultingTaskDef).To(Equal(fakeTaskDef))
-				})
-
-				Context("when creating the task succeeds", func() {
-					It("does not send a staging failure response", func() {
-						Expect(fakeCcClient.StagingCompleteCallCount()).To(Equal(0))
-					})
 				})
 
 				Context("when the task has already been created", func() {
@@ -146,10 +132,6 @@ var _ = Describe("StagingHandler", func() {
 
 					It("returns an internal service error status code", func() {
 						Expect(responseRecorder.Code).To(Equal(http.StatusInternalServerError))
-					})
-
-					It("should not call staging complete", func() {
-						Expect(fakeCcClient.StagingCompleteCallCount()).To(Equal(0))
 					})
 
 					Context("when the response builder succeeds", func() {
@@ -189,10 +171,6 @@ var _ = Describe("StagingHandler", func() {
 					Expect(responseRecorder.Code).To(Equal(http.StatusInternalServerError))
 				})
 
-				It("should not call staging complete", func() {
-					Expect(fakeCcClient.StagingCompleteCallCount()).To(Equal(0))
-				})
-
 				Context("when the response builder succeeds", func() {
 					var responseForCC cc_messages.StagingResponseForCC
 
@@ -222,10 +200,6 @@ var _ = Describe("StagingHandler", func() {
 
 				It("returns bad request", func() {
 					Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
-				})
-
-				It("does not send a staging complete message", func() {
-					Expect(fakeCcClient.StagingCompleteCallCount()).To(Equal(0))
 				})
 			})
 

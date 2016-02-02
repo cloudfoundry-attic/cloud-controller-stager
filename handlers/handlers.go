@@ -14,7 +14,7 @@ import (
 
 func New(logger lager.Logger, ccClient cc_client.CcClient, bbsClient bbs.Client, backends map[string]backend.Backend, clock clock.Clock) http.Handler {
 
-	stagingHandler := NewStagingHandler(logger, backends, ccClient, bbsClient)
+	stagingHandler := NewStagingHandler(logger, backends, bbsClient)
 	stagingCompletedHandler := NewStagingCompletionHandler(logger, ccClient, backends, clock)
 
 	actions := rata.Handlers{

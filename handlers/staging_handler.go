@@ -10,7 +10,6 @@ import (
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/metric"
 	"github.com/cloudfoundry-incubator/stager/backend"
-	"github.com/cloudfoundry-incubator/stager/cc_client"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -27,14 +26,12 @@ type StagingHandler interface {
 type stagingHandler struct {
 	logger      lager.Logger
 	backends    map[string]backend.Backend
-	ccClient    cc_client.CcClient
 	diegoClient bbs.Client
 }
 
 func NewStagingHandler(
 	logger lager.Logger,
 	backends map[string]backend.Backend,
-	ccClient cc_client.CcClient,
 	bbsClient bbs.Client,
 ) StagingHandler {
 	logger = logger.Session("staging-handler")
@@ -42,7 +39,6 @@ func NewStagingHandler(
 	return &stagingHandler{
 		logger:      logger,
 		backends:    backends,
-		ccClient:    ccClient,
 		diegoClient: bbsClient,
 	}
 }

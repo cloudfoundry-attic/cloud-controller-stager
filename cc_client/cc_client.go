@@ -90,8 +90,8 @@ func (cc *ccClient) StagingComplete(stagingGuid string, completionCallback strin
 
 func (cc *ccClient) stagingCompleteURI(stagingGuid string, completionCallback string) string {
 	if completionCallback == "" {
-	return fmt.Sprintf("%s/internal/staging/%s/completed", cc.baseURI, stagingGuid)
-} else {
-	return completionCallback
-}
+		return fmt.Sprintf("%s/internal/staging/%s/completed", cc.baseURI, stagingGuid)
+	} else {
+		return completionCallback
+	}
 }
