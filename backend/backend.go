@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	TaskLogSource         = "STG"
-	DefaultStagingTimeout = 15 * time.Minute
+	TaskLogSource                   = "STG"
+	DefaultStagingTimeout           = 15 * time.Minute
+	TRUSTED_SYSTEM_CERTIFICATE_PATH = "/etc/cf-system-certificates"
 )
 
 type FailureReasonSanitizer func(string) *cc_messages.StagingError

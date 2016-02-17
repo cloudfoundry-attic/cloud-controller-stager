@@ -237,7 +237,7 @@ var _ = Describe("DockerBackend", func() {
 			Expect(taskDef.DiskMb).To(Equal(diskMb))
 		})
 
-		It("sets the task DiskMb", func() {
+		It("sets the task EgressRules", func() {
 			taskDef, _, _, err := docker.BuildRecipe("staging-guid", stagingRequest)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -264,6 +264,13 @@ var _ = Describe("DockerBackend", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(taskDef.CompletionCallbackUrl).To(Equal(fmt.Sprintf("%s/v1/staging/%s/completed", "http://staging-url.com", "staging-guid")))
+		})
+
+		It("sets the task TrustedSystemCertificatePath", func() {
+			taskDef, _, _, err := docker.BuildRecipe("staging-guid", stagingRequest)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(taskDef.TrustedSystemCertificatePath).To(Equal(backend.TRUSTED_SYSTEM_CERTIFICATE_PATH))
 		})
 
 		Context("with a missing app id", func() {

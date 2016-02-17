@@ -148,19 +148,20 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 	})
 
 	taskDefinition := &models.TaskDefinition{
-		RootFs:                models.PreloadedRootFS(backend.config.DockerStagingStack),
-		ResultFile:            DockerBuilderOutputPath,
-		Privileged:            true,
-		MemoryMb:              int32(request.MemoryMB),
-		LogSource:             TaskLogSource,
-		LogGuid:               request.LogGuid,
-		EgressRules:           request.EgressRules,
-		DiskMb:                int32(request.DiskMB),
-		CompletionCallbackUrl: backend.config.CallbackURL(stagingGuid),
-		Annotation:            string(annotationJson),
-		Action:                models.WrapAction(models.Timeout(models.Serial(actions...), dockerTimeout(request, backend.logger))),
-		CachedDependencies:    cachedDependencies,
-		LegacyDownloadUser:    "vcap",
+		RootFs:                       models.PreloadedRootFS(backend.config.DockerStagingStack),
+		ResultFile:                   DockerBuilderOutputPath,
+		Privileged:                   true,
+		MemoryMb:                     int32(request.MemoryMB),
+		LogSource:                    TaskLogSource,
+		LogGuid:                      request.LogGuid,
+		EgressRules:                  request.EgressRules,
+		DiskMb:                       int32(request.DiskMB),
+		CompletionCallbackUrl:        backend.config.CallbackURL(stagingGuid),
+		Annotation:                   string(annotationJson),
+		Action:                       models.WrapAction(models.Timeout(models.Serial(actions...), dockerTimeout(request, backend.logger))),
+		CachedDependencies:           cachedDependencies,
+		LegacyDownloadUser:           "vcap",
+		TrustedSystemCertificatePath: TRUSTED_SYSTEM_CERTIFICATE_PATH,
 	}
 	logger.Debug("staging-task-request")
 
