@@ -212,7 +212,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 		Privileged:                   true,
 		EnvironmentVariables:         []*models.EnvironmentVariable{{"LANG", DefaultLANG}},
 		LegacyDownloadUser:           "vcap",
-		TrustedSystemCertificatePath: TRUSTED_SYSTEM_CERTIFICATE_PATH,
+		TrustedSystemCertificatesPath: TRUSTED_SYSTEM_CERTIFICATES_PATH,
 	}
 
 	logger.Debug("staging-task-request")

@@ -382,10 +382,10 @@ var _ = Describe("TraditionalBackend", func() {
 		Expect(taskDef.CompletionCallbackUrl).To(Equal(fmt.Sprintf("%s/v1/staging/%s/completed", config.StagerURL, stagingGuid)))
 	})
 
-	It("gives the task a TrustedSystemCertificatePath", func() {
+	It("gives the task a TrustedSystemCertificatesPath", func() {
 		taskDef, _, _, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(taskDef.TrustedSystemCertificatePath).To(Equal(backend.TRUSTED_SYSTEM_CERTIFICATE_PATH))
+		Expect(taskDef.TrustedSystemCertificatesPath).To(Equal(backend.TRUSTED_SYSTEM_CERTIFICATES_PATH))
 	})
 
 	Describe("staging action timeout", func() {
