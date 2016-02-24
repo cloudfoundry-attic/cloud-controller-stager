@@ -270,7 +270,7 @@ var _ = Describe("DockerBackend", func() {
 			taskDef, _, _, err := docker.BuildRecipe("staging-guid", stagingRequest)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(taskDef.TrustedSystemCertificatesPath).To(Equal(backend.TRUSTED_SYSTEM_CERTIFICATES_PATH))
+			Expect(taskDef.TrustedSystemCertificatesPath).To(Equal(backend.TrustedSystemCertificatesPath))
 		})
 
 		Context("with a missing app id", func() {

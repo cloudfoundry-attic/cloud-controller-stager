@@ -197,22 +197,22 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 	})
 
 	taskDefinition := &models.TaskDefinition{
-		RootFs:                       models.PreloadedRootFS(lifecycleData.Stack),
-		ResultFile:                   builderConfig.OutputMetadata(),
-		MemoryMb:                     int32(request.MemoryMB),
-		DiskMb:                       int32(request.DiskMB),
-		CpuWeight:                    uint32(StagingTaskCpuWeight),
-		CachedDependencies:           cachedDependencies,
-		Action:                       models.WrapAction(models.Timeout(models.Serial(actions...), timeout)),
-		LogGuid:                      request.LogGuid,
-		LogSource:                    TaskLogSource,
-		CompletionCallbackUrl:        backend.config.CallbackURL(stagingGuid),
-		EgressRules:                  request.EgressRules,
-		Annotation:                   string(annotationJson),
-		Privileged:                   true,
-		EnvironmentVariables:         []*models.EnvironmentVariable{{"LANG", DefaultLANG}},
-		LegacyDownloadUser:           "vcap",
-		TrustedSystemCertificatesPath: TRUSTED_SYSTEM_CERTIFICATES_PATH,
+		RootFs:                        models.PreloadedRootFS(lifecycleData.Stack),
+		ResultFile:                    builderConfig.OutputMetadata(),
+		MemoryMb:                      int32(request.MemoryMB),
+		DiskMb:                        int32(request.DiskMB),
+		CpuWeight:                     uint32(StagingTaskCpuWeight),
+		CachedDependencies:            cachedDependencies,
+		Action:                        models.WrapAction(models.Timeout(models.Serial(actions...), timeout)),
+		LogGuid:                       request.LogGuid,
+		LogSource:                     TaskLogSource,
+		CompletionCallbackUrl:         backend.config.CallbackURL(stagingGuid),
+		EgressRules:                   request.EgressRules,
+		Annotation:                    string(annotationJson),
+		Privileged:                    true,
+		EnvironmentVariables:          []*models.EnvironmentVariable{{"LANG", DefaultLANG}},
+		LegacyDownloadUser:            "vcap",
+		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
 	}
 
 	logger.Debug("staging-task-request")

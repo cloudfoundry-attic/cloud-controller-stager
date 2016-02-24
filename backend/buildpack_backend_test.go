@@ -385,7 +385,7 @@ var _ = Describe("TraditionalBackend", func() {
 	It("gives the task a TrustedSystemCertificatesPath", func() {
 		taskDef, _, _, err := traditional.BuildRecipe(stagingGuid, stagingRequest)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(taskDef.TrustedSystemCertificatesPath).To(Equal(backend.TRUSTED_SYSTEM_CERTIFICATES_PATH))
+		Expect(taskDef.TrustedSystemCertificatesPath).To(Equal(backend.TrustedSystemCertificatesPath))
 	})
 
 	Describe("staging action timeout", func() {
