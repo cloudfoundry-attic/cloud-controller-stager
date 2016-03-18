@@ -11,9 +11,11 @@ import (
 
 	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/bbs/models/test/model_helpers"
+	"github.com/cloudfoundry-incubator/buildpack_app_lifecycle"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages/flags"
 	"github.com/cloudfoundry-incubator/stager"
 	"github.com/cloudfoundry-incubator/stager/cmd/stager/testrunner"
+	"github.com/cloudfoundry-incubator/stager/diego_errors"
 	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/consul/api"
 	. "github.com/onsi/ginkgo"
@@ -203,13 +205,30 @@ var _ = Describe("Stager", func() {
 		})
 
 		Describe("when a staging task completes", func() {
-			Context("for a docker lifecycle", func() {
-				BeforeEach(func() {
-					fakeCC.AppendHandlers(
-						ghttp.CombineHandlers(
-							ghttp.VerifyRequest("POST", "/internal/staging/the-task-guid/completed"),
-							ghttp.VerifyContentType("application/json"),
-							ghttp.VerifyJSON(`{
+			var (
+				taskJSON []byte
+				err      error
+			)
+
+			JustBeforeEach(func() {
+				req, err := requestGenerator.CreateRequest(stager.StagingCompletedRoute, rata.Params{"staging_guid": "the-task-guid"}, bytes.NewReader(taskJSON))
+				Expect(err).NotTo(HaveOccurred())
+
+				req.Header.Set("Content-Type", "application/json")
+
+				resp, err := httpClient.Do(req)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			})
+
+			Context("successfully", func() {
+				Context("for a docker lifecycle", func() {
+					BeforeEach(func() {
+						fakeCC.AppendHandlers(
+							ghttp.CombineHandlers(
+								ghttp.VerifyRequest("POST", "/internal/staging/the-task-guid/completed"),
+								ghttp.VerifyContentType("application/json"),
+								ghttp.VerifyJSON(`{
 								"result": {
 									"execution_metadata": "metadata",
 									"process_types": {"a": "b"},
@@ -218,47 +237,38 @@ var _ = Describe("Stager", func() {
 									}
 								}
 							}`),
-						),
-					)
+							),
+						)
 
-					taskJSON, err := json.Marshal(&models.TaskCallbackResponse{
-						TaskGuid: "the-task-guid",
-						Failed:   false,
-						Annotation: `{
+						taskJSON, err = json.Marshal(&models.TaskCallbackResponse{
+							TaskGuid: "the-task-guid",
+							Failed:   false,
+							Annotation: `{
 							"lifecycle": "docker"
 						}`,
-						Result: `{
+							Result: `{
 							"execution_metadata": "metadata",
 							"process_types": {"a": "b"},
 							"lifecycle_metadata": {
 								"docker_image": "http://docker.docker/docker"
 							}
 						}`,
+						})
+						Expect(err).NotTo(HaveOccurred())
 					})
-					Expect(err).NotTo(HaveOccurred())
 
-					req, err := requestGenerator.CreateRequest(stager.StagingCompletedRoute, rata.Params{"staging_guid": "the-task-guid"}, bytes.NewReader(taskJSON))
-					Expect(err).NotTo(HaveOccurred())
-
-					req.Header.Set("Content-Type", "application/json")
-
-					resp, err := httpClient.Do(req)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(resp.StatusCode).To(Equal(http.StatusOK))
+					It("POSTs to the CC that staging is complete", func() {
+						Eventually(fakeCC.ReceivedRequests).Should(HaveLen(1))
+					})
 				})
 
-				It("POSTs to the CC that staging is complete", func() {
-					Eventually(fakeCC.ReceivedRequests).Should(HaveLen(1))
-				})
-			})
-
-			Context("for a buildpack lifecycle", func() {
-				BeforeEach(func() {
-					fakeCC.AppendHandlers(
-						ghttp.CombineHandlers(
-							ghttp.VerifyRequest("POST", "/internal/staging/the-task-guid/completed"),
-							ghttp.VerifyContentType("application/json"),
-							ghttp.VerifyJSON(`{
+				Context("for a buildpack lifecycle", func() {
+					BeforeEach(func() {
+						fakeCC.AppendHandlers(
+							ghttp.CombineHandlers(
+								ghttp.VerifyRequest("POST", "/internal/staging/the-task-guid/completed"),
+								ghttp.VerifyContentType("application/json"),
+								ghttp.VerifyJSON(`{
 								"result": {
 									"process_types": {"a": "b"},
 									"lifecycle_metadata": {
@@ -268,15 +278,15 @@ var _ = Describe("Stager", func() {
 									"execution_metadata": "metadata"
 								}
 							}`),
-						),
-					)
+							),
+						)
 
-					taskJSON, err := json.Marshal(models.TaskCallbackResponse{
-						TaskGuid: "the-task-guid",
-						Annotation: `{
+						taskJSON, err = json.Marshal(models.TaskCallbackResponse{
+							TaskGuid: "the-task-guid",
+							Annotation: `{
 							"lifecycle": "buildpack"
 						}`,
-						Result: `{
+							Result: `{
 							"process_types": {"a": "b"},
 							"lifecycle_metadata": {
 								"buildpack_key": "buildpack-key",
@@ -284,20 +294,133 @@ var _ = Describe("Stager", func() {
 							},
 							"execution_metadata": "metadata"
 						}`,
+						})
+						Expect(err).NotTo(HaveOccurred())
+
 					})
-					Expect(err).NotTo(HaveOccurred())
 
-					req, err := requestGenerator.CreateRequest(stager.StagingCompletedRoute, rata.Params{"staging_guid": "the-task-guid"}, bytes.NewReader(taskJSON))
-					Expect(err).NotTo(HaveOccurred())
+					It("POSTs to the CC that staging is complete", func() {
+						Eventually(fakeCC.ReceivedRequests).Should(HaveLen(1))
+					})
+				})
+			})
 
-					req.Header.Set("Content-Type", "application/json")
+			Context("when staging returns with 'insufficient resources'", func() {
+				BeforeEach(func() {
+					taskJSON, err = json.Marshal(models.TaskCallbackResponse{
+						TaskGuid: "the-task-guid",
+						Annotation: `{
+							"lifecycle": "buildpack"
+						}`,
+						Failed:        true,
+						FailureReason: diego_errors.INSUFFICIENT_RESOURCES_MESSAGE,
+					})
 
-					resp, err := httpClient.Do(req)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(resp.StatusCode).To(Equal(http.StatusOK))
+					fakeCC.AppendHandlers(
+						ghttp.CombineHandlers(
+							ghttp.VerifyRequest("POST", "/internal/staging/the-task-guid/completed"),
+							ghttp.VerifyContentType("application/json"),
+							ghttp.VerifyJSON(`{
+								"error": {
+									"id": "InsufficientResources",
+									"message": "insufficient resources"
+								}
+							}`),
+						),
+					)
 				})
 
-				It("POSTs to the CC that staging is complete", func() {
+				It("POSTs to CC that staging fails", func() {
+					Eventually(fakeCC.ReceivedRequests).Should(HaveLen(1))
+				})
+			})
+
+			Context("when buildpack detection fails", func() {
+				BeforeEach(func() {
+					taskJSON, err = json.Marshal(models.TaskCallbackResponse{
+						TaskGuid: "the-task-guid",
+						Annotation: `{
+							"lifecycle": "buildpack"
+						}`,
+						Failed:        true,
+						FailureReason: "nope " + strconv.Itoa(buildpack_app_lifecycle.DETECT_FAIL_CODE),
+					})
+
+					fakeCC.AppendHandlers(
+						ghttp.CombineHandlers(
+							ghttp.VerifyRequest("POST", "/internal/staging/the-task-guid/completed"),
+							ghttp.VerifyContentType("application/json"),
+							ghttp.VerifyJSON(`{
+								"error": {
+									"id": "NoAppDetectedError",
+									"message": "staging failed"
+								}
+							}`),
+						),
+					)
+				})
+
+				It("POSTs to CC that detection failed", func() {
+					Eventually(fakeCC.ReceivedRequests).Should(HaveLen(1))
+				})
+			})
+
+			Context("when buildpack compile fails", func() {
+				BeforeEach(func() {
+					taskJSON, err = json.Marshal(models.TaskCallbackResponse{
+						TaskGuid: "the-task-guid",
+						Annotation: `{
+							"lifecycle": "buildpack"
+						}`,
+						Failed:        true,
+						FailureReason: "nope " + strconv.Itoa(buildpack_app_lifecycle.COMPILE_FAIL_CODE),
+					})
+
+					fakeCC.AppendHandlers(
+						ghttp.CombineHandlers(
+							ghttp.VerifyRequest("POST", "/internal/staging/the-task-guid/completed"),
+							ghttp.VerifyContentType("application/json"),
+							ghttp.VerifyJSON(`{
+								"error": {
+									"id": "BuildpackCompileFailed",
+									"message": "staging failed"
+								}
+							}`),
+						),
+					)
+				})
+
+				It("POSTs to CC that compile failed", func() {
+					Eventually(fakeCC.ReceivedRequests).Should(HaveLen(1))
+				})
+			})
+
+			Context("when buildpack release fails", func() {
+				BeforeEach(func() {
+					taskJSON, err = json.Marshal(models.TaskCallbackResponse{
+						TaskGuid: "the-task-guid",
+						Annotation: `{
+							"lifecycle": "buildpack"
+						}`,
+						Failed:        true,
+						FailureReason: "nope " + strconv.Itoa(buildpack_app_lifecycle.RELEASE_FAIL_CODE),
+					})
+
+					fakeCC.AppendHandlers(
+						ghttp.CombineHandlers(
+							ghttp.VerifyRequest("POST", "/internal/staging/the-task-guid/completed"),
+							ghttp.VerifyContentType("application/json"),
+							ghttp.VerifyJSON(`{
+								"error": {
+									"id": "BuildpackReleaseFailed",
+									"message": "staging failed"
+								}
+							}`),
+						),
+					)
+				})
+
+				It("POSTs to CC that release failed", func() {
 					Eventually(fakeCC.ReceivedRequests).Should(HaveLen(1))
 				})
 			})
