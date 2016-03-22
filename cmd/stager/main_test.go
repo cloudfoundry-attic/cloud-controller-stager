@@ -440,7 +440,7 @@ var _ = Describe("Stager", func() {
 
 			It("logs and errors", func() {
 				Eventually(runner.Session().ExitCode()).ShouldNot(Equal(0))
-				Eventually(runner.Session()).Should(gbytes.Say("nodename nor servname provided, or not known"))
+				Eventually(runner.Session()).Should(gbytes.Say("stager.failed-invalid-listen-port"))
 			})
 		})
 	})
