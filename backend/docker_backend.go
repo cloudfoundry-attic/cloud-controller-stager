@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/file-server"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/stager/diego_errors"
 	"github.com/cloudfoundry/gunk/urljoiner"
@@ -201,12 +200,7 @@ func (backend *dockerBackend) compilerDownloadURL() (*url.URL, error) {
 		return nil, fmt.Errorf("unknown scheme: '%s'", parsed.Scheme)
 	}
 
-	staticPath, err := fileserver.Routes.CreatePathForRoute(fileserver.StaticRoute, nil)
-	if err != nil {
-		return nil, fmt.Errorf("couldn't generate the compiler download path: %s", err)
-	}
-
-	urlString := urljoiner.Join(backend.config.FileServerURL, staticPath, lifecycleFilename)
+	urlString := urljoiner.Join(backend.config.FileServerURL, "/v1/static", lifecycleFilename)
 
 	url, err := url.ParseRequestURI(urlString)
 	if err != nil {

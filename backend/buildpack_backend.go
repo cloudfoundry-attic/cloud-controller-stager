@@ -12,7 +12,6 @@ import (
 	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/buildpack_app_lifecycle"
 	"github.com/cloudfoundry-incubator/cc-uploader"
-	"github.com/cloudfoundry-incubator/file-server"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry/gunk/urljoiner"
 	"github.com/pivotal-golang/lager"
@@ -253,12 +252,7 @@ func (backend *traditionalBackend) compilerDownloadURL(request cc_messages.Stagi
 		return nil, errors.New("Unknown Scheme")
 	}
 
-	staticPath, err := fileserver.Routes.CreatePathForRoute(fileserver.StaticRoute, nil)
-	if err != nil {
-		return nil, fmt.Errorf("couldn't generate the compiler download path: %s", err)
-	}
-
-	urlString := urljoiner.Join(backend.config.FileServerURL, staticPath, compilerPath)
+	urlString := urljoiner.Join(backend.config.FileServerURL, "/v1/static/", compilerPath)
 
 	url, err := url.ParseRequestURI(urlString)
 	if err != nil {
