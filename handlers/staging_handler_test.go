@@ -104,7 +104,7 @@ var _ = Describe("StagingHandler", func() {
 
 				It("creates a task on Diego", func() {
 					Expect(fakeDiegoClient.DesireTaskCallCount()).To(Equal(1))
-					_, _, resultingTaskDef := fakeDiegoClient.DesireTaskArgsForCall(0)
+					_, _, _, resultingTaskDef := fakeDiegoClient.DesireTaskArgsForCall(0)
 					Expect(resultingTaskDef).To(Equal(fakeTaskDef))
 				})
 
@@ -254,7 +254,8 @@ var _ = Describe("StagingHandler", func() {
 		Context("when receiving a stop staging request", func() {
 			It("retrieves the current staging task by guid", func() {
 				Expect(fakeDiegoClient.TaskByGuidCallCount()).To(Equal(1))
-				Expect(fakeDiegoClient.TaskByGuidArgsForCall(0)).To(Equal("a-staging-guid"))
+				_, task := fakeDiegoClient.TaskByGuidArgsForCall(0)
+				Expect(task).To(Equal("a-staging-guid"))
 			})
 
 			Context("when an in-flight staging task is not found", func() {
@@ -299,7 +300,8 @@ var _ = Describe("StagingHandler", func() {
 
 				It("cancels the Diego task", func() {
 					Expect(fakeDiegoClient.CancelTaskCallCount()).To(Equal(1))
-					Expect(fakeDiegoClient.CancelTaskArgsForCall(0)).To(Equal("a-staging-guid"))
+					_, task := fakeDiegoClient.CancelTaskArgsForCall(0)
+					Expect(task).To(Equal("a-staging-guid"))
 				})
 
 				It("returns an Accepted response", func() {

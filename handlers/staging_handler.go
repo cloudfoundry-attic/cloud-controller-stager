@@ -89,7 +89,7 @@ func (handler *stagingHandler) Stage(resp http.ResponseWriter, req *http.Request
 		"callback_url": taskDef.CompletionCallbackUrl,
 	})
 
-	err = handler.diegoClient.DesireTask(guid, domain, taskDef)
+	err = handler.diegoClient.DesireTask(logger, guid, domain, taskDef)
 	if models.ErrResourceExists.Equal(err) {
 		err = nil
 	}
@@ -117,7 +117,7 @@ func (handler *stagingHandler) StopStaging(resp http.ResponseWriter, req *http.R
 	taskGuid := req.FormValue(":staging_guid")
 	logger := handler.logger.Session("stop-staging-request", lager.Data{"staging-guid": taskGuid})
 
-	task, err := handler.diegoClient.TaskByGuid(taskGuid)
+	task, err := handler.diegoClient.TaskByGuid(logger, taskGuid)
 	if err != nil {
 		if models.ErrResourceNotFound.Equal(err) {
 			resp.WriteHeader(http.StatusNotFound)
@@ -142,7 +142,7 @@ func (handler *stagingHandler) StopStaging(resp http.ResponseWriter, req *http.R
 
 	logger.Info("cancelling", lager.Data{"task_guid": taskGuid})
 
-	err = handler.diegoClient.CancelTask(taskGuid)
+	err = handler.diegoClient.CancelTask(logger, taskGuid)
 	if err != nil {
 		logger.Error("stop-staging-failed", err)
 	}
