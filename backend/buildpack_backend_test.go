@@ -23,6 +23,7 @@ var _ = Describe("TraditionalBackend", func() {
 		stagingRequest                 cc_messages.StagingRequestFromCC
 		config                         backend.Config
 		buildpackOrder                 string
+		cfBuildpacks                   string
 		timeout                        int
 		stack                          string
 		memoryMb                       int32
@@ -118,6 +119,7 @@ var _ = Describe("TraditionalBackend", func() {
 		)
 
 		buildpackOrder = "zfirst-buildpack,asecond-buildpack"
+		cfBuildpacks = "[{\"name\":\"zfirst\",\"path\":\"/tmp/buildpacks/0fe7d5fc3f73b0ab8682a664da513fbd\"},{\"name\":\"asecond\",\"path\":\"/tmp/buildpacks/58015c32d26f0ad3418f87dd9bf47797\"}]"
 
 		uploadDropletAction = &models.UploadAction{
 			Artifact: "droplet",
@@ -151,6 +153,10 @@ var _ = Describe("TraditionalBackend", func() {
 
 	JustBeforeEach(func() {
 		fileDescriptorLimit := uint64(fileDescriptors)
+		env := append(environment, &models.EnvironmentVariable{"CF_STACK", stack})
+		if cfBuildpacks != "" {
+			env = append(env, &models.EnvironmentVariable{"CF_BUILDPACKS", cfBuildpacks})
+		}
 		runAction = models.EmitProgressFor(
 			&models.RunAction{
 				User: "vcap",
@@ -166,11 +172,7 @@ var _ = Describe("TraditionalBackend", func() {
 					"-skipCertVerify=false",
 					"-skipDetect=" + strconv.FormatBool(buildpacks[0].SkipDetect),
 				},
-				Env: []*models.EnvironmentVariable{
-					{"VCAP_APPLICATION", "foo"},
-					{"VCAP_SERVICES", "bar"},
-					{"CF_STACK", stack},
-				},
+				Env:            env,
 				ResourceLimits: &models.ResourceLimits{Nofile: &fileDescriptorLimit},
 			},
 			"Staging...",
@@ -288,6 +290,7 @@ var _ = Describe("TraditionalBackend", func() {
 			buildpacks = buildpacks[:1]
 			buildpacks[0].SkipDetect = true
 			buildpackOrder = "zfirst-buildpack"
+			cfBuildpacks = ""
 		})
 
 		It("it downloads the buildpack and skips detect", func() {
@@ -326,6 +329,7 @@ var _ = Describe("TraditionalBackend", func() {
 				{Name: "custom", Key: customBuildpack, Url: customBuildpack, SkipDetect: true},
 			}
 			buildpackOrder = customBuildpack
+			cfBuildpacks = ""
 		})
 
 		It("does not download any buildpacks and skips detect", func() {
