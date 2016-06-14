@@ -163,6 +163,7 @@ var _ = Describe("TraditionalBackend", func() {
 					"-outputBuildArtifactsCache=/tmp/output-cache",
 					"-outputDroplet=/tmp/droplet",
 					"-outputMetadata=/tmp/result.json",
+					"-privilegedContainers=false",
 					"-skipCertVerify=false",
 					"-skipDetect=" + strconv.FormatBool(buildpacks[0].SkipDetect),
 				},
@@ -243,7 +244,7 @@ var _ = Describe("TraditionalBackend", func() {
 		Expect(taskDef.MetricsGuid).To(BeEmpty()) // do not emit metrics for staging!
 		Expect(taskDef.LogSource).To(Equal(backend.TaskLogSource))
 		Expect(taskDef.ResultFile).To(Equal("/tmp/result.json"))
-		Expect(taskDef.Privileged).To(BeTrue())
+		Expect(taskDef.Privileged).To(BeFalse())
 
 		var annotation cc_messages.StagingTaskAnnotation
 		err = json.Unmarshal([]byte(taskDef.Annotation), &annotation)
@@ -528,6 +529,7 @@ var _ = Describe("TraditionalBackend", func() {
 				"-outputBuildArtifactsCache=/tmp/output-cache",
 				"-outputDroplet=/tmp/droplet",
 				"-outputMetadata=/tmp/result.json",
+				"-privilegedContainers=false",
 				"-skipCertVerify=true",
 				"-skipDetect=false",
 			}

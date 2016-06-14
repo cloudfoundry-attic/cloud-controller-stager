@@ -48,6 +48,12 @@ var ccPassword = flag.String(
 	"Basic auth password for CC internal API",
 )
 
+var privilegedContainers = flag.Bool(
+	"privilegedContainers",
+	false,
+	"Whether or not to use privileged containers for  buildpack based LRPs and tasks. Containers with a docker-image-based rootfs will continue to always be unprivileged and cannot be changed.",
+)
+
 var skipCertVerify = flag.Bool(
 	"skipCertVerify",
 	false,
@@ -247,6 +253,7 @@ func initializeBackends(logger lager.Logger, lifecycles flags.LifecycleMap) map[
 		InsecureDockerRegistries: insecureDockerRegistries.Values(),
 		ConsulCluster:            *consulCluster,
 		SkipCertVerify:           *skipCertVerify,
+		PrivilegedContainers:     *privilegedContainers,
 		Sanitizer:                backend.SanitizeErrorMessage,
 		DockerStagingStack:       *dockerStagingStack,
 	}

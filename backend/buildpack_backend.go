@@ -67,7 +67,6 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 	}
 
 	skipDetect := len(lifecycleData.Buildpacks) == 1 && lifecycleData.Buildpacks[0].SkipDetect
-
 	builderConfig := buildpack_app_lifecycle.NewLifecycleBuilderConfig(buildpacksOrder, skipDetect, backend.config.SkipCertVerify)
 
 	timeout := traditionalTimeout(request, backend.logger)
@@ -208,7 +207,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 		CompletionCallbackUrl:         backend.config.CallbackURL(stagingGuid),
 		EgressRules:                   request.EgressRules,
 		Annotation:                    string(annotationJson),
-		Privileged:                    true,
+		Privileged:                    backend.config.PrivilegedContainers,
 		EnvironmentVariables:          []*models.EnvironmentVariable{{"LANG", DefaultLANG}},
 		LegacyDownloadUser:            "vcap",
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,

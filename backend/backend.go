@@ -45,6 +45,7 @@ type Config struct {
 	SkipCertVerify           bool
 	Sanitizer                FailureReasonSanitizer
 	DockerStagingStack       string
+	PrivilegedContainers     bool
 }
 
 func (c Config) CallbackURL(stagingGuid string) string {
