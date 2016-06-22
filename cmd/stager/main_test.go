@@ -76,7 +76,7 @@ var _ = Describe("Stager", func() {
 
 		Describe("when a buildpack staging request is received", func() {
 			It("desires a staging task via the API", func() {
-				fakeBBS.RouteToHandler("POST", "/v1/tasks/desire", func(w http.ResponseWriter, req *http.Request) {
+				fakeBBS.RouteToHandler("POST", "/v1/tasks/desire.r1", func(w http.ResponseWriter, req *http.Request) {
 					var desireTaskRequest models.DesireTaskRequest
 					data, err := ioutil.ReadAll(req.Body)
 					Expect(err).NotTo(HaveOccurred())
@@ -116,7 +116,7 @@ var _ = Describe("Stager", func() {
 
 		Describe("when a docker staging request is received", func() {
 			It("desires a staging task via the API", func() {
-				fakeBBS.RouteToHandler("POST", "/v1/tasks/desire", func(w http.ResponseWriter, req *http.Request) {
+				fakeBBS.RouteToHandler("POST", "/v1/tasks/desire.r1", func(w http.ResponseWriter, req *http.Request) {
 					var desireTaskRequest models.DesireTaskRequest
 					data, err := ioutil.ReadAll(req.Body)
 					Expect(err).NotTo(HaveOccurred())
@@ -165,7 +165,7 @@ var _ = Describe("Stager", func() {
 					Error: nil,
 				}
 
-				fakeBBS.RouteToHandler("POST", "/v1/tasks/get_by_task_guid.r1", func(w http.ResponseWriter, req *http.Request) {
+				fakeBBS.RouteToHandler("POST", "/v1/tasks/get_by_task_guid.r2", func(w http.ResponseWriter, req *http.Request) {
 					var taskByGuidRequest models.TaskByGuidRequest
 					data, err := ioutil.ReadAll(req.Body)
 					Expect(err).NotTo(HaveOccurred())
