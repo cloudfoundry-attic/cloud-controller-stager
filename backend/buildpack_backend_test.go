@@ -401,7 +401,7 @@ var _ = Describe("TraditionalBackend", func() {
 
 				timeoutAction := taskDef.Action.GetTimeoutAction()
 				Expect(timeoutAction).NotTo(BeNil())
-				Expect(timeoutAction.Timeout).To(Equal(int64(time.Duration(timeout) * time.Second)))
+				Expect(timeoutAction.TimeoutMs).To(Equal(int64(time.Duration(timeout) * time.Second / 1000000)))
 			})
 		})
 
@@ -416,7 +416,7 @@ var _ = Describe("TraditionalBackend", func() {
 
 				timeoutAction := taskDef.Action.GetTimeoutAction()
 				Expect(timeoutAction).NotTo(BeNil())
-				Expect(timeoutAction.Timeout).To(Equal(int64(backend.DefaultStagingTimeout)))
+				Expect(timeoutAction.TimeoutMs).To(Equal(int64(backend.DefaultStagingTimeout / 1000000)))
 			})
 		})
 
@@ -431,7 +431,7 @@ var _ = Describe("TraditionalBackend", func() {
 
 				timeoutAction := taskDef.Action.GetTimeoutAction()
 				Expect(timeoutAction).NotTo(BeNil())
-				Expect(timeoutAction.Timeout).To(Equal(int64(backend.DefaultStagingTimeout)))
+				Expect(timeoutAction.TimeoutMs).To(Equal(int64(backend.DefaultStagingTimeout / 1000000)))
 			})
 		})
 	})
@@ -540,7 +540,7 @@ var _ = Describe("TraditionalBackend", func() {
 
 			timeoutAction := taskDef.Action.GetTimeoutAction()
 			Expect(timeoutAction).NotTo(BeNil())
-			Expect(timeoutAction.Timeout).To(Equal(int64(15 * time.Minute)))
+			Expect(timeoutAction.TimeoutMs).To(Equal(int64(15 * time.Minute / 1000000)))
 
 			serialAction := timeoutAction.Action.GetSerialAction()
 			Expect(serialAction).NotTo(BeNil())
