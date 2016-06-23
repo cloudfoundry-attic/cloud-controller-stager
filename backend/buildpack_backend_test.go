@@ -163,7 +163,6 @@ var _ = Describe("TraditionalBackend", func() {
 					"-outputBuildArtifactsCache=/tmp/output-cache",
 					"-outputDroplet=/tmp/droplet",
 					"-outputMetadata=/tmp/result.json",
-					"-privilegedContainers=false",
 					"-skipCertVerify=false",
 					"-skipDetect=" + strconv.FormatBool(buildpacks[0].SkipDetect),
 				},
@@ -529,7 +528,6 @@ var _ = Describe("TraditionalBackend", func() {
 				"-outputBuildArtifactsCache=/tmp/output-cache",
 				"-outputDroplet=/tmp/droplet",
 				"-outputMetadata=/tmp/result.json",
-				"-privilegedContainers=false",
 				"-skipCertVerify=true",
 				"-skipDetect=false",
 			}
