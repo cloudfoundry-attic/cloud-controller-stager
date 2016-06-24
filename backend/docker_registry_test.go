@@ -178,11 +178,11 @@ var _ = Describe("DockerBackend", func() {
 					dockerBackend = setupDockerBackend(validDockerRegistryAddress, []string{}, consulCluster)
 				})
 
-				It("runs as privileged", func() {
+				It("runs as unprivileged", func() {
 					taskDef, _, _, err := dockerBackend.BuildRecipe("staging-guid", stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
-					Expect(taskDef.Privileged).To(BeTrue())
+					Expect(taskDef.Privileged).To(BeFalse())
 				})
 
 				It("has an Action", func() {
@@ -272,11 +272,11 @@ var _ = Describe("DockerBackend", func() {
 					dockerBackend = setupDockerBackend(validDockerRegistryAddress, []string{validDockerRegistryAddress, "http://insecure-registry.com"}, consulCluster)
 				})
 
-				It("runs as privileged", func() {
+				It("runs as unprivileged", func() {
 					taskDef, _, _, err := dockerBackend.BuildRecipe("staging-guid", stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
-					Expect(taskDef.Privileged).To(BeTrue())
+					Expect(taskDef.Privileged).To(BeFalse())
 				})
 
 				It("has an Action", func() {
@@ -375,11 +375,11 @@ var _ = Describe("DockerBackend", func() {
 					dockerBackend = setupDockerBackend(validDockerRegistryAddress, []string{}, consulCluster)
 				})
 
-				It("runs as privileged", func() {
+				It("runs as unprivileged", func() {
 					taskDef, _, _, err := dockerBackend.BuildRecipe("staging-guid", stagingRequest)
 					Expect(err).NotTo(HaveOccurred())
 
-					Expect(taskDef.Privileged).To(BeTrue())
+					Expect(taskDef.Privileged).To(BeFalse())
 				})
 
 				It("has an Action", func() {

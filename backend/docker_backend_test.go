@@ -141,10 +141,10 @@ var _ = Describe("DockerBackend", func() {
 			Expect(taskDef.ResultFile).To(Equal("/tmp/docker-result/result.json"))
 		})
 
-		It("sets the task as Privileged", func() {
+		It("sets the task Privileged as false by default", func() {
 			taskDef, _, _, err := docker.BuildRecipe("staging-guid", stagingRequest)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(taskDef.Privileged).To(BeTrue())
+			Expect(taskDef.Privileged).To(BeFalse())
 		})
 
 		It("sets the LegacyDownloadUser", func() {
