@@ -149,7 +149,7 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 	taskDefinition := &models.TaskDefinition{
 		RootFs:                        models.PreloadedRootFS(backend.config.DockerStagingStack),
 		ResultFile:                    DockerBuilderOutputPath,
-		Privileged:                    true,
+		Privileged:                    backend.config.PrivilegedContainers,
 		MemoryMb:                      int32(request.MemoryMB),
 		LogSource:                     TaskLogSource,
 		LogGuid:                       request.LogGuid,
