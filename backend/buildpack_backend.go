@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"code.cloudfoundry.org/bbs/models"
+	"code.cloudfoundry.org/buildpackapplifecycle"
 	"code.cloudfoundry.org/cc-uploader"
-	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/buildpack_app_lifecycle"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
+	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/runtimeschema/cc_messages"
 	"github.com/cloudfoundry/gunk/urljoiner"
-	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/rata"
 )
 
@@ -67,7 +67,7 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 	}
 
 	skipDetect := len(lifecycleData.Buildpacks) == 1 && lifecycleData.Buildpacks[0].SkipDetect
-	builderConfig := buildpack_app_lifecycle.NewLifecycleBuilderConfig(buildpacksOrder, skipDetect, backend.config.SkipCertVerify)
+	builderConfig := buildpackapplifecycle.NewLifecycleBuilderConfig(buildpacksOrder, skipDetect, backend.config.SkipCertVerify)
 
 	timeout := traditionalTimeout(request, backend.logger)
 

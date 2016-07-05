@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
+	"code.cloudfoundry.org/bbs/models"
+	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/runtimeschema/cc_messages"
 	"code.cloudfoundry.org/stager/diego_errors"
-	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry/gunk/urljoiner"
-	"github.com/pivotal-golang/lager"
 )
 
 const (

@@ -5,13 +5,13 @@ import (
 	"net/http"
 	"time"
 
+	"code.cloudfoundry.org/bbs/models"
+	"code.cloudfoundry.org/clock"
+	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/runtimeschema/cc_messages"
+	"code.cloudfoundry.org/runtimeschema/metric"
 	"code.cloudfoundry.org/stager/backend"
 	"code.cloudfoundry.org/stager/cc_client"
-	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/runtime-schema/metric"
-	"github.com/pivotal-golang/clock"
-	"github.com/pivotal-golang/lager"
 )
 
 const (

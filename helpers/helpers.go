@@ -3,7 +3,7 @@ package helpers
 import (
 	"encoding/json"
 
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
+	"code.cloudfoundry.org/runtimeschema/cc_messages"
 )
 
 func BuildDockerStagingData(dockerImage string) (*json.RawMessage, error) {

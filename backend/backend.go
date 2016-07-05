@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"code.cloudfoundry.org/bbs/models"
+	"code.cloudfoundry.org/buildpackapplifecycle"
+	"code.cloudfoundry.org/runtimeschema/cc_messages"
 	"code.cloudfoundry.org/stager/diego_errors"
-	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/buildpack_app_lifecycle"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 )
 
 const (
@@ -71,13 +71,13 @@ func SanitizeErrorMessage(message string) *cc_messages.StagingError {
 	const staging_failed = "staging failed"
 	id := cc_messages.STAGING_ERROR
 	switch {
-	case strings.HasSuffix(message, strconv.Itoa(buildpack_app_lifecycle.DETECT_FAIL_CODE)):
+	case strings.HasSuffix(message, strconv.Itoa(buildpackapplifecycle.DETECT_FAIL_CODE)):
 		id = cc_messages.BUILDPACK_DETECT_FAILED
 		message = staging_failed
-	case strings.HasSuffix(message, strconv.Itoa(buildpack_app_lifecycle.COMPILE_FAIL_CODE)):
+	case strings.HasSuffix(message, strconv.Itoa(buildpackapplifecycle.COMPILE_FAIL_CODE)):
 		id = cc_messages.BUILDPACK_COMPILE_FAILED
 		message = staging_failed
-	case strings.HasSuffix(message, strconv.Itoa(buildpack_app_lifecycle.RELEASE_FAIL_CODE)):
+	case strings.HasSuffix(message, strconv.Itoa(buildpackapplifecycle.RELEASE_FAIL_CODE)):
 		id = cc_messages.BUILDPACK_RELEASE_FAILED
 		message = staging_failed
 	case message == diego_errors.INSUFFICIENT_RESOURCES_MESSAGE:

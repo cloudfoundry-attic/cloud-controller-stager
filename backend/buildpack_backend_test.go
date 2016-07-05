@@ -6,15 +6,15 @@ import (
 	"strconv"
 	"time"
 
+	"code.cloudfoundry.org/bbs/models"
+	"code.cloudfoundry.org/buildpackapplifecycle"
+	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/lager/lagertest"
+	"code.cloudfoundry.org/runtimeschema/cc_messages"
 	"code.cloudfoundry.org/stager/backend"
 	"code.cloudfoundry.org/stager/diego_errors"
-	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/buildpack_app_lifecycle"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/pivotal-golang/lager"
-	"github.com/pivotal-golang/lager/lagertest"
 )
 
 var _ = Describe("TraditionalBackend", func() {
@@ -575,11 +575,11 @@ var _ = Describe("TraditionalBackend", func() {
 
 			Context("with a valid staging result", func() {
 				BeforeEach(func() {
-					stagingResult := buildpack_app_lifecycle.NewStagingResult(
-						buildpack_app_lifecycle.ProcessTypes{
+					stagingResult := buildpackapplifecycle.NewStagingResult(
+						buildpackapplifecycle.ProcessTypes{
 							"web": "rm -rf /*",
 						},
-						buildpack_app_lifecycle.LifecycleMetadata{
+						buildpackapplifecycle.LifecycleMetadata{
 							BuildpackKey:      "buildpack-key",
 							DetectedBuildpack: "detected-buildpack",
 						},

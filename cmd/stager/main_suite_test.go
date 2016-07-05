@@ -7,8 +7,8 @@ import (
 	"github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
 
+	"code.cloudfoundry.org/consuladapter/consulrunner"
 	"code.cloudfoundry.org/stager/cmd/stager/testrunner"
-	"github.com/cloudfoundry-incubator/consuladapter/consulrunner"
 	"github.com/onsi/gomega/gexec"
 )
 

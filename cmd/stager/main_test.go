@@ -9,13 +9,13 @@ import (
 	"strconv"
 	"strings"
 
+	"code.cloudfoundry.org/bbs/models"
+	"code.cloudfoundry.org/bbs/models/test/model_helpers"
+	"code.cloudfoundry.org/buildpackapplifecycle"
+	"code.cloudfoundry.org/runtimeschema/cc_messages/flags"
 	"code.cloudfoundry.org/stager"
 	"code.cloudfoundry.org/stager/cmd/stager/testrunner"
 	"code.cloudfoundry.org/stager/diego_errors"
-	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/bbs/models/test/model_helpers"
-	"github.com/cloudfoundry-incubator/buildpack_app_lifecycle"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages/flags"
 	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/consul/api"
 	. "github.com/onsi/ginkgo"
@@ -343,7 +343,7 @@ var _ = Describe("Stager", func() {
 							"lifecycle": "buildpack"
 						}`,
 						Failed:        true,
-						FailureReason: "nope " + strconv.Itoa(buildpack_app_lifecycle.DETECT_FAIL_CODE),
+						FailureReason: "nope " + strconv.Itoa(buildpackapplifecycle.DETECT_FAIL_CODE),
 					})
 
 					fakeCC.AppendHandlers(
@@ -373,7 +373,7 @@ var _ = Describe("Stager", func() {
 							"lifecycle": "buildpack"
 						}`,
 						Failed:        true,
-						FailureReason: "nope " + strconv.Itoa(buildpack_app_lifecycle.COMPILE_FAIL_CODE),
+						FailureReason: "nope " + strconv.Itoa(buildpackapplifecycle.COMPILE_FAIL_CODE),
 					})
 
 					fakeCC.AppendHandlers(
@@ -403,7 +403,7 @@ var _ = Describe("Stager", func() {
 							"lifecycle": "buildpack"
 						}`,
 						Failed:        true,
-						FailureReason: "nope " + strconv.Itoa(buildpack_app_lifecycle.RELEASE_FAIL_CODE),
+						FailureReason: "nope " + strconv.Itoa(buildpackapplifecycle.RELEASE_FAIL_CODE),
 					})
 
 					fakeCC.AppendHandlers(

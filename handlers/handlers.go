@@ -3,12 +3,12 @@ package handlers
 import (
 	"net/http"
 
+	"code.cloudfoundry.org/bbs"
+	"code.cloudfoundry.org/clock"
+	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/stager"
 	"code.cloudfoundry.org/stager/backend"
 	"code.cloudfoundry.org/stager/cc_client"
-	"github.com/cloudfoundry-incubator/bbs"
-	"github.com/pivotal-golang/clock"
-	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/rata"
 )
 

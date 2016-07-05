@@ -4,9 +4,9 @@ package fake_backend
 import (
 	"sync"
 
+	"code.cloudfoundry.org/bbs/models"
+	"code.cloudfoundry.org/runtimeschema/cc_messages"
 	"code.cloudfoundry.org/stager/backend"
-	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 )
 
 type FakeBackend struct {

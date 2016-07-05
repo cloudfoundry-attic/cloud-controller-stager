@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"time"
 
+	"code.cloudfoundry.org/bbs/models"
+	"code.cloudfoundry.org/dockerapplifecycle"
+	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/lager/lagertest"
+	"code.cloudfoundry.org/runtimeschema/cc_messages"
 	"code.cloudfoundry.org/stager/backend"
-	"github.com/cloudfoundry-incubator/bbs/models"
-	"github.com/cloudfoundry-incubator/docker_app_lifecycle"
-	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/pivotal-golang/lager"
-	"github.com/pivotal-golang/lager/lagertest"
 )
 
 var _ = Describe("DockerBackend", func() {
@@ -405,13 +405,13 @@ var _ = Describe("DockerBackend", func() {
 			failureReason     string
 			buildError        error
 			stagingResultJson []byte
-			stagingResult     docker_app_lifecycle.StagingResult
+			stagingResult     dockerapplifecycle.StagingResult
 		)
 
 		BeforeEach(func() {
-			stagingResult = docker_app_lifecycle.NewStagingResult(
-				docker_app_lifecycle.ProcessTypes{"a": "b"},
-				docker_app_lifecycle.LifecycleMetadata{
+			stagingResult = dockerapplifecycle.NewStagingResult(
+				dockerapplifecycle.ProcessTypes{"a": "b"},
+				dockerapplifecycle.LifecycleMetadata{
 					DockerImage: "cloudfoundry/diego-docker-app",
 				},
 				"metadata",

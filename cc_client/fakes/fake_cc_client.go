@@ -4,8 +4,8 @@ package fakes
 import (
 	"sync"
 
+	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/stager/cc_client"
-	"github.com/pivotal-golang/lager"
 )
 
 type FakeCcClient struct {

@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"net/url"
 
+	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/stager/cc_client"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
-	"github.com/pivotal-golang/lager"
 )
 
 var _ = Describe("CC Client", func() {
