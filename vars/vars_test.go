@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/cloudfoundry-incubator/stager/vars"
+	"code.cloudfoundry.org/stager/vars"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

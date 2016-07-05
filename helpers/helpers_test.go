@@ -1,7 +1,7 @@
 package helpers_test
 
 import (
-	"github.com/cloudfoundry-incubator/stager/helpers"
+	"code.cloudfoundry.org/stager/helpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

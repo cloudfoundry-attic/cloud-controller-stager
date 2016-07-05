@@ -4,7 +4,7 @@ package fakes
 import (
 	"sync"
 
-	"github.com/cloudfoundry-incubator/stager/cc_client"
+	"code.cloudfoundry.org/stager/cc_client"
 	"github.com/pivotal-golang/lager"
 )
 

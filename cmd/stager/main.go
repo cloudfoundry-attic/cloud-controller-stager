@@ -17,6 +17,10 @@ import (
 	"github.com/tedsuo/ifrit/http_server"
 	"github.com/tedsuo/ifrit/sigmon"
 
+	"code.cloudfoundry.org/stager/backend"
+	"code.cloudfoundry.org/stager/cc_client"
+	"code.cloudfoundry.org/stager/handlers"
+	"code.cloudfoundry.org/stager/vars"
 	"github.com/cloudfoundry-incubator/bbs"
 	"github.com/cloudfoundry-incubator/cf-debug-server"
 	cf_lager "github.com/cloudfoundry-incubator/cf-lager"
@@ -24,10 +28,6 @@ import (
 	"github.com/cloudfoundry-incubator/locket"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages/flags"
-	"github.com/cloudfoundry-incubator/stager/backend"
-	"github.com/cloudfoundry-incubator/stager/cc_client"
-	"github.com/cloudfoundry-incubator/stager/handlers"
-	"github.com/cloudfoundry-incubator/stager/vars"
 )
 
 var ccBaseURL = flag.String(

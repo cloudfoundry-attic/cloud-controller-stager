@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"code.cloudfoundry.org/stager/diego_errors"
 	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/buildpack_app_lifecycle"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/stager/diego_errors"
 )
 
 const (

@@ -7,8 +7,8 @@ import (
 	"github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
 
+	"code.cloudfoundry.org/stager/cmd/stager/testrunner"
 	"github.com/cloudfoundry-incubator/consuladapter/consulrunner"
-	"github.com/cloudfoundry-incubator/stager/cmd/stager/testrunner"
 	"github.com/onsi/gomega/gexec"
 )
 
@@ -22,7 +22,7 @@ var runner *testrunner.StagerRunner
 var consulRunner *consulrunner.ClusterRunner
 
 var _ = SynchronizedBeforeSuite(func() []byte {
-	stager, err := gexec.Build("github.com/cloudfoundry-incubator/stager/cmd/stager", "-race")
+	stager, err := gexec.Build("code.cloudfoundry.org/stager/cmd/stager", "-race")
 	Expect(err).NotTo(HaveOccurred())
 	return []byte(stager)
 }, func(stager []byte) {

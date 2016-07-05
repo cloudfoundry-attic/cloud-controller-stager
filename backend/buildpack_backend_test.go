@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"time"
 
+	"code.cloudfoundry.org/stager/backend"
+	"code.cloudfoundry.org/stager/diego_errors"
 	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/buildpack_app_lifecycle"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/stager/backend"
-	"github.com/cloudfoundry-incubator/stager/diego_errors"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/pivotal-golang/lager"

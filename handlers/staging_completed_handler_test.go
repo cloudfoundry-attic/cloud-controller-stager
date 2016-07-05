@@ -11,13 +11,13 @@ import (
 	"strings"
 	"time"
 
+	"code.cloudfoundry.org/stager/backend"
+	"code.cloudfoundry.org/stager/backend/fake_backend"
+	"code.cloudfoundry.org/stager/cc_client"
+	"code.cloudfoundry.org/stager/cc_client/fakes"
+	"code.cloudfoundry.org/stager/handlers"
 	"github.com/cloudfoundry-incubator/bbs/models"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
-	"github.com/cloudfoundry-incubator/stager/backend"
-	"github.com/cloudfoundry-incubator/stager/backend/fake_backend"
-	"github.com/cloudfoundry-incubator/stager/cc_client"
-	"github.com/cloudfoundry-incubator/stager/cc_client/fakes"
-	"github.com/cloudfoundry-incubator/stager/handlers"
 	"github.com/cloudfoundry/dropsonde/metric_sender/fake"
 	"github.com/cloudfoundry/dropsonde/metrics"
 	"github.com/pivotal-golang/clock/fakeclock"
@@ -30,8 +30,6 @@ import (
 var _ = Describe("StagingCompletedHandler", func() {
 	var (
 		logger lager.Logger
-		appId  string
-		taskId string
 
 		fakeCCClient        *fakes.FakeCcClient
 		fakeBackend         *fake_backend.FakeBackend
@@ -48,9 +46,6 @@ var _ = Describe("StagingCompletedHandler", func() {
 	BeforeEach(func() {
 		logger = lager.NewLogger("fakelogger")
 		logger.RegisterSink(lager.NewWriterSink(GinkgoWriter, lager.DEBUG))
-
-		appId = "my_app_id"
-		taskId = "do_this"
 
 		stagingDurationNano = 900900
 		metricSender = fake.NewFakeMetricSender()
