@@ -80,7 +80,7 @@ func SanitizeErrorMessage(message string) *cc_messages.StagingError {
 	case strings.HasSuffix(message, strconv.Itoa(buildpackapplifecycle.RELEASE_FAIL_CODE)):
 		id = cc_messages.BUILDPACK_RELEASE_FAILED
 		message = staging_failed
-	case message == diego_errors.INSUFFICIENT_RESOURCES_MESSAGE:
+	case strings.HasPrefix(message, diego_errors.INSUFFICIENT_RESOURCES_MESSAGE):
 		id = cc_messages.INSUFFICIENT_RESOURCES
 	case message == diego_errors.CELL_MISMATCH_MESSAGE:
 		id = cc_messages.NO_COMPATIBLE_CELL
