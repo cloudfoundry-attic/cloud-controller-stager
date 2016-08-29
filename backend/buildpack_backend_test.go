@@ -615,10 +615,16 @@ var _ = Describe("TraditionalBackend", func() {
 
 	Describe("SanitizeErrorMessage", func() {
 		Context("when the message is InsufficientResources", func() {
-			It("returns a InsufficientResources", func() {
-				stagingErr := backend.SanitizeErrorMessage(diego_errors.INSUFFICIENT_RESOURCES_MESSAGE)
+			It("returns an InsufficientResources memory error", func() {
+				stagingErr := backend.SanitizeErrorMessage("insufficient resources: memory")
 				Expect(stagingErr.Id).To(Equal(cc_messages.INSUFFICIENT_RESOURCES))
-				Expect(stagingErr.Message).To(Equal(diego_errors.INSUFFICIENT_RESOURCES_MESSAGE))
+				Expect(stagingErr.Message).To(Equal("insufficient resources: memory"))
+			})
+
+			It("returns an InsufficientResources disk error", func() {
+				stagingErr := backend.SanitizeErrorMessage("insufficient resources: disk")
+				Expect(stagingErr.Id).To(Equal(cc_messages.INSUFFICIENT_RESOURCES))
+				Expect(stagingErr.Message).To(Equal("insufficient resources: disk"))
 			})
 		})
 
