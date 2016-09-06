@@ -191,6 +191,7 @@ var _ = Describe("DockerBackend", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			fileDescriptorLimit := uint64(512)
+			processLimit := uint64(1024)
 			runAction := models.EmitProgressFor(
 				&models.RunAction{
 					Path: "/tmp/docker_app_lifecycle/builder",
@@ -211,6 +212,7 @@ var _ = Describe("DockerBackend", func() {
 					},
 					ResourceLimits: &models.ResourceLimits{
 						Nofile: &fileDescriptorLimit,
+						Nproc:  &processLimit,
 					},
 					User: "vcap",
 				},
