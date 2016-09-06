@@ -636,6 +636,22 @@ var _ = Describe("TraditionalBackend", func() {
 			})
 		})
 
+		Context("when the message is NoCompatibleCell Volume Drivers", func() {
+			It("returns a NoCompatibleCell", func() {
+				stagingErr := backend.SanitizeErrorMessage("found no compatible cell with volume drivers: [driver1]")
+				Expect(stagingErr.Id).To(Equal(cc_messages.NO_COMPATIBLE_CELL))
+				Expect(stagingErr.Message).To(ContainSubstring(diego_errors.CELL_MISMATCH_MESSAGE))
+			})
+		})
+
+		Context("when the message is NoCompatibleCell Placement tags", func() {
+			It("returns a NoCompatibleCell", func() {
+				stagingErr := backend.SanitizeErrorMessage("found no compatible cell with placement tags: [tag1, tag2]")
+				Expect(stagingErr.Id).To(Equal(cc_messages.NO_COMPATIBLE_CELL))
+				Expect(stagingErr.Message).To(ContainSubstring(diego_errors.CELL_MISMATCH_MESSAGE))
+			})
+		})
+
 		Context("when the message is CellCommunicationError", func() {
 			It("returns a CellCommunicationError", func() {
 				stagingErr := backend.SanitizeErrorMessage(diego_errors.CELL_COMMUNICATION_ERROR)

@@ -82,7 +82,7 @@ func SanitizeErrorMessage(message string) *cc_messages.StagingError {
 		message = staging_failed
 	case strings.HasPrefix(message, diego_errors.INSUFFICIENT_RESOURCES_MESSAGE):
 		id = cc_messages.INSUFFICIENT_RESOURCES
-	case message == diego_errors.CELL_MISMATCH_MESSAGE:
+	case strings.HasPrefix(message, diego_errors.CELL_MISMATCH_MESSAGE):
 		id = cc_messages.NO_COMPATIBLE_CELL
 	case message == diego_errors.CELL_COMMUNICATION_ERROR:
 		id = cc_messages.CELL_COMMUNICATION_ERROR
