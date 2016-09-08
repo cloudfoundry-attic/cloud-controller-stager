@@ -119,13 +119,11 @@ var _ = Describe("DockerBackend", func() {
 		}
 
 		fileDescriptorLimit := uint64(512)
-		processLimit := uint64(1024)
 		var mountCgroupsAction = models.EmitProgressFor(
 			&models.RunAction{
 				Path: "/tmp/docker_app_lifecycle/mount_cgroups",
 				ResourceLimits: &models.ResourceLimits{
 					Nofile: &fileDescriptorLimit,
-					Nproc:  &processLimit,
 				},
 				User: "root",
 			},
@@ -240,7 +238,6 @@ var _ = Describe("DockerBackend", func() {
 					Expect(actions).To(HaveLen(2))
 
 					fileDescriptorLimit := uint64(512)
-					processLimit := uint64(1024)
 					internalRunAction := models.RunAction{
 						Path: "/tmp/docker_app_lifecycle/builder",
 						Args: []string{
@@ -256,7 +253,6 @@ var _ = Describe("DockerBackend", func() {
 						},
 						ResourceLimits: &models.ResourceLimits{
 							Nofile: &fileDescriptorLimit,
-							Nproc:  &processLimit,
 						},
 						User: "root",
 					}
@@ -336,7 +332,6 @@ var _ = Describe("DockerBackend", func() {
 					Expect(actions).To(HaveLen(2))
 
 					fileDescriptorLimit := uint64(512)
-					processLimit := uint64(1024)
 					internalRunAction := models.RunAction{
 						Path: "/tmp/docker_app_lifecycle/builder",
 						Args: []string{
@@ -353,7 +348,6 @@ var _ = Describe("DockerBackend", func() {
 						},
 						ResourceLimits: &models.ResourceLimits{
 							Nofile: &fileDescriptorLimit,
-							Nproc:  &processLimit,
 						},
 						User: "root",
 					}
@@ -441,7 +435,6 @@ var _ = Describe("DockerBackend", func() {
 					Expect(actions).To(HaveLen(2))
 
 					fileDescriptorLimit := uint64(512)
-					processLimit := uint64(1024)
 					internalRunAction := models.RunAction{
 						Path: "/tmp/docker_app_lifecycle/builder",
 						Args: []string{
@@ -461,7 +454,6 @@ var _ = Describe("DockerBackend", func() {
 						},
 						ResourceLimits: &models.ResourceLimits{
 							Nofile: &fileDescriptorLimit,
-							Nproc:  &processLimit,
 						},
 						User: "root",
 					}

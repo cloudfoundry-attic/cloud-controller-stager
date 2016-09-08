@@ -86,7 +86,6 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 	}
 
 	fileDescriptorLimit := uint64(request.FileDescriptors)
-	processLimit := uint64(1024)
 	runAs := "vcap"
 
 	actions := []models.ActionInterface{}
@@ -114,7 +113,6 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 					Path: MountCgroupsPath,
 					ResourceLimits: &models.ResourceLimits{
 						Nofile: &fileDescriptorLimit,
-						Nproc:  &processLimit,
 					},
 					User: runAs,
 				},
@@ -134,7 +132,6 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 				Env:  request.Environment,
 				ResourceLimits: &models.ResourceLimits{
 					Nofile: &fileDescriptorLimit,
-					Nproc:  &processLimit,
 				},
 				User: runAs,
 			},
