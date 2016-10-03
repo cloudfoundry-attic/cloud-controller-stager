@@ -16,7 +16,7 @@ import (
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/runtimeschema/cc_messages"
 	"code.cloudfoundry.org/stager/diego_errors"
-	"github.com/cloudfoundry/gunk/urljoiner"
+	"code.cloudfoundry.org/urljoiner"
 )
 
 const (

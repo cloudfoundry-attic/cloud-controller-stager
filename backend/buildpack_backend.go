@@ -14,7 +14,7 @@ import (
 	"code.cloudfoundry.org/cc-uploader"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/runtimeschema/cc_messages"
-	"github.com/cloudfoundry/gunk/urljoiner"
+	"code.cloudfoundry.org/urljoiner"
 	"github.com/tedsuo/rata"
 )
 
