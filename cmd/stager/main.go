@@ -108,6 +108,12 @@ var consulCluster = flag.String(
 	"Consul Agent URL",
 )
 
+var consulTTL = flag.String(
+	"consulTTL",
+	"3",
+	"TTL value for consul registration in seconds",
+)
+
 var dockerStagingStack = flag.String(
 	"dockerStagingStack",
 	"",
@@ -286,7 +292,7 @@ func initializeRegistrationRunner(logger lager.Logger, consulClient consuladapte
 		Name: "stager",
 		Port: port,
 		Check: &api.AgentServiceCheck{
-			TTL: "3s",
+			TTL: *consulTTL + "s",
 		},
 	}
 	return locket.NewRegistrationRunner(logger, registration, consulClient, locket.RetryInterval, clock)
