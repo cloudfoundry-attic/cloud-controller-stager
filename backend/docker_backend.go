@@ -4,9 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"net"
-	"net/http"
 	"net/url"
 	"path"
 	"strings"
@@ -27,9 +24,7 @@ const (
 )
 
 var ErrMissingDockerImageUrl = errors.New(diego_errors.MISSING_DOCKER_IMAGE_URL)
-var ErrMissingDockerRegistry = errors.New(diego_errors.MISSING_DOCKER_REGISTRY)
 var ErrMissingDockerCredentials = errors.New(diego_errors.MISSING_DOCKER_CREDENTIALS)
-var ErrInvalidDockerRegistryAddress = errors.New(diego_errors.INVALID_DOCKER_REGISTRY_ADDRESS)
 
 type dockerBackend struct {
 	config Config
@@ -89,39 +84,6 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 	runAs := "vcap"
 
 	actions := []models.ActionInterface{}
-
-	if cacheDockerImage(request.Environment) {
-		runAs = "root"
-
-		additionalEgressRules, additionalArgs, err := cachingEgressRulesAndArgs(
-			logger,
-			backend.config.DockerRegistryAddress,
-			backend.config.ConsulCluster,
-			lifecycleData,
-		)
-		if err != nil {
-			return &models.TaskDefinition{}, "", "", err
-		}
-
-		runActionArguments = append(runActionArguments, additionalArgs...)
-		request.EgressRules = append(request.EgressRules, additionalEgressRules...)
-
-		actions = append(
-			actions,
-			models.EmitProgressFor(
-				&models.RunAction{
-					Path: MountCgroupsPath,
-					ResourceLimits: &models.ResourceLimits{
-						Nofile: &fileDescriptorLimit,
-					},
-					User: runAs,
-				},
-				"Preparing docker daemon...",
-				"",
-				"Failed to set up docker environment",
-			),
-		)
-	}
 
 	actions = append(
 		actions,
@@ -238,96 +200,4 @@ func dockerTimeout(request cc_messages.StagingRequestFromCC, logger lager.Logger
 		})
 		return DefaultStagingTimeout
 	}
-}
-
-func getDockerRegistryServices(consulCluster string, backendLogger lager.Logger) ([]consulServiceInfo, error) {
-	logger := backendLogger.Session("docker-registry-consul-services")
-
-	response, err := http.Get(consulCluster + "/v1/catalog/service/docker-registry")
-	if err != nil {
-		return nil, err
-	}
-
-	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var ips []consulServiceInfo
-	err = json.Unmarshal(body, &ips)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(ips) == 0 {
-		return nil, ErrMissingDockerRegistry
-	}
-
-	logger.Debug("docker-registry-consul-services", lager.Data{"ips": ips})
-
-	return ips, nil
-}
-
-func cachingEgressRulesAndArgs(
-	logger lager.Logger,
-	dockerRegistryAddress string,
-	consulCluster string,
-	stagingData cc_messages.DockerStagingData,
-) ([]*models.SecurityGroupRule, []string, error) {
-	host, port, err := net.SplitHostPort(dockerRegistryAddress)
-	if err != nil {
-		logger.Error("invalid-docker-registry-address", err, lager.Data{
-			"registry-address": dockerRegistryAddress,
-		})
-		return []*models.SecurityGroupRule{}, []string{}, ErrInvalidDockerRegistryAddress
-	}
-
-	registryServices, err := getDockerRegistryServices(consulCluster, logger)
-	if err != nil {
-		logger.Error("failed-getting-docker-registry-services", err)
-		return []*models.SecurityGroupRule{}, []string{}, err
-	}
-
-	egressRules := []*models.SecurityGroupRule{}
-	registryIPs := make([]string, 0, len(registryServices))
-	for _, registry := range registryServices {
-		egressRules = append(egressRules, &models.SecurityGroupRule{
-			Protocol:     models.TCPProtocol,
-			Destinations: []string{registry.Address},
-			Ports:        []uint32{8080},
-		})
-
-		registryIPs = append(registryIPs, registry.Address)
-	}
-
-	args := []string{
-		"-cacheDockerImage",
-		"-dockerRegistryHost",
-		host, "-dockerRegistryPort",
-		port, "-dockerRegistryIPs",
-		strings.Join(registryIPs, ","),
-	}
-
-	if len(stagingData.DockerLoginServer) > 0 {
-		args = append(args, "-dockerLoginServer", stagingData.DockerLoginServer)
-	}
-
-	if len(stagingData.DockerUser) > 0 {
-		args = append(args, "-dockerUser", stagingData.DockerUser,
-			"-dockerPassword", stagingData.DockerPassword,
-			"-dockerEmail", stagingData.DockerEmail)
-	}
-
-	return egressRules, args, nil
-}
-
-func cacheDockerImage(env []*models.EnvironmentVariable) bool {
-	for _, envVar := range env {
-		if envVar.Name == "DIEGO_DOCKER_CACHE" && envVar.Value == "true" {
-			return true
-		}
-	}
-
-	return false
 }

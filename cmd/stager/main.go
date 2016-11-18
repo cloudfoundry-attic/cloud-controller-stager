@@ -96,12 +96,6 @@ var ccUploaderURL = flag.String(
 	"URL of the cc uploader",
 )
 
-var dockerRegistryAddress = flag.String(
-	"dockerRegistryAddress",
-	"",
-	"Address (host:port) of the docker registry",
-)
-
 var consulCluster = flag.String(
 	"consulCluster",
 	"",
@@ -238,10 +232,6 @@ func initializeBackends(logger lager.Logger, lifecycles flags.LifecycleMap) map[
 	if err != nil {
 		logger.Fatal("Error parsing consul agent URL", err)
 	}
-	_, err = url.Parse(*dockerRegistryAddress)
-	if err != nil {
-		logger.Fatal("Error parsing Docker Registry address", err)
-	}
 
 	config := backend.Config{
 		TaskDomain:               cc_messages.StagingTaskDomain,
@@ -249,7 +239,6 @@ func initializeBackends(logger lager.Logger, lifecycles flags.LifecycleMap) map[
 		FileServerURL:            *fileServerURL,
 		CCUploaderURL:            *ccUploaderURL,
 		Lifecycles:               lifecycles,
-		DockerRegistryAddress:    *dockerRegistryAddress,
 		InsecureDockerRegistries: insecureDockerRegistries.Values(),
 		ConsulCluster:            *consulCluster,
 		SkipCertVerify:           *skipCertVerify,
