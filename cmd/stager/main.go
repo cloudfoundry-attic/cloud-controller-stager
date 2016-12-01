@@ -88,7 +88,7 @@ func main() {
 		{"registration-runner", registrationRunner},
 	}
 
-	if dbgAddr := debugserver.DebugAddress(flag.CommandLine); dbgAddr != "" {
+	if dbgAddr := stagerConfig.DebugServerConfig.DebugAddress; dbgAddr != "" {
 		members = append(grouper.Members{
 			{"debug-server", debugserver.Runner(dbgAddr, reconfigurableSink)},
 		}, members...)
