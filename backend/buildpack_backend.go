@@ -25,6 +25,11 @@ const (
 	DefaultLANG = "en_US.UTF-8"
 )
 
+type cfBuildpack struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
+}
+
 type traditionalBackend struct {
 	config Config
 	logger lager.Logger
@@ -95,17 +100,20 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 	)
 
 	//Download buildpacks
+	cfBuildpacks := []cfBuildpack{}
 	for _, buildpack := range lifecycleData.Buildpacks {
 		if buildpack.Name != cc_messages.CUSTOM_BUILDPACK {
+			buildpackPath := builderConfig.BuildpackPath(buildpack.Key)
 			cachedDependencies = append(
 				cachedDependencies,
 				&models.CachedDependency{
 					Name:     buildpack.Name,
 					From:     buildpack.Url,
-					To:       builderConfig.BuildpackPath(buildpack.Key),
+					To:       buildpackPath,
 					CacheKey: buildpack.Key,
 				},
 			)
+			cfBuildpacks = append(cfBuildpacks, cfBuildpack{Name: buildpack.Name, Path: buildpackPath})
 		}
 	}
 
@@ -131,6 +139,13 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 
 	//Run Builder
 	runEnv := append(request.Environment, &models.EnvironmentVariable{"CF_STACK", lifecycleData.Stack})
+	if !skipDetect {
+		cfBuildpacksJSON, err := json.Marshal(cfBuildpacks)
+		if err != nil {
+			return &models.TaskDefinition{}, "", "", err
+		}
+		runEnv = append(runEnv, &models.EnvironmentVariable{"CF_BUILDPACKS", string(cfBuildpacksJSON)})
+	}
 	actions = append(
 		actions,
 		models.EmitProgressFor(
