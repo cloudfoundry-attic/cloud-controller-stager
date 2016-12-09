@@ -273,6 +273,26 @@ var _ = Describe("DockerBackend", func() {
 			Expect(taskDef.TrustedSystemCertificatesPath).To(Equal(backend.TrustedSystemCertificatesPath))
 		})
 
+		It("does not set any Isolation Segments", func() {
+			taskDef, _, _, err := docker.BuildRecipe("staging-guid", stagingRequest)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(taskDef.PlacementTags).To(BeEmpty())
+		})
+
+		Context("When the request has an Isolation Segment", func() {
+			JustBeforeEach(func() {
+				stagingRequest.IsolationSegment = "foo"
+			})
+
+			It("sets the Isolation Segment on the task definition", func() {
+				taskDef, _, _, err := docker.BuildRecipe("staging-guid", stagingRequest)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(taskDef.PlacementTags).To(ContainElement("foo"))
+			})
+		})
+
 		Context("with a missing app id", func() {
 			BeforeEach(func() {
 				appID = ""

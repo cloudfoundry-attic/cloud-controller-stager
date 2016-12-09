@@ -126,6 +126,10 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 	}
 	logger.Debug("staging-task-request")
 
+	if request.IsolationSegment != "" {
+		taskDefinition.PlacementTags = []string{request.IsolationSegment}
+	}
+
 	return taskDefinition, stagingGuid, backend.config.TaskDomain, nil
 }
 
