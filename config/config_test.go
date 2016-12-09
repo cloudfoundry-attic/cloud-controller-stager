@@ -37,7 +37,6 @@ var _ = Describe("Config", func() {
 			Expect(stagerConfig.CCUsername).To(Equal("cc_basic_auth_username"))
 			Expect(stagerConfig.ConsulCluster).To(Equal("consul_cluster"))
 			Expect(stagerConfig.DebugServerConfig.DebugAddress).To(Equal("debug_address"))
-			Expect(stagerConfig.DockerRegistryAddress).To(Equal("docker_registry_address"))
 			Expect(stagerConfig.DockerStagingStack).To(Equal("docker_staging_stack"))
 			Expect(stagerConfig.DropsondePort).To(Equal(12))
 			Expect(stagerConfig.InsecureDockerRegistries).To(Equal([]string{"insecure_docker_registries"}))

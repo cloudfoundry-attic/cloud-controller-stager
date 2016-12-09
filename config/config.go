@@ -21,7 +21,6 @@ type StagerConfig struct {
 	CCUsername                string                        `json:"cc_basic_auth_username"`
 	ConsulCluster             string                        `json:"consul_cluster"`
 	DebugServerConfig         debugserver.DebugServerConfig `json:"debug_server_config"`
-	DockerRegistryAddress     string                        `json:"docker_registry_address"`
 	DockerStagingStack        string                        `json:"docker_staging_stack"`
 	DropsondePort             int                           `json:"dropsonde_port"`
 	InsecureDockerRegistries  []string                      `json:"insecure_docker_registries"`

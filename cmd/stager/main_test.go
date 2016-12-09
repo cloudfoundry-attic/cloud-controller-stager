@@ -498,34 +498,6 @@ var _ = Describe("Stager", func() {
 		})
 	})
 
-	Describe("-dockerRegistryAddress arg", func() {
-		Context("when started with a valid -dockerRegistryAddress arg", func() {
-			BeforeEach(func() {
-				runner.Config.Lifecycles = []string{"linux:lifecycle.zip"}
-				runner.Config.DockerRegistryAddress = "docker-registry.service.cf.internal:8080"
-				runner.Start(stagerPath)
-				Eventually(runner.Session()).Should(gbytes.Say("Listening for staging requests!"))
-			})
-
-			It("starts successfully", func() {
-				Consistently(runner.Session()).ShouldNot(gexec.Exit())
-			})
-		})
-
-		Context("when started with an invalid -dockerRegistryAddress arg", func() {
-			BeforeEach(func() {
-				runner.Config.Lifecycles = []string{"linux:lifecycle.zip"}
-				runner.Config.DockerRegistryAddress = "://noscheme:8500"
-				runner.Start(stagerPath)
-			})
-
-			It("logs and errors", func() {
-				Eventually(runner.Session().ExitCode()).ShouldNot(Equal(0))
-				Eventually(runner.Session()).Should(gbytes.Say("Error parsing Docker Registry address"))
-			})
-		})
-	})
-
 	Describe("-lifecycles arg", func() {
 		Context("when started with an invalid -lifecycles arg", func() {
 			BeforeEach(func() {

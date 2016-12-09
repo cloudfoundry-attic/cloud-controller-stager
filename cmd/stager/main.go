@@ -131,18 +131,12 @@ func initializeBackends(logger lager.Logger, lifecycles flags.LifecycleMap, stag
 	if err != nil {
 		logger.Fatal("Error parsing consul agent URL", err)
 	}
-	_, err = url.Parse(stagerConfig.DockerRegistryAddress)
-	if err != nil {
-		logger.Fatal("Error parsing Docker Registry address", err)
-	}
-
 	config := backend.Config{
 		TaskDomain:               cc_messages.StagingTaskDomain,
 		StagerURL:                stagerConfig.StagingTaskCallbackURL,
 		FileServerURL:            stagerConfig.FileServerUrl,
 		CCUploaderURL:            stagerConfig.CCUploaderURL,
 		Lifecycles:               lifecycles,
-		DockerRegistryAddress:    stagerConfig.DockerRegistryAddress,
 		InsecureDockerRegistries: insecureDockerRegistries.Values(),
 		ConsulCluster:            stagerConfig.ConsulCluster,
 		SkipCertVerify:           stagerConfig.SkipCertVerify,
