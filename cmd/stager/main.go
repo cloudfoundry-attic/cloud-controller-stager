@@ -20,6 +20,7 @@ import (
 	"code.cloudfoundry.org/consuladapter"
 	"code.cloudfoundry.org/debugserver"
 	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/lager/lagerflags"
 	"code.cloudfoundry.org/locket"
 	"code.cloudfoundry.org/runtimeschema/cc_messages"
 	"code.cloudfoundry.org/runtimeschema/cc_messages/flags"
@@ -44,21 +45,20 @@ const (
 
 func main() {
 	flag.Parse()
-	logger := lager.NewLogger("stager")
 
 	stagerConfig, err := config.NewStagerConfig(*configPath)
 	if err != nil {
-		logger.Fatal(fmt.Sprintf("failed to parse config file %q", *configPath), err)
+		panic(err.Error())
 	}
 	lifecycles := flags.LifecycleMap{}
 	for _, value := range stagerConfig.Lifecycles {
 		if err := lifecycles.Set(value); err != nil {
-			logger.Fatal("failed-invalid-lifecycles", err)
+			panic(err.Error())
 		}
 	}
 
-	reconfigurableSink := newReconfigurableSink(stagerConfig.LagerConfig.LogLevel)
-	logger.RegisterSink(reconfigurableSink)
+	logger, reconfigurableSink := lagerflags.NewFromConfig("stager", stagerConfig.LagerConfig)
+
 	initializeDropsonde(logger, stagerConfig)
 
 	ccClient := cc_client.NewCcClient(stagerConfig.CCBaseUrl, stagerConfig.CCUsername, stagerConfig.CCPassword, stagerConfig.SkipCertVerify)
@@ -177,21 +177,4 @@ func initializeRegistrationRunner(logger lager.Logger, consulClient consuladapte
 		},
 	}
 	return locket.NewRegistrationRunner(logger, registration, consulClient, locket.RetryInterval, clock)
-}
-func newReconfigurableSink(logLevel string) *lager.ReconfigurableSink {
-	var minLagerLogLevel lager.LogLevel
-	switch logLevel {
-	case "debug":
-		minLagerLogLevel = lager.DEBUG
-	case "info":
-		minLagerLogLevel = lager.INFO
-	case "error":
-		minLagerLogLevel = lager.ERROR
-	case "fatal":
-		minLagerLogLevel = lager.FATAL
-	default:
-		panic(fmt.Errorf("unknown log level: %s", logLevel))
-	}
-
-	return lager.NewReconfigurableSink(lager.NewWriterSink(os.Stdout, lager.DEBUG), minLagerLogLevel)
 }
