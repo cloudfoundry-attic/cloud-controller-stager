@@ -173,7 +173,7 @@ func initializeRegistrationRunner(logger lager.Logger, consulClient consuladapte
 		Name: "stager",
 		Port: port,
 		Check: &api.AgentServiceCheck{
-			TTL: "3s",
+			TTL: "20s",
 		},
 	}
 	return locket.NewRegistrationRunner(logger, registration, consulClient, locket.RetryInterval, clock)
