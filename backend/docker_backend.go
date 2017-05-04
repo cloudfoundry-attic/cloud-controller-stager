@@ -80,6 +80,12 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 		runActionArguments = append(runActionArguments, "-insecureDockerRegistries", insecureDockerRegistries)
 	}
 
+	if lifecycleData.DockerUser != "" {
+		runActionArguments = append(runActionArguments,
+			"-dockerUser", lifecycleData.DockerUser,
+			"-dockerPassword", lifecycleData.DockerPassword)
+	}
+
 	fileDescriptorLimit := uint64(request.FileDescriptors)
 	runAs := "vcap"
 
@@ -185,8 +191,8 @@ func (backend *dockerBackend) validateRequest(stagingRequest cc_messages.Staging
 		return ErrMissingDockerImageUrl
 	}
 
-	credentialsPresent := (len(dockerData.DockerUser) + len(dockerData.DockerPassword) + len(dockerData.DockerEmail)) > 0
-	if credentialsPresent && (len(dockerData.DockerUser) == 0 || len(dockerData.DockerPassword) == 0 || len(dockerData.DockerEmail) == 0) {
+	if (dockerData.DockerUser != "" && dockerData.DockerPassword == "") ||
+		(dockerData.DockerUser == "" && dockerData.DockerPassword != "") {
 		return ErrMissingDockerCredentials
 	}
 
