@@ -28,7 +28,6 @@ import (
 	"code.cloudfoundry.org/stager/cc_client"
 	"code.cloudfoundry.org/stager/config"
 	"code.cloudfoundry.org/stager/handlers"
-	"code.cloudfoundry.org/stager/vars"
 )
 
 var configPath = flag.String(
@@ -36,8 +35,6 @@ var configPath = flag.String(
 	"",
 	"path to the stager configuration file",
 )
-
-var insecureDockerRegistries = make(vars.StringList)
 
 const (
 	dropsondeOrigin = "stager"
@@ -137,7 +134,7 @@ func initializeBackends(logger lager.Logger, lifecycles flags.LifecycleMap, stag
 		FileServerURL:            stagerConfig.FileServerUrl,
 		CCUploaderURL:            stagerConfig.CCUploaderURL,
 		Lifecycles:               lifecycles,
-		InsecureDockerRegistries: insecureDockerRegistries.Values(),
+		InsecureDockerRegistries: stagerConfig.InsecureDockerRegistries,
 		ConsulCluster:            stagerConfig.ConsulCluster,
 		SkipCertVerify:           stagerConfig.SkipCertVerify,
 		PrivilegedContainers:     stagerConfig.PrivilegedContainers,

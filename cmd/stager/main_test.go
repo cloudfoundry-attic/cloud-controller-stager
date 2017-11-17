@@ -69,7 +69,7 @@ var _ = Describe("Stager", func() {
 	})
 
 	Context("when started", func() {
-		BeforeEach(func() {
+		JustBeforeEach(func() {
 			runner.Config.Lifecycles = []string{
 				"buildpack/linux:lifecycle.zip",
 				"docker:docker/lifecycle.tgz",
@@ -91,6 +91,7 @@ var _ = Describe("Stager", func() {
 					Expect(desireTaskRequest.TaskDefinition.MemoryMb).To(Equal(int32(1024)))
 					Expect(desireTaskRequest.TaskDefinition.DiskMb).To(Equal(int32(128)))
 					Expect(desireTaskRequest.TaskDefinition.CompletionCallbackUrl).To(Equal(callbackURL))
+
 				})
 
 				req, err := requestGenerator.CreateRequest(stager.StageRoute, rata.Params{"staging_guid": "my-task-guid"}, strings.NewReader(`{
@@ -153,6 +154,46 @@ var _ = Describe("Stager", func() {
 
 				Eventually(fakeBBS.ReceivedRequests).Should(HaveLen(1))
 				Consistently(runner.Session()).ShouldNot(gexec.Exit())
+			})
+
+			Context("when an insecure docker registry is passed", func() {
+				BeforeEach(func() {
+					runner.Config.InsecureDockerRegistries = []string{"http://b.c", "http://a.b"}
+				})
+				It("desires a staging task via the API which includes the registries", func() {
+					fakeBBS.RouteToHandler("POST", "/v1/tasks/desire.r2", func(w http.ResponseWriter, req *http.Request) {
+						var desireTaskRequest models.DesireTaskRequest
+						data, err := ioutil.ReadAll(req.Body)
+						Expect(err).NotTo(HaveOccurred())
+
+						err = desireTaskRequest.Unmarshal(data)
+						Expect(err).NotTo(HaveOccurred())
+
+						Expect(desireTaskRequest.TaskDefinition.Action.TimeoutAction.Action.SerialAction.Actions[0].EmitProgressAction.Action.RunAction.Args).To(ContainElement("-insecureDockerRegistries"))
+						Expect(desireTaskRequest.TaskDefinition.Action.TimeoutAction.Action.SerialAction.Actions[0].EmitProgressAction.Action.RunAction.Args).To(ContainElement("http://b.c,http://a.b"))
+					})
+
+					req, err := requestGenerator.CreateRequest(stager.StageRoute, rata.Params{"staging_guid": "my-task-guid"}, strings.NewReader(`{
+					"app_id":"my-app-guid",
+					"file_descriptors":3,
+					"memory_mb" : 1024,
+					"disk_mb" : 128,
+					"environment" : [],
+					"lifecycle": "docker",
+					"lifecycle_data": {
+					  "docker_image":"http://docker.docker/docker"
+					}
+				}`))
+					Expect(err).NotTo(HaveOccurred())
+					req.Header.Set("Content-Type", "application/json")
+
+					resp, err := httpClient.Do(req)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(http.StatusAccepted))
+
+					Eventually(fakeBBS.ReceivedRequests).Should(HaveLen(1))
+					Consistently(runner.Session()).ShouldNot(gexec.Exit())
+				})
 			})
 		})
 
@@ -431,7 +472,7 @@ var _ = Describe("Stager", func() {
 		})
 	})
 
-	Context("when started with -insecureDockerRegistry", func() {
+	Context("when started with InsecureDockerRegistry set in the config", func() {
 		BeforeEach(func() {
 			runner.Config.Lifecycles = []string{"linux:lifecycle.zip"}
 			runner.Config.InsecureDockerRegistries = []string{"http://b.c", "http://a.b"}
