@@ -127,7 +127,6 @@ func (backend *dockerBackend) BuildRecipe(stagingGuid string, request cc_message
 		Annotation:                    string(annotationJson),
 		Action:                        models.WrapAction(models.Timeout(models.Serial(actions...), dockerTimeout(request, backend.logger))),
 		CachedDependencies:            cachedDependencies,
-		LegacyDownloadUser:            "vcap",
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
 	}
 	logger.Debug("staging-task-request")

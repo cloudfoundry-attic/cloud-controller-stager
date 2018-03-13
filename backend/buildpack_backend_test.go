@@ -281,7 +281,6 @@ var _ = Describe("TraditionalBackend", func() {
 		Expect(taskDef.DiskMb).To(Equal(diskMb))
 		Expect(taskDef.CpuWeight).To(Equal(backend.StagingTaskCpuWeight))
 		Expect(taskDef.EgressRules).To(ConsistOf(egressRules))
-		Expect(taskDef.LegacyDownloadUser).To(Equal("vcap"))
 	})
 
 	Context("with a specified isolation segment", func() {

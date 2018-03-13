@@ -209,7 +209,6 @@ func (backend *traditionalBackend) BuildRecipe(stagingGuid string, request cc_me
 		Annotation:                    string(annotationJson),
 		Privileged:                    backend.config.PrivilegedContainers,
 		EnvironmentVariables:          []*models.EnvironmentVariable{{"LANG", DefaultLANG}},
-		LegacyDownloadUser:            "vcap",
 		TrustedSystemCertificatesPath: TrustedSystemCertificatesPath,
 	}
 
