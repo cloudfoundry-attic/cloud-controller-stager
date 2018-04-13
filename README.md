@@ -1,5 +1,7 @@
 stager
 ======
+# This repository is now deprecated. 
+Staging on Diego is now handled in the cloud_controller_ng repository.
 
 **Note**: This repository should be imported as `code.cloudfoundry.org/stager`.
 
